@@ -112,82 +112,83 @@ async function scrapePinterestImages(boardUrl) {
     }
 
     const html = await resp.text();
-    console.log(`[scraper] HTML length: ${html.length} chars`);
-    console.log(`[scraper] HTML first 300 chars: ${JSON.stringify(html.slice(0, 300))}`);
 
-    // Count pinimg.com occurrences to see if Pinterest embedded any images at all
-    const pinimgCount = (html.match(/pinimg\.com/g) || []).length;
-    console.log(`[scraper] Total "pinimg.com" occurrences in HTML: ${pinimgCount}`);
-
-    // Show raw context around the first pinimg.com occurrence so we can see the exact encoding
-    const firstIdx = html.indexOf('pinimg.com');
-    if (firstIdx >= 0) {
-      const snippet = html.slice(Math.max(0, firstIdx - 80), firstIdx + 120);
-      console.log(`[scraper] First pinimg.com context (raw): ${JSON.stringify(snippet)}`);
-    }
-
-    // Check which script data islands are present
-    console.log(`[scraper] __PWS_DATA__ present: ${html.includes('__PWS_DATA__')}`);
-    console.log(`[scraper] __NEXT_DATA__ present: ${html.includes('__NEXT_DATA__')}`);
+    // Diagnostic counts
+    const iPinimgCount = (html.match(/i\.pinimg\.com/g) || []).length;
+    const sPinimgCount = (html.match(/s\.pinimg\.com/g) || []).length;
+    console.log(`[scraper] HTML ${html.length} chars | i.pinimg.com: ${iPinimgCount} | s.pinimg.com: ${sPinimgCount}`);
 
     const seen = new Set();
     const images = [];
 
-    function addImage(rawUrl) {
-      const url = unpinUrl(rawUrl || '');
-      if (!url || seen.has(url) || !url.includes('pinimg.com')) return;
+    function addImage(url) {
+      // Collapse any backslash-escaping on slashes: \/ or \\/ → /
+      url = (url || '').replace(/\\+\//g, '/');
+      if (!url || seen.has(url) || !url.includes('i.pinimg.com')) return;
       seen.add(url);
       images.push(url);
     }
 
-    // Extract board_id — needed for the BoardFeedResource API call
-    let boardId = null;
-    const boardIdPatterns = [
-      /"board_id"\s*:\s*"(\d+)"/,
-      /"boardId"\s*:\s*"(\d+)"/,
-      /"id"\s*:\s*"(\d+)"\s*,\s*"type"\s*:\s*"board"/,
-      /,"id":"(\d+)","name":"[^"]+","type":"board"/,
-    ];
-    for (const pat of boardIdPatterns) {
-      const m = html.match(pat);
-      if (m) {
-        boardId = m[1];
-        console.log(`[scraper] board_id found via pattern ${pat}: ${boardId}`);
-        break;
+    // Simple URL regex applied after normalization — matches all i.pinimg.com image URLs
+    const imageUrlRe = /https:\/\/i\.pinimg\.com\/[^\s"'<>\\]+\.(?:jpg|jpeg|png|webp)/g;
+
+    // ── Strategy 1: __PWS_DATA__ (Pinterest's server-side data island) ────────
+    const pwsMatch = html.match(/id="__PWS_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+    if (pwsMatch) {
+      const pwsRaw = pwsMatch[1];
+      console.log(`[scraper] __PWS_DATA__ length: ${pwsRaw.length} chars`);
+
+      // Show the raw encoding of the first i.pinimg.com URL so we can see
+      // whether Pinterest uses \/ or \\/ or plain / in the embedded JSON
+      const iPinIdx = pwsRaw.indexOf('i.pinimg.com');
+      if (iPinIdx >= 0) {
+        console.log(`[scraper] First i.pinimg.com in PWS (raw): ${JSON.stringify(pwsRaw.slice(Math.max(0, iPinIdx - 30), iPinIdx + 100))}`);
+      } else {
+        console.log(`[scraper] No i.pinimg.com found inside __PWS_DATA__ content`);
       }
-    }
-    if (!boardId) console.log(`[scraper] board_id: NOT FOUND — tried ${boardIdPatterns.length} patterns`);
 
-    // Strategy 1: regex over raw HTML
-    // Matches both plain URLs (in meta tags) and JSON-escaped URLs (in script tags):
-    //   plain:   https://i.pinimg.com/736x/ab/cd/ef.jpg
-    //   escaped: https:\/\/i.pinimg.com\/736x\/ab\/cd\/ef.jpg
-    // (?:\\\/|\/) matches either \/ or / so one pattern covers both forms.
-    const sep = '(?:\\\\\/|\/)';  // matches \/ or /
-    const size = '(?:736x|474x|236x|originals|orig)';
-    const segment = '[a-zA-Z0-9_\\-]+';
-    const ext = '(?:jpg|jpeg|png|webp)';
-    const urlPattern = new RegExp(
-      `https:${sep}{2}i\\.pinimg\\.com${sep}${size}(?:${sep}${segment})+\\.${ext}`,
-      'g'
-    );
-    console.log(`[scraper] URL regex pattern: ${urlPattern.source}`);
-    for (const m of html.matchAll(urlPattern)) {
-      console.log(`[scraper] Regex matched: ${JSON.stringify(m[0])}`);
-      addImage(m[0]);
-    }
-    console.log(`[scraper] After HTML regex: ${images.length} images`);
+      // Normalize: collapse \/ and \\/ into plain / before running the URL regex
+      const pwsNorm = pwsRaw.replace(/\\+\//g, '/');
+      const pwsMatches = [...pwsNorm.matchAll(imageUrlRe)].map(m => m[0]);
+      console.log(`[scraper] URLs found in __PWS_DATA__ after normalize: ${pwsMatches.length}`);
+      if (pwsMatches.length > 0) console.log(`[scraper] Sample: ${pwsMatches.slice(0, 3).join(' | ')}`);
+      for (const url of pwsMatches) addImage(url);
 
-    // Strategy 2: Pinterest's internal JSON API (returns structured pin data)
-    if (boardId) {
-      const apiImages = await fetchBoardFeed(boardPath, boardId);
-      for (const url of apiImages) {
-        addImage(url);
+      // Extract board_id from normalized PWS content for the API call
+      let boardId = null;
+      for (const pat of [
+        /"board_id"\s*:\s*"(\d+)"/,
+        /"boardId"\s*:\s*"(\d+)"/,
+        /"id"\s*:\s*"(\d+)"\s*,\s*"type"\s*:\s*"board"/,
+        /,"id":"(\d+)","name":"[^"]+","type":"board"/,
+        /"entity_id"\s*:\s*"(\d+)"/,
+      ]) {
+        const m = pwsNorm.match(pat);
+        if (m) { boardId = m[1]; console.log(`[scraper] board_id: ${boardId} (via ${pat})`); break; }
+      }
+      if (!boardId) console.log(`[scraper] board_id: NOT FOUND in PWS content`);
+
+      // Strategy 2: BoardFeedResource API (if we have a board_id and need more images)
+      if (boardId && images.length < 20) {
+        const apiImages = await fetchBoardFeed(boardPath, boardId);
+        for (const url of apiImages) {
+          addImage(url);
+          if (images.length >= 20) break;
+        }
+        console.log(`[scraper] After BoardFeedResource API: ${images.length} images`);
+      }
+    } else {
+      console.log(`[scraper] __PWS_DATA__ NOT found in HTML`);
+    }
+
+    // ── Strategy 3: full-HTML fallback (catches og:image and any remaining URLs) ─
+    if (images.length < 5) {
+      const htmlNorm = html.replace(/\\+\//g, '/');
+      for (const m of htmlNorm.matchAll(imageUrlRe)) {
+        addImage(m[0]);
         if (images.length >= 20) break;
       }
-      console.log(`[scraper] After BoardFeedResource API: ${images.length} images`);
-    } else {
-      console.log(`[scraper] No board_id found — skipping API call`);
+      console.log(`[scraper] After full-HTML fallback: ${images.length} images`);
     }
 
     console.log(`[scraper] Returning ${Math.min(images.length, 20)} images`);
