@@ -112,83 +112,110 @@ async function scrapePinterestImages(boardUrl) {
     }
 
     const html = await resp.text();
-
-    // Diagnostic counts
-    const iPinimgCount = (html.match(/i\.pinimg\.com/g) || []).length;
-    const sPinimgCount = (html.match(/s\.pinimg\.com/g) || []).length;
-    console.log(`[scraper] HTML ${html.length} chars | i.pinimg.com: ${iPinimgCount} | s.pinimg.com: ${sPinimgCount}`);
+    console.log(`[scraper] HTML length: ${html.length} chars`);
 
     const seen = new Set();
     const images = [];
 
     function addImage(url) {
-      // Collapse any backslash-escaping on slashes: \/ or \\/ → /
-      url = (url || '').replace(/\\+\//g, '/');
-      if (!url || seen.has(url) || !url.includes('i.pinimg.com')) return;
+      if (!url || typeof url !== 'string') return;
+      if (seen.has(url) || !url.includes('i.pinimg.com')) return;
       seen.add(url);
       images.push(url);
     }
 
-    // Simple URL regex applied after normalization — matches all i.pinimg.com image URLs
-    const imageUrlRe = /https:\/\/i\.pinimg\.com\/[^\s"'<>\\]+\.(?:jpg|jpeg|png|webp)/g;
-
-    // ── Strategy 1: __PWS_DATA__ (Pinterest's server-side data island) ────────
+    // ── Parse __PWS_DATA__ as JSON and walk the object tree ──────────────────
     const pwsMatch = html.match(/id="__PWS_DATA__"[^>]*>([\s\S]*?)<\/script>/);
-    if (pwsMatch) {
-      const pwsRaw = pwsMatch[1];
-      console.log(`[scraper] __PWS_DATA__ length: ${pwsRaw.length} chars`);
-
-      // Show the raw encoding of the first i.pinimg.com URL so we can see
-      // whether Pinterest uses \/ or \\/ or plain / in the embedded JSON
-      const iPinIdx = pwsRaw.indexOf('i.pinimg.com');
-      if (iPinIdx >= 0) {
-        console.log(`[scraper] First i.pinimg.com in PWS (raw): ${JSON.stringify(pwsRaw.slice(Math.max(0, iPinIdx - 30), iPinIdx + 100))}`);
-      } else {
-        console.log(`[scraper] No i.pinimg.com found inside __PWS_DATA__ content`);
-      }
-
-      // Normalize: collapse \/ and \\/ into plain / before running the URL regex
-      const pwsNorm = pwsRaw.replace(/\\+\//g, '/');
-      const pwsMatches = [...pwsNorm.matchAll(imageUrlRe)].map(m => m[0]);
-      console.log(`[scraper] URLs found in __PWS_DATA__ after normalize: ${pwsMatches.length}`);
-      if (pwsMatches.length > 0) console.log(`[scraper] Sample: ${pwsMatches.slice(0, 3).join(' | ')}`);
-      for (const url of pwsMatches) addImage(url);
-
-      // Extract board_id from normalized PWS content for the API call
-      let boardId = null;
-      for (const pat of [
-        /"board_id"\s*:\s*"(\d+)"/,
-        /"boardId"\s*:\s*"(\d+)"/,
-        /"id"\s*:\s*"(\d+)"\s*,\s*"type"\s*:\s*"board"/,
-        /,"id":"(\d+)","name":"[^"]+","type":"board"/,
-        /"entity_id"\s*:\s*"(\d+)"/,
-      ]) {
-        const m = pwsNorm.match(pat);
-        if (m) { boardId = m[1]; console.log(`[scraper] board_id: ${boardId} (via ${pat})`); break; }
-      }
-      if (!boardId) console.log(`[scraper] board_id: NOT FOUND in PWS content`);
-
-      // Strategy 2: BoardFeedResource API (if we have a board_id and need more images)
-      if (boardId && images.length < 20) {
-        const apiImages = await fetchBoardFeed(boardPath, boardId);
-        for (const url of apiImages) {
-          addImage(url);
-          if (images.length >= 20) break;
-        }
-        console.log(`[scraper] After BoardFeedResource API: ${images.length} images`);
-      }
+    if (!pwsMatch) {
+      console.log(`[scraper] __PWS_DATA__ script tag NOT found`);
     } else {
-      console.log(`[scraper] __PWS_DATA__ NOT found in HTML`);
+      // Strip any JS wrapper (e.g. "window.__PWS_DATA__ = ") to get raw JSON
+      let jsonStr = pwsMatch[1].trim().replace(/^[^\[{]*/, '').replace(/[;\s]*$/, '');
+      console.log(`[scraper] __PWS_DATA__ raw length: ${pwsMatch[1].length}, JSON start: ${JSON.stringify(jsonStr.slice(0, 80))}`);
+
+      let pws = null;
+      try {
+        pws = JSON.parse(jsonStr);
+      } catch (e) {
+        console.log(`[scraper] JSON.parse failed: ${e.message} — falling back to regex`);
+      }
+
+      if (pws) {
+        // Log top-level structure so we can see where Pinterest puts the data
+        const topKeys = Object.keys(pws);
+        console.log(`[scraper] PWS top-level keys: ${topKeys.join(', ')}`);
+
+        // Log resourceDataCache structure if present (where pin feed usually lives)
+        const cache = pws.resourceDataCache || pws.resource_data_cache;
+        if (cache) {
+          console.log(`[scraper] resourceDataCache entries: ${cache.length}`);
+          cache.slice(0, 5).forEach((entry, i) => {
+            const name = entry.name || entry.request?.resourceName || '(unnamed)';
+            const dataKeys = entry.data ? Object.keys(entry.data).join(', ') : 'no data';
+            const results = entry.data?.results || entry.data?.data || [];
+            console.log(`[scraper]   cache[${i}] name="${name}" dataKeys=[${dataKeys}] results.length=${Array.isArray(results) ? results.length : 'not array'}`);
+          });
+        } else {
+          console.log(`[scraper] No resourceDataCache found. Top-level values types: ${topKeys.map(k => `${k}:${typeof pws[k]}`).join(', ')}`);
+        }
+
+        // Walk the entire parsed JSON object to find pin image objects
+        // A pin has an `images` field containing size keys like '736x', '474x', 'orig'
+        let boardId = null;
+
+        function walk(obj, depth) {
+          if (!obj || typeof obj !== 'object' || depth > 20) return;
+
+          // Detect board id
+          if (!boardId) {
+            if (obj.type === 'board' && obj.id) boardId = String(obj.id);
+            else if (obj.board && obj.board.id) boardId = String(obj.board.id);
+          }
+
+          // Detect pin: has an images object with at least one size key containing a url
+          if (obj.images && typeof obj.images === 'object') {
+            const sizeKey = Object.keys(obj.images).find(k =>
+              obj.images[k] && typeof obj.images[k].url === 'string' && obj.images[k].url.includes('i.pinimg.com')
+            );
+            if (sizeKey) {
+              // Prefer 736x > 474x > originals > 236x > whatever we found
+              const url = (obj.images['736x'] || obj.images['474x'] || obj.images['originals'] ||
+                           obj.images['orig'] || obj.images['236x'] || obj.images[sizeKey]).url;
+              addImage(url);
+              return; // don't recurse into this pin's children
+            }
+          }
+
+          if (Array.isArray(obj)) {
+            for (const v of obj) walk(v, depth + 1);
+          } else {
+            for (const v of Object.values(obj)) {
+              if (v && typeof v === 'object') walk(v, depth + 1);
+            }
+          }
+        }
+
+        walk(pws, 0);
+        console.log(`[scraper] Images found by JSON walk: ${images.length}`);
+        if (images.length > 0) console.log(`[scraper] Sample URLs: ${images.slice(0, 3).join(' | ')}`);
+        console.log(`[scraper] board_id from JSON walk: ${boardId}`);
+
+        // ── Strategy 2: BoardFeedResource API if we have board_id ────────────
+        if (boardId && images.length < 20) {
+          const apiImages = await fetchBoardFeed(boardPath, boardId);
+          for (const url of apiImages) {
+            addImage(url);
+            if (images.length >= 20) break;
+          }
+          console.log(`[scraper] After BoardFeedResource API: ${images.length} images`);
+        }
+      }
     }
 
-    // ── Strategy 3: full-HTML fallback (catches og:image and any remaining URLs) ─
-    if (images.length < 5) {
-      const htmlNorm = html.replace(/\\+\//g, '/');
-      for (const m of htmlNorm.matchAll(imageUrlRe)) {
-        addImage(m[0]);
-        if (images.length >= 20) break;
-      }
-      console.log(`[scraper] After full-HTML fallback: ${images.length} images`);
+    // ── Fallback: og:image only if JSON walk found nothing ───────────────────
+    if (images.length === 0) {
+      const ogMatch = html.match(/<meta[^>]+property="og:image"[^>]+content="([^"]+)"/);
+      if (ogMatch) { addImage(ogMatch[1]); console.log(`[scraper] Fallback og:image: ${ogMatch[1]}`); }
     }
 
     console.log(`[scraper] Returning ${Math.min(images.length, 20)} images`);
