@@ -19,13 +19,21 @@ async function scrapePinterestImages(boardUrl) {
     });
     clearTimeout(abortTimer);
 
-    if (!resp.ok) return [];
+    console.log(`[scraper] Pinterest fetch status: ${resp.status} ${resp.statusText}`);
+    if (!resp.ok) {
+      console.log(`[scraper] Aborting — non-OK status ${resp.status}`);
+      return [];
+    }
 
     // Bail out if we were bounced to a login page
     const finalUrl = resp.url || '';
-    if (finalUrl.includes('/login') || finalUrl.includes('/auth')) return [];
+    if (finalUrl.includes('/login') || finalUrl.includes('/auth')) {
+      console.log(`[scraper] Aborting — redirected to login: ${finalUrl}`);
+      return [];
+    }
 
     const html = await resp.text();
+    console.log(`[scraper] HTML received, length: ${html.length} chars`);
     const seen = new Set();
     const images = [];
 
@@ -56,20 +64,28 @@ async function scrapePinterestImages(boardUrl) {
 
     // Strategy 1: __PWS_DATA__ (classic Pinterest data island)
     const pwsMatch = html.match(/id="__PWS_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+    console.log(`[scraper] __PWS_DATA__ found: ${!!pwsMatch}`);
     if (pwsMatch) {
       try {
         const jsonStr = pwsMatch[1].replace(/^[^{[]*/, '');
         extractPinImages(JSON.parse(jsonStr), 0);
-      } catch (_) {}
+        console.log(`[scraper] After __PWS_DATA__: ${images.length} images`);
+      } catch (e) {
+        console.log(`[scraper] __PWS_DATA__ parse error: ${e.message}`);
+      }
     }
 
     // Strategy 2: __NEXT_DATA__ (Next.js Pinterest)
     if (images.length < 4) {
       const nextMatch = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
+      console.log(`[scraper] __NEXT_DATA__ found: ${!!nextMatch}`);
       if (nextMatch) {
         try {
           extractPinImages(JSON.parse(nextMatch[1]), 0);
-        } catch (_) {}
+          console.log(`[scraper] After __NEXT_DATA__: ${images.length} images`);
+        } catch (e) {
+          console.log(`[scraper] __NEXT_DATA__ parse error: ${e.message}`);
+        }
       }
     }
 
@@ -86,6 +102,7 @@ async function scrapePinterestImages(boardUrl) {
         } catch (_) {}
         if (images.length >= 6) break;
       }
+      console.log(`[scraper] After script-tag scan: ${images.length} images`);
     }
 
     // Strategy 4: raw regex for pinimg.com URLs anywhere in the HTML
@@ -95,12 +112,14 @@ async function scrapePinterestImages(boardUrl) {
         addImage(m[0]);
         if (images.length >= 8) break;
       }
+      console.log(`[scraper] After regex scan: ${images.length} images`);
     }
 
+    console.log(`[scraper] Final image URLs: ${JSON.stringify(images.slice(0, 6))}`);
     return images.slice(0, 6);
   } catch (e) {
     clearTimeout(abortTimer);
-    console.error('Pinterest scrape error:', e.message);
+    console.log(`[scraper] Exception: ${e.message}`);
     return [];
   }
 }
@@ -170,16 +189,20 @@ module.exports = async function handler(req, res) {
 
   try {
     // ── Step 0: Scrape real pin images from the Pinterest board ──────────────
+    console.log(`[analyze] Scraping board: ${boardUrl}`);
     const pinImageUrls = await scrapePinterestImages(boardUrl);
+    console.log(`[analyze] Scraper returned ${pinImageUrls.length} image URL(s)`);
 
     // Download images in parallel for Claude vision (base64 is more reliable than passing URLs)
     let visionImages = [];
     if (pinImageUrls.length > 0) {
       const downloaded = await Promise.all(pinImageUrls.map(fetchImageAsBase64));
       visionImages = downloaded.filter(Boolean);
+      console.log(`[analyze] Downloaded ${visionImages.length}/${pinImageUrls.length} images as base64 for vision`);
     }
 
     const hasVision = visionImages.length > 0;
+    console.log(`[analyze] Mode: ${hasVision ? `VISION (${visionImages.length} real pin images)` : 'TEXT-ONLY FALLBACK'}`);
 
     // ── Step 1: Extract style profile with Claude (vision if we have images) ─
     let styleUserContent;
