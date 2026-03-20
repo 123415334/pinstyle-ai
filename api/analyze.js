@@ -39,10 +39,23 @@ async function fetchBoardFeed(boardPath, boardId) {
     clearTimeout(timer);
 
     console.log(`[scraper] BoardFeedResource status: ${resp.status}`);
-    if (!resp.ok) return [];
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => '');
+      console.log(`[scraper] BoardFeedResource error body (first 300): ${errText.slice(0, 300)}`);
+      return [];
+    }
 
-    const json = await resp.json();
+    const rawText = await resp.text();
+    console.log(`[scraper] BoardFeedResource response (first 500): ${rawText.slice(0, 500)}`);
+
+    let json;
+    try { json = JSON.parse(rawText); } catch (e) {
+      console.log(`[scraper] BoardFeedResource JSON parse error: ${e.message}`);
+      return [];
+    }
+
     const pins = json?.resource_response?.data || [];
+    console.log(`[scraper] BoardFeedResource pin count: ${pins.length}`);
     const urls = [];
     for (const pin of pins) {
       const url = pin?.images?.['736x']?.url
@@ -51,7 +64,7 @@ async function fetchBoardFeed(boardPath, boardId) {
         || pin?.images?.['236x']?.url;
       if (url && url.includes('pinimg.com')) urls.push(url);
     }
-    console.log(`[scraper] BoardFeedResource: ${urls.length} images from ${pins.length} pins`);
+    console.log(`[scraper] BoardFeedResource: ${urls.length} image URLs extracted`);
     return urls;
   } catch (e) {
     console.log(`[scraper] BoardFeedResource error: ${e.message}`);
@@ -100,6 +113,22 @@ async function scrapePinterestImages(boardUrl) {
 
     const html = await resp.text();
     console.log(`[scraper] HTML length: ${html.length} chars`);
+    console.log(`[scraper] HTML first 300 chars: ${JSON.stringify(html.slice(0, 300))}`);
+
+    // Count pinimg.com occurrences to see if Pinterest embedded any images at all
+    const pinimgCount = (html.match(/pinimg\.com/g) || []).length;
+    console.log(`[scraper] Total "pinimg.com" occurrences in HTML: ${pinimgCount}`);
+
+    // Show raw context around the first pinimg.com occurrence so we can see the exact encoding
+    const firstIdx = html.indexOf('pinimg.com');
+    if (firstIdx >= 0) {
+      const snippet = html.slice(Math.max(0, firstIdx - 80), firstIdx + 120);
+      console.log(`[scraper] First pinimg.com context (raw): ${JSON.stringify(snippet)}`);
+    }
+
+    // Check which script data islands are present
+    console.log(`[scraper] __PWS_DATA__ present: ${html.includes('__PWS_DATA__')}`);
+    console.log(`[scraper] __NEXT_DATA__ present: ${html.includes('__NEXT_DATA__')}`);
 
     const seen = new Set();
     const images = [];
@@ -113,16 +142,21 @@ async function scrapePinterestImages(boardUrl) {
 
     // Extract board_id — needed for the BoardFeedResource API call
     let boardId = null;
-    for (const pat of [
+    const boardIdPatterns = [
       /"board_id"\s*:\s*"(\d+)"/,
       /"boardId"\s*:\s*"(\d+)"/,
       /"id"\s*:\s*"(\d+)"\s*,\s*"type"\s*:\s*"board"/,
       /,"id":"(\d+)","name":"[^"]+","type":"board"/,
-    ]) {
+    ];
+    for (const pat of boardIdPatterns) {
       const m = html.match(pat);
-      if (m) { boardId = m[1]; break; }
+      if (m) {
+        boardId = m[1];
+        console.log(`[scraper] board_id found via pattern ${pat}: ${boardId}`);
+        break;
+      }
     }
-    console.log(`[scraper] board_id: ${boardId}`);
+    if (!boardId) console.log(`[scraper] board_id: NOT FOUND — tried ${boardIdPatterns.length} patterns`);
 
     // Strategy 1: regex over raw HTML
     // Matches both plain URLs (in meta tags) and JSON-escaped URLs (in script tags):
@@ -137,7 +171,9 @@ async function scrapePinterestImages(boardUrl) {
       `https:${sep}{2}i\\.pinimg\\.com${sep}${size}(?:${sep}${segment})+\\.${ext}`,
       'g'
     );
+    console.log(`[scraper] URL regex pattern: ${urlPattern.source}`);
     for (const m of html.matchAll(urlPattern)) {
+      console.log(`[scraper] Regex matched: ${JSON.stringify(m[0])}`);
       addImage(m[0]);
     }
     console.log(`[scraper] After HTML regex: ${images.length} images`);
