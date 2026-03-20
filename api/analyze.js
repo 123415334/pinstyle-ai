@@ -1,9 +1,76 @@
-// Fetch the Pinterest board page and extract real pin image URLs
+// Unescape JSON-encoded forward slashes: https:\/\/... -> https://...
+function unpinUrl(url) {
+  return url.replace(/\\\//g, '/');
+}
+
+// Call Pinterest's internal BoardFeedResource API to get up to 25 pin images
+async function fetchBoardFeed(boardPath, boardId) {
+  try {
+    const options = {
+      board_id: boardId,
+      board_url: boardPath,
+      currentFilter: -1,
+      field_set_key: 'react_grid_pin',
+      filter_section_pins: true,
+      sort: 'default',
+      layout: 'default',
+      page_size: 25,
+      redux_normalize_feed: true,
+    };
+    const dataParam = encodeURIComponent(JSON.stringify({ options, context: {} }));
+    const srcParam = encodeURIComponent(boardPath);
+    const apiUrl = `https://www.pinterest.com/resource/BoardFeedResource/get/?source_url=${srcParam}&data=${dataParam}&_=${Date.now()}`;
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+
+    const resp = await fetch(apiUrl, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/javascript, */*; q=0.01',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Referer': `https://www.pinterest.com${boardPath}`,
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-APP-VERSION': 'dae4f32',
+        'X-Pinterest-AppState': 'active',
+      },
+    });
+    clearTimeout(timer);
+
+    console.log(`[scraper] BoardFeedResource status: ${resp.status}`);
+    if (!resp.ok) return [];
+
+    const json = await resp.json();
+    const pins = json?.resource_response?.data || [];
+    const urls = [];
+    for (const pin of pins) {
+      const url = pin?.images?.['736x']?.url
+        || pin?.images?.['474x']?.url
+        || pin?.images?.orig?.url
+        || pin?.images?.['236x']?.url;
+      if (url && url.includes('pinimg.com')) urls.push(url);
+    }
+    console.log(`[scraper] BoardFeedResource: ${urls.length} images from ${pins.length} pins`);
+    return urls;
+  } catch (e) {
+    console.log(`[scraper] BoardFeedResource error: ${e.message}`);
+    return [];
+  }
+}
+
+// Fetch real pin image URLs from a public Pinterest board
 async function scrapePinterestImages(boardUrl) {
   const controller = new AbortController();
-  const abortTimer = setTimeout(() => controller.abort(), 8000);
+  const abortTimer = setTimeout(() => controller.abort(), 10000);
 
   try {
+    const parsed = new URL(boardUrl);
+    const parts = parsed.pathname.replace(/\/$/, '').split('/').filter(Boolean);
+    if (parts.length < 2) return [];
+    const [username, boardSlug] = parts;
+    const boardPath = `/${username}/${boardSlug}/`;
+
     const resp = await fetch(boardUrl, {
       signal: controller.signal,
       redirect: 'follow',
@@ -19,104 +86,77 @@ async function scrapePinterestImages(boardUrl) {
     });
     clearTimeout(abortTimer);
 
-    console.log(`[scraper] Pinterest fetch status: ${resp.status} ${resp.statusText}`);
+    console.log(`[scraper] Board page status: ${resp.status}`);
     if (!resp.ok) {
       console.log(`[scraper] Aborting — non-OK status ${resp.status}`);
       return [];
     }
 
-    // Bail out if we were bounced to a login page
     const finalUrl = resp.url || '';
     if (finalUrl.includes('/login') || finalUrl.includes('/auth')) {
-      console.log(`[scraper] Aborting — redirected to login: ${finalUrl}`);
+      console.log(`[scraper] Redirected to login: ${finalUrl}`);
       return [];
     }
 
     const html = await resp.text();
-    console.log(`[scraper] HTML received, length: ${html.length} chars`);
+    console.log(`[scraper] HTML length: ${html.length} chars`);
+
     const seen = new Set();
     const images = [];
 
-    function addImage(url) {
-      if (!url || typeof url !== 'string') return;
-      if (seen.has(url)) return;
-      if (!url.includes('pinimg.com')) return;
-      // Skip tiny thumbnails — prefer 736x or 474x for vision quality
-      if (url.includes('/236x/') || url.includes('/75x75_RS/')) return;
+    function addImage(rawUrl) {
+      const url = unpinUrl(rawUrl || '');
+      if (!url || seen.has(url) || !url.includes('pinimg.com')) return;
       seen.add(url);
       images.push(url);
     }
 
-    // Walk a JSON object tree looking for Pinterest image objects {images: {'736x': {url}}}
-    function extractPinImages(obj, depth) {
-      if (depth > 10 || images.length >= 8 || !obj || typeof obj !== 'object') return;
-      if (obj.images && typeof obj.images === 'object') {
-        const url = obj.images?.['736x']?.url
-          || obj.images?.['474x']?.url
-          || obj.images?.orig?.url;
-        if (url) addImage(url);
+    // Extract board_id — needed for the BoardFeedResource API call
+    let boardId = null;
+    for (const pat of [
+      /"board_id"\s*:\s*"(\d+)"/,
+      /"boardId"\s*:\s*"(\d+)"/,
+      /"id"\s*:\s*"(\d+)"\s*,\s*"type"\s*:\s*"board"/,
+      /,"id":"(\d+)","name":"[^"]+","type":"board"/,
+    ]) {
+      const m = html.match(pat);
+      if (m) { boardId = m[1]; break; }
+    }
+    console.log(`[scraper] board_id: ${boardId}`);
+
+    // Strategy 1: regex over raw HTML
+    // Matches both plain URLs (in meta tags) and JSON-escaped URLs (in script tags):
+    //   plain:   https://i.pinimg.com/736x/ab/cd/ef.jpg
+    //   escaped: https:\/\/i.pinimg.com\/736x\/ab\/cd\/ef.jpg
+    // (?:\\\/|\/) matches either \/ or / so one pattern covers both forms.
+    const sep = '(?:\\\\\/|\/)';  // matches \/ or /
+    const size = '(?:736x|474x|236x|originals|orig)';
+    const segment = '[a-zA-Z0-9_\\-]+';
+    const ext = '(?:jpg|jpeg|png|webp)';
+    const urlPattern = new RegExp(
+      `https:${sep}{2}i\\.pinimg\\.com${sep}${size}(?:${sep}${segment})+\\.${ext}`,
+      'g'
+    );
+    for (const m of html.matchAll(urlPattern)) {
+      addImage(m[0]);
+    }
+    console.log(`[scraper] After HTML regex: ${images.length} images`);
+
+    // Strategy 2: Pinterest's internal JSON API (returns structured pin data)
+    if (boardId) {
+      const apiImages = await fetchBoardFeed(boardPath, boardId);
+      for (const url of apiImages) {
+        addImage(url);
+        if (images.length >= 20) break;
       }
-      const vals = Array.isArray(obj) ? obj : Object.values(obj);
-      for (const v of vals.slice(0, 60)) {
-        if (v && typeof v === 'object') extractPinImages(v, depth + 1);
-      }
+      console.log(`[scraper] After BoardFeedResource API: ${images.length} images`);
+    } else {
+      console.log(`[scraper] No board_id found — skipping API call`);
     }
 
-    // Strategy 1: __PWS_DATA__ (classic Pinterest data island)
-    const pwsMatch = html.match(/id="__PWS_DATA__"[^>]*>([\s\S]*?)<\/script>/);
-    console.log(`[scraper] __PWS_DATA__ found: ${!!pwsMatch}`);
-    if (pwsMatch) {
-      try {
-        const jsonStr = pwsMatch[1].replace(/^[^{[]*/, '');
-        extractPinImages(JSON.parse(jsonStr), 0);
-        console.log(`[scraper] After __PWS_DATA__: ${images.length} images`);
-      } catch (e) {
-        console.log(`[scraper] __PWS_DATA__ parse error: ${e.message}`);
-      }
-    }
+    console.log(`[scraper] Returning ${Math.min(images.length, 20)} images`);
+    return images.slice(0, 20);
 
-    // Strategy 2: __NEXT_DATA__ (Next.js Pinterest)
-    if (images.length < 4) {
-      const nextMatch = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
-      console.log(`[scraper] __NEXT_DATA__ found: ${!!nextMatch}`);
-      if (nextMatch) {
-        try {
-          extractPinImages(JSON.parse(nextMatch[1]), 0);
-          console.log(`[scraper] After __NEXT_DATA__: ${images.length} images`);
-        } catch (e) {
-          console.log(`[scraper] __NEXT_DATA__ parse error: ${e.message}`);
-        }
-      }
-    }
-
-    // Strategy 3: any JSON blob in a <script> tag that contains pinimg.com image objects
-    if (images.length < 4) {
-      const scriptBlocks = html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g);
-      for (const block of scriptBlocks) {
-        const src = block[1];
-        if (!src.includes('pinimg.com')) continue;
-        const jsonLike = src.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
-        if (!jsonLike) continue;
-        try {
-          extractPinImages(JSON.parse(jsonLike[1]), 0);
-        } catch (_) {}
-        if (images.length >= 6) break;
-      }
-      console.log(`[scraper] After script-tag scan: ${images.length} images`);
-    }
-
-    // Strategy 4: raw regex for pinimg.com URLs anywhere in the HTML
-    if (images.length < 4) {
-      const urlRe = /https:\/\/i\.pinimg\.com\/(?:736x|474x|originals)\/[a-f0-9/]+\.(?:jpg|jpeg|png|webp)/g;
-      for (const m of html.matchAll(urlRe)) {
-        addImage(m[0]);
-        if (images.length >= 8) break;
-      }
-      console.log(`[scraper] After regex scan: ${images.length} images`);
-    }
-
-    console.log(`[scraper] Final image URLs: ${JSON.stringify(images.slice(0, 6))}`);
-    return images.slice(0, 6);
   } catch (e) {
     clearTimeout(abortTimer);
     console.log(`[scraper] Exception: ${e.message}`);
@@ -193,12 +233,12 @@ module.exports = async function handler(req, res) {
     const pinImageUrls = await scrapePinterestImages(boardUrl);
     console.log(`[analyze] Scraper returned ${pinImageUrls.length} image URL(s)`);
 
-    // Download images in parallel for Claude vision (base64 is more reliable than passing URLs)
+    // Download images in parallel for Claude vision
     let visionImages = [];
     if (pinImageUrls.length > 0) {
       const downloaded = await Promise.all(pinImageUrls.map(fetchImageAsBase64));
       visionImages = downloaded.filter(Boolean);
-      console.log(`[analyze] Downloaded ${visionImages.length}/${pinImageUrls.length} images as base64 for vision`);
+      console.log(`[analyze] Downloaded ${visionImages.length}/${pinImageUrls.length} images as base64`);
     }
 
     const hasVision = visionImages.length > 0;
@@ -235,7 +275,6 @@ Be specific and accurate — describe what you actually see, not what you imagin
         },
       ];
     } else {
-      // Fallback: text-only analysis from board name/username
       styleUserContent = `Analyze the visual aesthetic of the ${boardCtx}.
 The user wants to create: "${subject}"
 
@@ -378,4 +417,4 @@ Write one cohesive, detailed prompt (150-200 words). Be specific about lighting,
     console.error('API error:', err);
     return res.status(500).json({ error: err.message || 'Something went wrong — please try again.' });
   }
-}
+};
