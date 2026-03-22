@@ -125,13 +125,13 @@ nav {
   font-family: 'Caveat', cursive;
   font-size: 1.35rem;
   font-weight: 700;
-  color: var(--accent);
+  color: #d23e33;
   line-height: 1.1;
   white-space: nowrap;
 }
 .pin-doodle-arrow {
   display: block;
-  margin-left: 4px;
+  margin-bottom: 2px;
 }
 
 @media (max-width: 680px) {
@@ -524,17 +524,20 @@ footer a:hover { color: var(--text-muted); }
 
   <div class="hero anim-1">
     <a class="pin-doodle" href="https://www.pinterest.com" target="_blank" rel="noopener">
-      <span class="pin-doodle-text">Go to Pinterest</span>
-      <!-- Hand-drawn swooping arrow pointing down-left toward the board URL input -->
-      <svg class="pin-doodle-arrow" width="72" height="48" viewBox="0 0 72 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M4 6 C10 4, 28 3, 46 10 C58 15, 66 26, 62 40 C60 46, 54 50, 50 46"
-              stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
-              fill="none" pathLength="1"
-              style="stroke-dasharray:1; stroke-dashoffset:0"/>
-        <!-- Arrowhead -->
-        <path d="M50 46 L44 38 M50 46 L58 39"
-              stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <!--
+        Curve: M60 5 C68 18, 50 38, 28 50
+        End point: (28,50). Last control point: (50,38).
+        Tangent at end: (-22,12), unit ≈ (-0.878, 0.479).
+        Arrowhead arms (back direction ± 25°):
+          arm1 → (38,49)  arm2 → (34,42)
+      -->
+      <svg class="pin-doodle-arrow" width="78" height="60" viewBox="0 0 78 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M60 5 C68 18, 50 38, 28 50"
+              stroke="#d23e33" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+        <path d="M38 49 L28 50 L34 42"
+              stroke="#d23e33" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
       </svg>
+      <span class="pin-doodle-text">Go to Pinterest</span>
     </a>
     <span class="hero-eye">Pinterest &times; AI Vision</span>
     <h1>You've been pinning for a reason.<br><em style="color: var(--accent);">Turn your <span id="pin-emoji"><span class="pin-float">📌</span></span> board into real images.</em></h1>
