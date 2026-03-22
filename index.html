@@ -537,18 +537,16 @@ footer a:hover { color: var(--text-muted); }
         <span class="pin-doodle-text">Pinterest</span>
       </div>
       <!--
-        Narrow upward-curving arrow, hugs right side of text.
-        Curve: M22 54 C28 40, 10 24, 16 6
-          Start (22,54) bottom · End (16,6) top · last CP (10,24)
-        Tangent at tip: (16−10, 6−24) = (6,−18), unit ≈ (0.316,−0.949) → upward.
-        Back direction ± 25°: arm1 → (9,13)  arm2 → (17,16)
+        Last CP and endpoint share x=22, so tangent at tip is exactly vertical (0,−1).
+        Arrowhead arms at ±30° from vertical, 9px each — both land at y=11.8 (perfect symmetry).
+        Curve:     M12 60  C38 50, 22 20, 22 4
+        Arrowhead: M17.5 11.8  L22 4  L26.5 11.8
       -->
-      <svg class="pin-doodle-arrow" width="36" height="60" viewBox="0 0 36 60" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M22 54 C28 40, 10 24, 16 6"
-              stroke="#d23e33" stroke-width="2.2" stroke-linecap="round" fill="none"/>
-        <!-- Symmetric arrowhead: tip (16,6), arms ±30° from back-tangent, each 10px -->
-        <path d="M8.5 12.6 L16 6 L18 15.8"
-              stroke="#d23e33" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <svg class="pin-doodle-arrow" width="44" height="65" viewBox="0 0 44 65" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 60 C38 50, 22 20, 22 4"
+              stroke="#d23e33" stroke-width="2" stroke-linecap="round" fill="none"/>
+        <path d="M17.5 11.8 L22 4 L26.5 11.8"
+              stroke="#d23e33" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
       </svg>
     </a>
     <span class="hero-eye">Pinterest &times; AI Vision</span>
