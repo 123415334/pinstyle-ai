@@ -774,9 +774,9 @@ function resetForm() {
   window.addEventListener('scroll', function () {
     if (!ticking) {
       requestAnimationFrame(function () {
-        // Move up at ~20% of scroll speed — subtle, not distracting
-        const offset = window.scrollY * -0.2;
-        pin.style.transform = 'translateY(' + offset + 'px)';
+        // ~1 degree per 3.5px scrolled — subtle spin in place
+        const deg = window.scrollY / 3.5;
+        pin.style.transform = 'rotate(' + deg + 'deg)';
         ticking = false;
       });
       ticking = true;
