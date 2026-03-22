@@ -525,16 +525,16 @@ footer a:hover { color: var(--text-muted); }
   <div class="hero anim-1">
     <a class="pin-doodle" href="https://www.pinterest.com" target="_blank" rel="noopener">
       <!--
-        Curve: M60 5 C68 18, 50 38, 28 50
-        End point: (28,50). Last control point: (50,38).
-        Tangent at end: (-22,12), unit ≈ (-0.878, 0.479).
-        Arrowhead arms (back direction ± 25°):
-          arm1 → (38,49)  arm2 → (34,42)
+        Vertical mirror of original: start bottom-right, end top-left.
+        Curve: M60 55 C68 42, 50 22, 28 10
+        End (arrowhead tip): (28,10). Last CP: (50,22).
+        Tangent at end: (-22,-12), unit ≈ (-0.878,-0.479) → upper-left.
+        Back direction ± 25°: arm1 → (34,18)  arm2 → (38,11)
       -->
       <svg class="pin-doodle-arrow" width="78" height="60" viewBox="0 0 78 60" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M60 5 C68 18, 50 38, 28 50"
+        <path d="M60 55 C68 42, 50 22, 28 10"
               stroke="#d23e33" stroke-width="2.2" stroke-linecap="round" fill="none"/>
-        <path d="M38 49 L28 50 L34 42"
+        <path d="M34 18 L28 10 L38 11"
               stroke="#d23e33" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
       </svg>
       <span class="pin-doodle-text">Go to Pinterest</span>
