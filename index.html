@@ -460,7 +460,8 @@ footer a:hover { color: var(--text-muted); }
   50%       { transform: translateY(-6px); }
 }
 #pin-emoji {
-  display: inline-block; /* receives JS parallax translateY */
+  display: inline-block;
+  transition: transform 0.15s ease-out;
 }
 .pin-float {
   display: inline-block;
@@ -766,21 +767,21 @@ function resetForm() {
   state.generatedPrompt = ''; state.imageUrls = [];
 }
 
-/* ── PIN EMOJI PARALLAX ──────────────────────────────────── */
+/* ── PIN EMOJI CURSOR COMPASS ────────────────────────────── */
 (function () {
   const pin = document.getElementById('pin-emoji');
   if (!pin) return;
-  let ticking = false;
-  window.addEventListener('scroll', function () {
-    if (!ticking) {
-      requestAnimationFrame(function () {
-        // ~1 degree per 3.5px scrolled — subtle spin in place
-        const deg = window.scrollY / 3.5;
-        pin.style.transform = 'rotate(' + deg + 'deg)';
-        ticking = false;
-      });
-      ticking = true;
-    }
+
+  // 📌 tip points naturally at ~135° (down-right) at 0° CSS rotation.
+  // Subtracting that offset aligns the tip with the angle-to-cursor vector.
+  const TIP_OFFSET = 135;
+
+  window.addEventListener('mousemove', function (e) {
+    const rect = pin.getBoundingClientRect();
+    const cx = rect.left + rect.width  / 2;
+    const cy = rect.top  + rect.height / 2;
+    const angle = Math.atan2(e.clientY - cy, e.clientX - cx) * (180 / Math.PI);
+    pin.style.transform = 'rotate(' + (angle - TIP_OFFSET) + 'deg)';
   }, { passive: true });
 })();
 </script>
