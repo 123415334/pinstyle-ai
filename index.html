@@ -76,6 +76,7 @@ nav {
   max-width: 900px; margin: 0 auto;
   padding: 9rem 2rem 5rem;
   text-align: center;
+  position: relative;
 }
 .hero-eye {
   display: inline-block;
@@ -102,6 +103,116 @@ nav {
   font-size: 1rem; font-weight: 400; line-height: 1.7;
   color: var(--text-muted);
   max-width: 520px; margin: 1.25rem auto 0;
+}
+
+/* ── ENAMEL PIN BADGE ────────────────────────────────────── */
+.pin-badge {
+  position: absolute;
+  top: 6.5rem;
+  right: 1rem;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  text-decoration: none;
+  text-align: center;
+  padding: 0.75rem;
+
+  /* Frosted glass base */
+  background: radial-gradient(
+    ellipse at 40% 30%,
+    rgba(237,233,227,0.13) 0%,
+    rgba(201,168,122,0.07) 45%,
+    rgba(9,9,15,0.35) 100%
+  );
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+
+  /* Enamel border ring */
+  border: 1.5px solid rgba(201,168,122,0.35);
+  outline: 1px solid rgba(237,233,227,0.06);
+
+  /* 3D dimensional shadows */
+  box-shadow:
+    0 1px 0 rgba(237,233,227,0.18) inset,   /* top inner highlight */
+    0 -1px 0 rgba(0,0,0,0.4) inset,          /* bottom inner shadow */
+    0 4px 16px rgba(0,0,0,0.45),             /* drop shadow */
+    0 1px 3px rgba(0,0,0,0.6),              /* tight base shadow */
+    0 0 0 3px rgba(201,168,122,0.08);        /* soft glow ring */
+
+  transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1),
+              box-shadow 0.25s ease;
+
+  /* Shine overlay via pseudo-element */
+  overflow: hidden;
+}
+
+/* Top-of-badge shine — light catching the curved surface */
+.pin-badge::before {
+  content: '';
+  position: absolute;
+  top: -10%;
+  left: 10%;
+  width: 80%;
+  height: 45%;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at 50% 0%,
+    rgba(255,255,255,0.18) 0%,
+    rgba(255,255,255,0.04) 60%,
+    transparent 100%
+  );
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.pin-badge:hover {
+  transform: rotate(4deg) translateY(-3px) scale(1.04);
+  box-shadow:
+    0 1px 0 rgba(237,233,227,0.22) inset,
+    0 -1px 0 rgba(0,0,0,0.4) inset,
+    0 8px 28px rgba(0,0,0,0.55),
+    0 2px 6px rgba(0,0,0,0.5),
+    0 0 0 3px rgba(201,168,122,0.18),
+    0 0 20px rgba(201,168,122,0.12);
+}
+
+/* Shine shifts on hover — like tilting a real badge */
+.pin-badge:hover::before {
+  opacity: 0.6;
+  transform: translateX(8px) translateY(-4px);
+}
+
+.pin-badge-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text);
+  line-height: 1.4;
+  position: relative;
+  z-index: 1;
+}
+
+.pin-badge-arrow {
+  font-size: 16px;
+  margin-top: 4px;
+  color: var(--accent);
+  display: block;
+  position: relative;
+  z-index: 1;
+  transition: transform 0.2s ease;
+}
+.pin-badge:hover .pin-badge-arrow {
+  transform: translateX(3px);
+}
+
+@media (max-width: 580px) {
+  .pin-badge { display: none; }
 }
 
 /* ── FORM ────────────────────────────────────────────────── */
@@ -489,6 +600,10 @@ footer a:hover { color: var(--text-muted); }
   </nav>
 
   <div class="hero anim-1">
+    <a class="pin-badge" href="https://www.pinterest.com" target="_blank" rel="noopener">
+      <span class="pin-badge-label">Go to<br>Pinterest</span>
+      <span class="pin-badge-arrow">→</span>
+    </a>
     <span class="hero-eye">Pinterest &times; AI Vision</span>
     <h1>You've been pinning for a reason.<br><em style="color: var(--accent);">Turn your <span id="pin-emoji"><span class="pin-float">📌</span></span> board into real images.</em></h1>
     <p class="hero-sub">Paste the link to any public Pinterest board and we'll analyze every pin to generate AI images that actually look like they belong there.</p>
