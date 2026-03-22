@@ -111,9 +111,9 @@ nav {
   top: 3.5rem;
   right: 0.5rem;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
   text-decoration: none;
   transform-origin: center center;
   transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
@@ -121,17 +121,25 @@ nav {
 .pin-doodle:hover {
   transform: rotate(3deg) scale(1.06);
 }
+.pin-doodle-lines {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
 .pin-doodle-text {
   font-family: 'Caveat', cursive;
   font-size: 1.35rem;
   font-weight: 700;
   color: #d23e33;
-  line-height: 1.1;
+  line-height: 1.15;
   white-space: nowrap;
+  display: block;
+  text-align: center;
 }
 .pin-doodle-arrow {
   display: block;
-  margin-bottom: 2px;
+  flex-shrink: 0;
 }
 
 @media (max-width: 680px) {
@@ -524,20 +532,23 @@ footer a:hover { color: var(--text-muted); }
 
   <div class="hero anim-1">
     <a class="pin-doodle" href="https://www.pinterest.com" target="_blank" rel="noopener">
+      <div class="pin-doodle-lines">
+        <span class="pin-doodle-text">Go to</span>
+        <span class="pin-doodle-text">Pinterest</span>
+      </div>
       <!--
-        Vertical mirror of original: start bottom-right, end top-left.
-        Curve: M60 55 C68 42, 50 22, 28 10
-        End (arrowhead tip): (28,10). Last CP: (50,22).
-        Tangent at end: (-22,-12), unit ≈ (-0.878,-0.479) → upper-left.
-        Back direction ± 25°: arm1 → (34,18)  arm2 → (38,11)
+        Narrow upward-curving arrow, hugs right side of text.
+        Curve: M22 54 C28 40, 10 24, 16 6
+          Start (22,54) bottom · End (16,6) top · last CP (10,24)
+        Tangent at tip: (16−10, 6−24) = (6,−18), unit ≈ (0.316,−0.949) → upward.
+        Back direction ± 25°: arm1 → (9,13)  arm2 → (17,16)
       -->
-      <svg class="pin-doodle-arrow" width="78" height="60" viewBox="0 0 78 60" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M60 55 C68 42, 50 22, 28 10"
+      <svg class="pin-doodle-arrow" width="36" height="60" viewBox="0 0 36 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M22 54 C28 40, 10 24, 16 6"
               stroke="#d23e33" stroke-width="2.2" stroke-linecap="round" fill="none"/>
-        <path d="M34 18 L28 10 L38 11"
+        <path d="M9 13 L16 6 L17 16"
               stroke="#d23e33" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
       </svg>
-      <span class="pin-doodle-text">Go to Pinterest</span>
     </a>
     <span class="hero-eye">Pinterest &times; AI Vision</span>
     <h1>You've been pinning for a reason.<br><em style="color: var(--accent);">Turn your <span id="pin-emoji"><span class="pin-float">📌</span></span> board into real images.</em></h1>
