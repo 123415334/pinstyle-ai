@@ -455,6 +455,18 @@ footer a:hover { color: var(--text-muted); }
 .anim-2 { animation: fadeUp 0.9s 0.1s  cubic-bezier(0.16,1,0.3,1) forwards; opacity: 0; }
 .anim-3 { animation: fadeUp 0.9s 0.2s  cubic-bezier(0.16,1,0.3,1) forwards; opacity: 0; }
 
+@keyframes pin-float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-6px); }
+}
+#pin-emoji {
+  display: inline-block; /* receives JS parallax translateY */
+}
+.pin-float {
+  display: inline-block;
+  animation: pin-float 3s ease-in-out infinite;
+}
+
 /* ── RESPONSIVE ──────────────────────────────────────────── */
 @media (max-width: 580px) {
   nav { padding: 1.25rem 1.5rem; }
@@ -477,7 +489,7 @@ footer a:hover { color: var(--text-muted); }
 
   <div class="hero anim-1">
     <span class="hero-eye">Pinterest &times; AI Vision</span>
-    <h1>You've been pinning for a reason.<br><em style="color: var(--accent);">Turn your 📌 board into real images.</em></h1>
+    <h1>You've been pinning for a reason.<br><em style="color: var(--accent);">Turn your <span id="pin-emoji"><span class="pin-float">📌</span></span> board into real images.</em></h1>
     <p class="hero-sub">Paste the link to any public Pinterest board and we'll analyze every pin to generate AI images that actually look like they belong there.</p>
   </div>
 
@@ -753,6 +765,24 @@ function resetForm() {
   hideError();
   state.generatedPrompt = ''; state.imageUrls = [];
 }
+
+/* ── PIN EMOJI PARALLAX ──────────────────────────────────── */
+(function () {
+  const pin = document.getElementById('pin-emoji');
+  if (!pin) return;
+  let ticking = false;
+  window.addEventListener('scroll', function () {
+    if (!ticking) {
+      requestAnimationFrame(function () {
+        // Move up at ~20% of scroll speed — subtle, not distracting
+        const offset = window.scrollY * -0.2;
+        pin.style.transform = 'translateY(' + offset + 'px)';
+        ticking = false;
+      });
+      ticking = true;
+    }
+  }, { passive: true });
+})();
 </script>
 </body>
 </html>
