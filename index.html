@@ -6,7 +6,7 @@
 <title>PinStyle AI — Pinterest Board Style Generator</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400;1,600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400;1,600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
   --bg:           #09090F;
@@ -105,114 +105,37 @@ nav {
   max-width: 520px; margin: 1.25rem auto 0;
 }
 
-/* ── ENAMEL PIN BADGE ────────────────────────────────────── */
-.pin-badge {
+/* ── DOODLE ANNOTATION LINK ──────────────────────────────── */
+.pin-doodle {
   position: absolute;
-  top: 6.5rem;
-  right: 1rem;
-  display: inline-flex;
+  top: 3.5rem;
+  right: 0.5rem;
+  display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 130px;
-  height: 130px;
-  border-radius: 50%;
+  align-items: flex-start;
+  gap: 2px;
   text-decoration: none;
-  text-align: center;
-  padding: 0.75rem;
-
-  /* Frosted glass base */
-  background: radial-gradient(
-    ellipse at 40% 30%,
-    rgba(237,233,227,0.13) 0%,
-    rgba(201,168,122,0.07) 45%,
-    rgba(9,9,15,0.35) 100%
-  );
-  backdrop-filter: blur(14px) saturate(1.4);
-  -webkit-backdrop-filter: blur(14px) saturate(1.4);
-
-  /* Enamel border ring */
-  border: 1.5px solid rgba(201,168,122,0.35);
-  outline: 1px solid rgba(237,233,227,0.06);
-
-  /* 3D dimensional shadows */
-  box-shadow:
-    0 1px 0 rgba(237,233,227,0.18) inset,   /* top inner highlight */
-    0 -1px 0 rgba(0,0,0,0.4) inset,          /* bottom inner shadow */
-    0 4px 16px rgba(0,0,0,0.45),             /* drop shadow */
-    0 1px 3px rgba(0,0,0,0.6),              /* tight base shadow */
-    0 0 0 3px rgba(201,168,122,0.08);        /* soft glow ring */
-
-  transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1),
-              box-shadow 0.25s ease;
-
-  /* Shine overlay via pseudo-element */
-  overflow: hidden;
+  transform-origin: center center;
+  transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
 }
-
-/* Top-of-badge shine — light catching the curved surface */
-.pin-badge::before {
-  content: '';
-  position: absolute;
-  top: -10%;
-  left: 10%;
-  width: 80%;
-  height: 45%;
-  border-radius: 50%;
-  background: radial-gradient(
-    ellipse at 50% 0%,
-    rgba(255,255,255,0.18) 0%,
-    rgba(255,255,255,0.04) 60%,
-    transparent 100%
-  );
-  pointer-events: none;
-  transition: opacity 0.25s ease;
+.pin-doodle:hover {
+  transform: rotate(3deg) scale(1.06);
 }
-
-.pin-badge:hover {
-  transform: rotate(4deg) translateY(-3px) scale(1.04);
-  box-shadow:
-    0 1px 0 rgba(237,233,227,0.22) inset,
-    0 -1px 0 rgba(0,0,0,0.4) inset,
-    0 8px 28px rgba(0,0,0,0.55),
-    0 2px 6px rgba(0,0,0,0.5),
-    0 0 0 3px rgba(201,168,122,0.18),
-    0 0 20px rgba(201,168,122,0.12);
-}
-
-/* Shine shifts on hover — like tilting a real badge */
-.pin-badge:hover::before {
-  opacity: 0.6;
-  transform: translateX(8px) translateY(-4px);
-}
-
-.pin-badge-label {
-  font-family: 'Inter', sans-serif;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text);
-  line-height: 1.4;
-  position: relative;
-  z-index: 1;
-}
-
-.pin-badge-arrow {
-  font-size: 16px;
-  margin-top: 4px;
+.pin-doodle-text {
+  font-family: 'Caveat', cursive;
+  font-size: 1.35rem;
+  font-weight: 700;
   color: var(--accent);
-  display: block;
-  position: relative;
-  z-index: 1;
-  transition: transform 0.2s ease;
+  line-height: 1.1;
+  white-space: nowrap;
 }
-.pin-badge:hover .pin-badge-arrow {
-  transform: translateX(3px);
+.pin-doodle-arrow {
+  display: block;
+  margin-left: 4px;
 }
 
-@media (max-width: 580px) {
-  .pin-badge { display: none; }
+@media (max-width: 680px) {
+  .pin-doodle { display: none; }
 }
 
 /* ── FORM ────────────────────────────────────────────────── */
@@ -600,9 +523,18 @@ footer a:hover { color: var(--text-muted); }
   </nav>
 
   <div class="hero anim-1">
-    <a class="pin-badge" href="https://www.pinterest.com" target="_blank" rel="noopener">
-      <span class="pin-badge-label">Go to<br>Pinterest</span>
-      <span class="pin-badge-arrow">→</span>
+    <a class="pin-doodle" href="https://www.pinterest.com" target="_blank" rel="noopener">
+      <span class="pin-doodle-text">Go to Pinterest</span>
+      <!-- Hand-drawn swooping arrow pointing down-left toward the board URL input -->
+      <svg class="pin-doodle-arrow" width="72" height="48" viewBox="0 0 72 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M4 6 C10 4, 28 3, 46 10 C58 15, 66 26, 62 40 C60 46, 54 50, 50 46"
+              stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
+              fill="none" pathLength="1"
+              style="stroke-dasharray:1; stroke-dashoffset:0"/>
+        <!-- Arrowhead -->
+        <path d="M50 46 L44 38 M50 46 L58 39"
+              stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
     </a>
     <span class="hero-eye">Pinterest &times; AI Vision</span>
     <h1>You've been pinning for a reason.<br><em style="color: var(--accent);">Turn your <span id="pin-emoji"><span class="pin-float">📌</span></span> board into real images.</em></h1>
