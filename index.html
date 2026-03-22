@@ -57,27 +57,12 @@ nav {
   padding: 1.75rem 2.5rem;
   border-bottom: 1px solid var(--border);
 }
-.logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
-.logo-mark {
-  width: 26px; height: 26px;
-  background: var(--accent);
-  border-radius: 50% 50% 50% 0;
-  transform: rotate(-45deg);
-  position: relative; flex-shrink: 0;
+.logo { display: flex; align-items: center; text-decoration: none; }
+.logo img {
+  height: 38px;
+  width: auto;
+  display: block;
 }
-.logo-mark::after {
-  content: '';
-  width: 9px; height: 9px;
-  background: var(--bg);
-  border-radius: 50%;
-  position: absolute; top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-}
-.logo-name {
-  font-size: 15px; font-weight: 500;
-  color: var(--text); letter-spacing: -0.015em;
-}
-.logo-name em { font-style: normal; color: var(--accent); }
 .nav-tag {
   font-size: 10px; font-weight: 500; letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -484,8 +469,7 @@ footer a:hover { color: var(--text-muted); }
 
   <nav>
     <a class="logo" href="#">
-      <div class="logo-mark"></div>
-      <span class="logo-name">Pin<em>Style</em> AI</span>
+      <img src="/pinstyle_logo.png" alt="PinStyle AI">
     </a>
     <span class="nav-tag">Beta</span>
   </nav>

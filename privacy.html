@@ -33,19 +33,13 @@
     display: flex; align-items: center; justify-content: space-between;
     padding: 1.5rem 2.5rem; border-bottom: 1px solid var(--border-soft);
   }
-  .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
-  .logo-pin {
-    width: 28px; height: 28px; background: var(--red);
-    border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
-    position: relative; flex-shrink: 0;
+  .logo { display: flex; align-items: center; text-decoration: none; }
+  .logo img {
+    height: 36px;
+    width: auto;
+    display: block;
+    filter: brightness(0); /* cream wordmark → dark ink on light bg */
   }
-  .logo-pin::after {
-    content: ''; width: 10px; height: 10px; background: var(--cream);
-    border-radius: 50%; position: absolute; top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-  }
-  .logo-text { font-family: 'DM Serif Display', serif; font-size: 1.25rem; color: var(--ink); letter-spacing: -0.02em; }
-  .logo-text span { color: var(--red); font-style: italic; }
 
   .content { max-width: 680px; margin: 0 auto; padding: 4rem 1.5rem 5rem; }
 
@@ -86,8 +80,7 @@
 
   <nav>
     <a class="logo" href="/">
-      <div class="logo-pin"></div>
-      <span class="logo-text">Pin<span>Style</span> AI</span>
+      <img src="/pinstyle_logo.png" alt="PinStyle AI">
     </a>
   </nav>
 
