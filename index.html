@@ -4,164 +4,479 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PinStyle AI — Pinterest Board Style Generator</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400;1,600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --cream: #F7F4EE;
-    --ink: #1A1612;
-    --ink-soft: #5C5650;
-    --ink-muted: #9C978F;
-    --red: #E03D2A;
-    --red-soft: #F5E8E5;
-    --gold: #C8A96E;
-    --green: #0F6E56;
-    --green-soft: #E1F5EE;
-    --border: rgba(26,22,18,0.12);
-    --border-soft: rgba(26,22,18,0.07);
-    --card: #FFFFFF;
-    --radius: 16px;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--ink); min-height: 100vh; overflow-x: hidden; }
-  body::before {
-    content: '';
-    position: fixed; inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%231A1612' fill-opacity='0.025'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-    pointer-events: none; z-index: 0;
-  }
-  .page { position: relative; z-index: 1; }
+:root {
+  --bg:           #09090F;
+  --surface:      #0F0F18;
+  --surface-2:    #141420;
+  --text:         #EDE9E3;
+  --text-muted:   rgba(237,233,227,0.52);
+  --text-subtle:  rgba(237,233,227,0.26);
+  --accent:       #C9A87A;
+  --accent-dim:   rgba(201,168,122,0.12);
+  --accent-glow:  rgba(201,168,122,0.28);
+  --border:       rgba(237,233,227,0.07);
+  --border-mid:   rgba(237,233,227,0.13);
+  --red-err:      rgba(220,80,60,0.85);
+  --radius:       18px;
+}
 
-  nav {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 1.5rem 2.5rem; border-bottom: 1px solid var(--border-soft);
-  }
-  .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
-  .logo-pin {
-    width: 28px; height: 28px; background: var(--red);
-    border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
-    position: relative; flex-shrink: 0;
-  }
-  .logo-pin::after {
-    content: ''; width: 10px; height: 10px; background: var(--cream);
-    border-radius: 50%; position: absolute; top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-  }
-  .logo-text { font-family: 'DM Serif Display', serif; font-size: 1.25rem; color: var(--ink); letter-spacing: -0.02em; }
-  .logo-text span { color: var(--red); font-style: italic; }
-  .nav-badge { font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--red); background: var(--red-soft); padding: 4px 10px; border-radius: 20px; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  .hero { text-align: center; padding: 5rem 2rem 3rem; max-width: 680px; margin: 0 auto; }
-  .hero-eyebrow { font-size: 11px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-muted); margin-bottom: 1.25rem; }
-  .hero h1 { font-family: 'DM Serif Display', serif; font-size: clamp(2.4rem, 5vw, 3.6rem); line-height: 1.1; letter-spacing: -0.02em; margin-bottom: 1.25rem; }
-  .hero h1 em { font-style: italic; color: var(--red); }
-  .hero p { font-size: 1.05rem; color: var(--ink-soft); line-height: 1.7; max-width: 480px; margin: 0 auto 3rem; }
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
 
-  .main-card { max-width: 680px; margin: 0 auto 2rem; padding: 0 1.5rem; }
-  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: 0 4px 24px rgba(26,22,18,0.06); }
-  .card-header { padding: 1.25rem 2rem; border-bottom: 1px solid var(--border-soft); display: flex; align-items: center; gap: 10px; }
-  .card-header-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); }
-  .card-header-title { font-size: 13px; font-weight: 500; color: var(--ink); }
-  .card-body { padding: 2rem; }
+/* Ambient glow behind hero */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 120%; max-width: 1000px;
+  height: 700px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(201,168,122,0.065) 0%, transparent 65%);
+  pointer-events: none;
+  z-index: 0;
+}
 
-  .input-group { margin-bottom: 1.5rem; }
-  .input-label { display: block; font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted); margin-bottom: 0.6rem; }
-  .url-input, .subject-input {
-    width: 100%; font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--ink);
-    background: var(--cream); border: 1px solid var(--border); border-radius: 10px;
-    padding: 13px 16px; outline: none; transition: border-color 0.2s, background 0.2s;
-  }
-  .url-input::placeholder, .subject-input::placeholder { color: var(--ink-muted); }
-  .url-input:focus, .subject-input:focus { border-color: var(--gold); background: #fff; }
+.page { position: relative; z-index: 1; }
 
-  .options-row { display: flex; gap: 8px; flex-wrap: wrap; }
-  .option-chip { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: var(--ink-soft); background: var(--cream); border: 1px solid var(--border); border-radius: 8px; padding: 7px 13px; cursor: pointer; transition: all 0.15s; user-select: none; }
-  .option-chip:hover { border-color: var(--gold); color: var(--ink); }
-  .option-chip.active { background: var(--ink); color: #fff; border-color: var(--ink); }
-  .option-chip .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.5; }
-  .option-chip.active .dot { opacity: 1; background: var(--gold); }
+/* ── NAV ─────────────────────────────────────────────────── */
+nav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1.75rem 2.5rem;
+  border-bottom: 1px solid var(--border);
+}
+.logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.logo-mark {
+  width: 26px; height: 26px;
+  background: var(--accent);
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  position: relative; flex-shrink: 0;
+}
+.logo-mark::after {
+  content: '';
+  width: 9px; height: 9px;
+  background: var(--bg);
+  border-radius: 50%;
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+}
+.logo-name {
+  font-size: 15px; font-weight: 500;
+  color: var(--text); letter-spacing: -0.015em;
+}
+.logo-name em { font-style: normal; color: var(--accent); }
+.nav-tag {
+  font-size: 10px; font-weight: 500; letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+  border: 1px solid var(--border);
+  padding: 5px 13px; border-radius: 100px;
+}
 
-  .generate-btn {
-    width: 100%; font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 500;
-    color: #fff; background: var(--ink); border: none; border-radius: 10px;
-    padding: 16px 24px; cursor: pointer; transition: transform 0.15s, background 0.15s;
-    display: flex; align-items: center; justify-content: center; gap: 10px;
-    margin-top: 0.5rem;
-  }
-  .generate-btn:hover:not(:disabled) { background: var(--red); transform: translateY(-1px); }
-  .generate-btn:active:not(:disabled) { transform: translateY(0); }
-  .generate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+/* ── HERO ────────────────────────────────────────────────── */
+.hero {
+  max-width: 760px; margin: 0 auto;
+  padding: 9rem 2rem 5rem;
+  text-align: center;
+}
+.hero-eye {
+  display: inline-block;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+  margin-bottom: 1.75rem;
+}
+.hero h1 {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: clamp(3.2rem, 8vw, 5.2rem);
+  font-weight: 400;
+  line-height: 1.04;
+  letter-spacing: -0.025em;
+  color: var(--text);
+  margin-bottom: 1.75rem;
+}
+.hero h1 em {
+  font-style: italic;
+  color: var(--accent);
+}
+.hero-sub {
+  font-size: 16px; font-weight: 300; line-height: 1.75;
+  color: var(--text-muted);
+  max-width: 460px; margin: 0 auto;
+}
 
-  .loading-bar { display: none; margin-top: 1.5rem; }
-  .loading-bar.show { display: block; }
-  .loading-steps { display: flex; flex-direction: column; gap: 10px; }
-  .loading-step { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--ink-muted); transition: color 0.3s; }
-  .loading-step.active { color: var(--ink); }
-  .loading-step.done { color: var(--gold); }
-  .step-icon { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid currentColor; display: flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0; }
-  .loading-step.active .step-icon { border-color: var(--red); animation: pulse 1s ease-in-out infinite; }
-  .loading-step.done .step-icon { background: var(--gold); border-color: var(--gold); color: #fff; }
-  @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(0.9); } }
+/* ── FORM ────────────────────────────────────────────────── */
+.form-section {
+  max-width: 640px; margin: 0 auto 2rem;
+  padding: 0 1.5rem;
+}
+.form-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 2.5rem;
+}
+.form-group { margin-bottom: 1.75rem; }
+.form-label {
+  display: block;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+  margin-bottom: 0.65rem;
+}
+.form-input {
+  width: 100%;
+  font-family: 'Inter', sans-serif;
+  font-size: 15px; font-weight: 300;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.form-input::placeholder { color: var(--text-subtle); font-weight: 300; }
+.form-input:focus {
+  border-color: rgba(201,168,122,0.45);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
 
-  .error-box { display: none; background: #FEF2F2; border: 1px solid #FCA5A5; border-radius: 10px; padding: 1rem 1.25rem; margin-top: 1rem; font-size: 13px; color: #991B1B; line-height: 1.5; }
-  .error-box.show { display: block; }
+.chips-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px; font-weight: 500;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  padding: 7px 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+.chip:hover:not(.active) {
+  border-color: var(--border-mid);
+  color: var(--text);
+  background: rgba(237,233,227,0.04);
+}
+.chip.active {
+  background: var(--accent-dim);
+  border-color: rgba(201,168,122,0.4);
+  color: var(--accent);
+}
 
-  .results { display: none; }
-  .results.show { display: block; }
-  .result-divider { height: 1px; background: var(--border-soft); margin: 2rem 0; }
-  .result-section-label { font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-muted); margin-bottom: 0.85rem; }
-  .pins-badge { display: none; font-size: 12px; font-weight: 500; color: var(--green); background: var(--green-soft); border: 1px solid #A7F3D0; border-radius: 8px; padding: 8px 14px; margin-bottom: 1.5rem; }
+.form-rule { height: 1px; background: var(--border); margin: 2rem 0; }
 
-  .palette-row { display: flex; gap: 8px; margin-bottom: 1.5rem; flex-wrap: wrap; }
-  .palette-chip { display: flex; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; background: #fff; }
-  .palette-swatch { width: 20px; height: 20px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.08); flex-shrink: 0; }
-  .palette-hex { font-size: 11px; font-weight: 500; color: var(--ink-soft); font-family: monospace; }
+/* ── GENERATE BUTTON ─────────────────────────────────────── */
+.generate-btn {
+  width: 100%;
+  font-family: 'Inter', sans-serif;
+  font-size: 15px; font-weight: 600;
+  letter-spacing: 0.025em;
+  color: #09090F;
+  background: var(--accent);
+  border: none;
+  border-radius: 14px;
+  padding: 17px 24px;
+  cursor: pointer;
+  position: relative; overflow: hidden;
+  transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1),
+              box-shadow 0.22s ease,
+              opacity 0.2s ease;
+  display: flex; align-items: center; justify-content: center; gap: 9px;
+}
+.generate-btn::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 35%,
+    rgba(255,255,255,0.2) 50%,
+    transparent 65%
+  );
+  transform: translateX(-100%);
+  transition: transform 0.65s ease;
+}
+.generate-btn:hover:not(:disabled)::before { transform: translateX(100%); }
+.generate-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 44px rgba(201,168,122,0.38);
+}
+.generate-btn:active:not(:disabled) {
+  transform: scale(0.99) translateY(0);
+  box-shadow: 0 4px 18px rgba(201,168,122,0.22);
+}
+.generate-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-spark { font-size: 13px; }
 
-  .mood-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 1.5rem; }
-  .mood-tag { font-size: 12px; font-weight: 500; color: var(--ink-soft); background: var(--cream); border: 1px solid var(--border); border-radius: 20px; padding: 5px 12px; }
+/* ── LOADING ─────────────────────────────────────────────── */
+.loading-wrap {
+  display: none;
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--border);
+}
+.loading-wrap.show { display: block; }
+.loading-steps { display: flex; flex-direction: column; gap: 2px; }
+.loading-step {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 0;
+  font-size: 13px; font-weight: 400;
+  color: var(--text-subtle);
+  transition: color 0.35s ease;
+}
+.loading-step.active { color: var(--text); }
+.loading-step.done   { color: var(--accent); }
+.step-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+.loading-step.active .step-dot {
+  background: var(--accent);
+  animation: dot-pulse 1.2s ease-in-out infinite;
+}
+.loading-step.done .step-dot { background: var(--accent); }
+@keyframes dot-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%       { transform: scale(2); opacity: 0.4; }
+}
 
-  .prompt-box { background: var(--cream); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem; position: relative; }
-  .prompt-text { font-size: 13px; line-height: 1.8; color: var(--ink); font-style: italic; padding-right: 3rem; }
-  .copy-btn { position: absolute; top: 12px; right: 12px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; color: var(--ink-muted); background: #fff; border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; cursor: pointer; transition: color 0.15s, border-color 0.15s; }
-  .copy-btn:hover { color: var(--ink); border-color: var(--gold); }
+/* ── ERROR ───────────────────────────────────────────────── */
+.error-box {
+  display: none;
+  background: rgba(220,80,60,0.08);
+  border: 1px solid rgba(220,80,60,0.22);
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-top: 1.25rem;
+  font-size: 13px; line-height: 1.6;
+  color: #E87B6A;
+}
+.error-box.show { display: block; }
 
-  .image-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 1.5rem; }
-  .image-card { border-radius: 12px; overflow: hidden; border: 1px solid var(--border); background: var(--cream); aspect-ratio: 1; display: flex; align-items: center; justify-content: center; position: relative; }
-  .image-card img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0; transition: opacity 0.6s; }
-  .image-card img.loaded { opacity: 1; }
-  .image-spinner { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; background: var(--cream); transition: opacity 0.5s; }
-  .image-spinner.hidden { opacity: 0; pointer-events: none; }
-  .spinner-ring { width: 32px; height: 32px; border: 2px solid var(--border); border-top-color: var(--red); border-radius: 50%; animation: spin 0.9s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .spinner-label { font-size: 11px; color: var(--ink-muted); }
+/* ── RESULTS ─────────────────────────────────────────────── */
+.results { display: none; }
+.results.show { display: block; }
+.results-inner {
+  margin-top: 2.5rem;
+  padding-top: 2.5rem;
+  border-top: 1px solid var(--border);
+  animation: fadeUp 0.55s cubic-bezier(0.16,1,0.3,1) forwards;
+}
+.r-label {
+  display: block;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+  margin-bottom: 1rem;
+}
+.r-block { margin-bottom: 2rem; }
 
-  .action-row { display: flex; gap: 10px; flex-wrap: wrap; }
-  .action-btn { flex: 1; min-width: 130px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; color: var(--ink); background: var(--cream); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.15s; }
-  .action-btn:hover { background: #fff; border-color: var(--gold); }
-  .action-btn.primary { background: var(--red); color: #fff; border-color: var(--red); }
-  .action-btn.primary:hover { background: #c8351e; border-color: #c8351e; }
+.pins-badge {
+  display: none;
+  font-size: 12px; font-weight: 500;
+  color: rgba(201,168,122,0.75);
+  background: var(--accent-dim);
+  border: 1px solid rgba(201,168,122,0.18);
+  border-radius: 8px;
+  padding: 9px 14px;
+  margin-bottom: 2rem;
+}
+.pins-badge.warn {
+  color: var(--text-subtle);
+  background: rgba(237,233,227,0.04);
+  border-color: var(--border);
+}
 
-  .how-section { max-width: 680px; margin: 0 auto 4rem; padding: 0 1.5rem; }
-  .how-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 1.5rem; }
-  .how-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; text-align: center; }
-  .how-num { font-family: 'DM Serif Display', serif; font-size: 2rem; color: var(--red); opacity: 0.3; margin-bottom: 0.5rem; }
-  .how-title { font-size: 14px; font-weight: 500; color: var(--ink); margin-bottom: 0.4rem; }
-  .how-desc { font-size: 12px; color: var(--ink-muted); line-height: 1.5; }
+/* Palette */
+.palette-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.swatch { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.swatch-color {
+  width: 48px; height: 48px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.06);
+  transition: transform 0.2s ease;
+}
+.swatch-color:hover { transform: scale(1.08); }
+.swatch-hex {
+  font-size: 10px; font-weight: 500; font-family: 'Inter', monospace;
+  color: var(--text-subtle); letter-spacing: 0.05em;
+}
 
-  footer { text-align: center; padding: 2rem; border-top: 1px solid var(--border-soft); font-size: 12px; color: var(--ink-muted); }
-  footer strong { color: var(--ink-soft); font-weight: 500; }
+/* Mood tags */
+.tags-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.tag {
+  font-size: 12px; font-weight: 500;
+  color: var(--text-muted);
+  background: rgba(237,233,227,0.05);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  padding: 5px 13px;
+}
 
-  @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
-  .fade-up { animation: fadeUp 0.5s ease forwards; }
-  .delay-1 { animation-delay: 0.1s; opacity: 0; }
-  .delay-2 { animation-delay: 0.2s; opacity: 0; }
+/* Prompt */
+.prompt-box {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.25rem 1.5rem;
+  position: relative;
+}
+.prompt-text {
+  font-size: 13px; font-weight: 300; line-height: 1.9;
+  color: var(--text-muted);
+  font-style: italic;
+  padding-right: 4.5rem;
+}
+.copy-btn {
+  position: absolute; top: 14px; right: 14px;
+  font-family: 'Inter', sans-serif;
+  font-size: 11px; font-weight: 500;
+  color: var(--text-subtle);
+  background: rgba(237,233,227,0.06);
+  border: 1px solid var(--border);
+  border-radius: 6px; padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.copy-btn:hover { color: var(--text); border-color: var(--border-mid); }
 
-  @media (max-width: 560px) {
-    nav { padding: 1.25rem; }
-    .hero { padding: 3rem 1.25rem 2rem; }
-    .main-card, .how-section { padding: 0 1rem; }
-    .card-body { padding: 1.25rem; }
-    .how-grid { grid-template-columns: 1fr; }
-  }
+/* Images */
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+.image-card {
+  border-radius: 16px; overflow: hidden;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  aspect-ratio: 1;
+  position: relative;
+}
+.image-card img {
+  width: 100%; height: 100%;
+  object-fit: cover; display: block;
+  opacity: 0;
+  transition: opacity 0.7s ease;
+}
+.image-card img.loaded { opacity: 1; }
+.img-spinner {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 10px;
+}
+.img-spinner.hidden { display: none; }
+.spin-ring {
+  width: 26px; height: 26px;
+  border: 1.5px solid var(--border-mid);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.85s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin-label { font-size: 11px; color: var(--text-subtle); }
+
+/* Actions */
+.actions-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.action-btn {
+  flex: 1; min-width: 130px;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px; font-weight: 500;
+  color: var(--text-muted);
+  background: rgba(237,233,227,0.04);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 16px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  transition: all 0.15s ease;
+}
+.action-btn:hover {
+  background: rgba(237,233,227,0.07);
+  border-color: var(--border-mid);
+  color: var(--text);
+}
+.action-btn.primary {
+  background: var(--accent-dim);
+  border-color: rgba(201,168,122,0.25);
+  color: var(--accent);
+}
+.action-btn.primary:hover {
+  background: rgba(201,168,122,0.18);
+  border-color: rgba(201,168,122,0.4);
+}
+
+/* ── HOW IT WORKS ────────────────────────────────────────── */
+.how-section {
+  max-width: 640px; margin: 2rem auto 7rem;
+  padding: 0 1.5rem;
+}
+.how-header { text-align: center; margin-bottom: 2rem; }
+.how-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+.how-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 1.75rem 1.5rem;
+}
+.how-num {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 2.6rem; font-weight: 400;
+  color: var(--accent); opacity: 0.3;
+  line-height: 1; margin-bottom: 0.85rem;
+}
+.how-title { font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 0.4rem; }
+.how-desc { font-size: 12px; font-weight: 300; color: var(--text-muted); line-height: 1.65; }
+
+/* ── FOOTER ──────────────────────────────────────────────── */
+footer {
+  text-align: center;
+  padding: 2rem;
+  border-top: 1px solid var(--border);
+  font-size: 12px; color: var(--text-subtle);
+}
+footer strong { color: var(--text-muted); font-weight: 500; }
+footer a { color: var(--text-subtle); text-decoration: none; }
+footer a:hover { color: var(--text-muted); }
+
+/* ── ANIMATIONS ──────────────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(22px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.anim-1 { animation: fadeUp 0.9s cubic-bezier(0.16,1,0.3,1) forwards; opacity: 0; }
+.anim-2 { animation: fadeUp 0.9s 0.1s  cubic-bezier(0.16,1,0.3,1) forwards; opacity: 0; }
+.anim-3 { animation: fadeUp 0.9s 0.2s  cubic-bezier(0.16,1,0.3,1) forwards; opacity: 0; }
+
+/* ── RESPONSIVE ──────────────────────────────────────────── */
+@media (max-width: 580px) {
+  nav { padding: 1.25rem 1.5rem; }
+  .hero { padding: 5rem 1.25rem 3.5rem; }
+  .form-section, .how-section { padding: 0 1rem; }
+  .form-card { padding: 1.75rem 1.5rem; }
+  .how-grid { grid-template-columns: 1fr; }
+}
 </style>
 </head>
 <body>
@@ -169,104 +484,118 @@
 
   <nav>
     <a class="logo" href="#">
-      <div class="logo-pin"></div>
-      <span class="logo-text">Pin<span>Style</span> AI</span>
+      <div class="logo-mark"></div>
+      <span class="logo-name">Pin<em>Style</em> AI</span>
     </a>
-    <span class="nav-badge">Beta</span>
+    <span class="nav-tag">Beta</span>
   </nav>
 
-  <div class="hero fade-up">
-    <div class="hero-eyebrow">Pinterest × AI Image Generation</div>
-    <h1>Turn any Pinterest board<br>into an <em>AI style guide</em></h1>
-    <p>Paste a Pinterest board URL. We analyze the visual style across every pin and generate professional AI images that match it — perfectly.</p>
+  <div class="hero anim-1">
+    <span class="hero-eye">Pinterest &times; AI Vision</span>
+    <h1>From mood board<br>to <em>masterpiece.</em></h1>
+    <p class="hero-sub">Paste any public Pinterest board. We analyze the real visual style and generate professional AI images that belong on it.</p>
   </div>
 
-  <div class="main-card fade-up delay-1">
-    <div class="card">
-      <div class="card-header">
-        <div class="card-header-dot"></div>
-        <span class="card-header-title">Style Extractor</span>
+  <div class="form-section anim-2">
+    <div class="form-card">
+
+      <div class="form-group">
+        <label class="form-label" for="boardUrl">Pinterest Board URL</label>
+        <input class="form-input" id="boardUrl" type="url"
+          placeholder="https://www.pinterest.com/username/board-name/" />
       </div>
-      <div class="card-body">
 
-        <div class="input-group">
-          <label class="input-label">Pinterest Board URL</label>
-          <input class="url-input" id="boardUrl" type="url"
-            placeholder="https://www.pinterest.com/username/board-name/" />
+      <div class="form-group">
+        <label class="form-label" for="subjectInput">What do you want to create?</label>
+        <input class="form-input" id="subjectInput" type="text"
+          placeholder="e.g. a product photo, a fashion lookbook image, a social post…" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Style intensity</label>
+        <div class="chips-row">
+          <div class="chip" data-val="subtle"   onclick="selectChip(this,'intensity')">Subtle</div>
+          <div class="chip active" data-val="balanced"  onclick="selectChip(this,'intensity')">Balanced</div>
+          <div class="chip" data-val="strong"   onclick="selectChip(this,'intensity')">Strong</div>
         </div>
+      </div>
 
-        <div class="input-group">
-          <label class="input-label">What do you want to create?</label>
-          <input class="subject-input" id="subjectInput" type="text"
-            placeholder="e.g. a product photo, a social media post, a fashion lookbook image…" />
+      <div class="form-group">
+        <label class="form-label">Output format</label>
+        <div class="chips-row">
+          <div class="chip active" data-val="square"    onclick="selectChip(this,'format')">Square 1:1</div>
+          <div class="chip" data-val="portrait"  onclick="selectChip(this,'format')">Portrait 4:5</div>
+          <div class="chip" data-val="landscape" onclick="selectChip(this,'format')">Landscape 16:9</div>
         </div>
+      </div>
 
-        <div class="input-group">
-          <label class="input-label">Style intensity</label>
-          <div class="options-row">
-            <div class="option-chip" data-val="subtle" onclick="selectChip(this,'intensity')"><span class="dot"></span> Subtle</div>
-            <div class="option-chip active" data-val="balanced" onclick="selectChip(this,'intensity')"><span class="dot"></span> Balanced</div>
-            <div class="option-chip" data-val="strong" onclick="selectChip(this,'intensity')"><span class="dot"></span> Strong</div>
+      <div class="form-rule"></div>
+
+      <button class="generate-btn" id="generateBtn" onclick="runGeneration()">
+        <span class="btn-spark">✦</span>
+        <span>Analyze Board &amp; Generate Images</span>
+      </button>
+
+      <div class="loading-wrap" id="loadingBar">
+        <div class="loading-steps" id="loadingSteps"></div>
+      </div>
+
+      <div class="error-box" id="errorBox"></div>
+
+      <div class="results" id="results">
+        <div class="results-inner">
+
+          <div id="pinsBadge" class="pins-badge"></div>
+
+          <div class="r-block">
+            <span class="r-label">Color palette</span>
+            <div class="palette-row" id="paletteRow"></div>
           </div>
-        </div>
 
-        <div class="input-group">
-          <label class="input-label">Output format</label>
-          <div class="options-row">
-            <div class="option-chip active" data-val="square" onclick="selectChip(this,'format')"><span class="dot"></span> Square 1:1</div>
-            <div class="option-chip" data-val="portrait" onclick="selectChip(this,'format')"><span class="dot"></span> Portrait 4:5</div>
-            <div class="option-chip" data-val="landscape" onclick="selectChip(this,'format')"><span class="dot"></span> Landscape 16:9</div>
+          <div class="r-block">
+            <span class="r-label">Mood &amp; aesthetic</span>
+            <div class="tags-row" id="moodTags"></div>
           </div>
-        </div>
 
-        <button class="generate-btn" id="generateBtn" onclick="runGeneration()">
-          <span>✦</span> Analyze Board &amp; Generate Images
-        </button>
-
-        <div class="loading-bar" id="loadingBar">
-          <div style="height:1px;background:var(--border-soft);margin:1.5rem 0;"></div>
-          <div class="loading-steps" id="loadingSteps"></div>
-        </div>
-
-        <div class="error-box" id="errorBox"></div>
-
-        <div class="results" id="results">
-          <div class="result-divider"></div>
-          <div class="pins-badge" id="pinsBadge"></div>
-          <div class="result-section-label">Extracted color palette</div>
-          <div class="palette-row" id="paletteRow"></div>
-          <div class="result-section-label">Mood &amp; aesthetic</div>
-          <div class="mood-tags" id="moodTags"></div>
-          <div class="result-section-label">Generated style prompt</div>
-          <div class="prompt-box">
-            <div class="prompt-text" id="promptText"></div>
-            <button class="copy-btn" onclick="copyPrompt()">Copy</button>
+          <div class="r-block">
+            <span class="r-label">Generated style prompt</span>
+            <div class="prompt-box">
+              <p class="prompt-text" id="promptText"></p>
+              <button class="copy-btn" onclick="copyPrompt()">Copy</button>
+            </div>
           </div>
-          <div class="result-section-label">Generated images</div>
-          <div class="image-grid" id="imageGrid"></div>
-          <div class="action-row">
+
+          <div class="r-block">
+            <span class="r-label">Generated images</span>
+            <div class="image-grid" id="imageGrid"></div>
+          </div>
+
+          <div class="actions-row">
             <button class="action-btn" onclick="copyPrompt()">⬡ Copy prompt</button>
-            <button class="action-btn" onclick="downloadAll()">↓ Download images</button>
+            <button class="action-btn" onclick="downloadAll()">↓ Download</button>
             <button class="action-btn primary" onclick="resetForm()">✦ New board</button>
           </div>
-        </div>
 
+        </div>
       </div>
+
     </div>
   </div>
 
-  <div class="how-section fade-up delay-2">
-    <div style="text-align:center;"><div class="hero-eyebrow">How it works</div></div>
+  <div class="how-section anim-3">
+    <div class="how-header">
+      <span class="r-label">How it works</span>
+    </div>
     <div class="how-grid">
       <div class="how-card">
         <div class="how-num">01</div>
         <div class="how-title">Paste your board URL</div>
-        <div class="how-desc">Any public Pinterest board becomes your style source.</div>
+        <div class="how-desc">Any public Pinterest board becomes your visual reference.</div>
       </div>
       <div class="how-card">
         <div class="how-num">02</div>
-        <div class="how-title">AI extracts the style</div>
-        <div class="how-desc">Claude Vision reads your actual pin images — real colors, mood, lighting, and composition.</div>
+        <div class="how-title">AI reads the pins</div>
+        <div class="how-desc">Claude Vision analyzes real pin images — actual colors, mood, and composition.</div>
       </div>
       <div class="how-card">
         <div class="how-num">03</div>
@@ -278,7 +607,7 @@
 
   <footer>
     <strong>PinStyle AI</strong> — Turn Pinterest boards into AI image style guides<br>
-    <span>Powered by Claude AI &middot; For creators, brands &amp; agencies &middot; <a href="/privacy" style="color:inherit;">Privacy Policy</a></span>
+    <span>Powered by Claude AI &middot; For creators, brands &amp; agencies &middot; <a href="/privacy">Privacy Policy</a></span>
   </footer>
 
 </div>
@@ -286,7 +615,7 @@
 let state = { intensity: 'balanced', format: 'square', generatedPrompt: '', imageUrls: [] };
 
 function selectChip(el, group) {
-  el.closest('.options-row').querySelectorAll('.option-chip').forEach(c => c.classList.remove('active'));
+  el.closest('.chips-row').querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
   el.classList.add('active');
   state[group] = el.dataset.val;
 }
@@ -302,17 +631,19 @@ const STEPS = [
 function setStep(idx) {
   document.getElementById('loadingSteps').innerHTML = STEPS.map((s, i) => {
     const cls = i < idx ? 'done' : i === idx ? 'active' : '';
-    const icon = i < idx ? '✓' : i + 1;
-    return `<div class="loading-step ${cls}"><div class="step-icon">${icon}</div><span>${s}</span></div>`;
+    return `<div class="loading-step ${cls}"><div class="step-dot"></div><span>${s}</span></div>`;
   }).join('');
 }
 
-function showError(msg) { const b = document.getElementById('errorBox'); b.textContent = msg; b.classList.add('show'); }
+function showError(msg) {
+  const b = document.getElementById('errorBox');
+  b.textContent = msg; b.classList.add('show');
+}
 function hideError() { document.getElementById('errorBox').classList.remove('show'); }
 
 async function runGeneration() {
   hideError();
-  const url = document.getElementById('boardUrl').value.trim();
+  const url     = document.getElementById('boardUrl').value.trim();
   const subject = document.getElementById('subjectInput').value.trim();
 
   if (!url || !url.includes('pinterest')) {
@@ -322,27 +653,24 @@ async function runGeneration() {
     showError('Please describe what you want to create — e.g. "a product photo for a skincare brand"'); return;
   }
 
-  document.getElementById('generateBtn').disabled = true;
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="btn-spark" style="opacity:0.6">⋯</span><span>Generating…</span>';
+
   document.getElementById('results').classList.remove('show');
   document.getElementById('loadingBar').classList.add('show');
   setStep(0);
 
-  // Animate through steps while waiting
-  let stepInterval = 1;
+  let stepIdx = 1;
   const stepTimer = setInterval(() => {
-    if (stepInterval < 3) { setStep(stepInterval); stepInterval++; }
+    if (stepIdx < 3) { setStep(stepIdx); stepIdx++; }
   }, 4000);
 
   try {
     const response = await fetch('/api/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        boardUrl: url,
-        subject,
-        intensity: state.intensity,
-        format: state.format
-      })
+      body: JSON.stringify({ boardUrl: url, subject, intensity: state.intensity, format: state.format })
     });
 
     clearInterval(stepTimer);
@@ -360,22 +688,19 @@ async function runGeneration() {
     renderPalette(data.style.colors);
     renderMoodTags([...(data.style.mood || []), ...(data.style.styleKeywords || [])]);
 
-    // Show how many real pins were analyzed
-    const pinsBadge = document.getElementById('pinsBadge');
+    const badge = document.getElementById('pinsBadge');
     if (data.scrapedPins > 0) {
-      pinsBadge.textContent = `✦ Analyzed ${data.scrapedPins} real pin${data.scrapedPins !== 1 ? 's' : ''} from your board`;
-      pinsBadge.style.display = 'block';
+      badge.textContent = `✦ Analyzed ${data.scrapedPins} real pin${data.scrapedPins !== 1 ? 's' : ''} from your board`;
+      badge.className = 'pins-badge';
+      badge.style.display = 'block';
     } else {
-      pinsBadge.textContent = 'Style inferred from board name — make sure the board is public for visual analysis';
-      pinsBadge.style.display = 'block';
-      pinsBadge.style.background = 'var(--red-soft)';
-      pinsBadge.style.color = 'var(--red)';
-      pinsBadge.style.borderColor = '#FECACA';
+      badge.textContent = 'Style inferred from board name — make sure the board is public for visual analysis';
+      badge.className = 'pins-badge warn';
+      badge.style.display = 'block';
     }
 
     document.getElementById('results').classList.add('show');
 
-    // Show image placeholders
     const grid = document.getElementById('imageGrid');
     grid.innerHTML = '';
     state.imageUrls = data.images || [];
@@ -383,35 +708,39 @@ async function runGeneration() {
     data.images.forEach((imgUrl, i) => {
       const card = document.createElement('div');
       card.className = 'image-card';
-      card.innerHTML = `<div class="image-spinner" id="sp-${i}"><div class="spinner-ring"></div><div class="spinner-label">Loading…</div></div><img id="im-${i}" alt="Generated image ${i+1}" />`;
+      card.innerHTML = `<div class="img-spinner" id="sp-${i}"><div class="spin-ring"></div><div class="spin-label">Rendering…</div></div><img id="im-${i}" alt="Generated image ${i+1}" />`;
       grid.appendChild(card);
 
       const img = document.getElementById(`im-${i}`);
       img.src = imgUrl;
-      img.onload = () => { img.classList.add('loaded'); document.getElementById(`sp-${i}`).classList.add('hidden'); };
-      img.onerror = () => { document.getElementById(`sp-${i}`).innerHTML = '<div style="font-size:11px;color:var(--ink-muted);padding:1rem;text-align:center;">Image could not load — copy the prompt above and use it in DALL-E or Midjourney</div>'; };
+      img.onload  = () => { img.classList.add('loaded'); document.getElementById(`sp-${i}`).classList.add('hidden'); };
+      img.onerror = () => { document.getElementById(`sp-${i}`).innerHTML = '<div style="font-size:11px;color:var(--text-subtle);padding:1rem;text-align:center;">Image unavailable — copy the prompt above and use it in DALL-E or Midjourney</div>'; };
     });
 
     setStep(4);
-    setTimeout(() => { document.getElementById('loadingBar').classList.remove('show'); }, 600);
-    document.getElementById('generateBtn').disabled = false;
+    setTimeout(() => { document.getElementById('loadingBar').classList.remove('show'); }, 700);
 
   } catch(err) {
     clearInterval(stepTimer);
     document.getElementById('loadingBar').classList.remove('show');
-    document.getElementById('generateBtn').disabled = false;
     showError(err.message || 'Something went wrong — please try again.');
+  } finally {
+    const btn = document.getElementById('generateBtn');
+    btn.disabled = false;
+    btn.innerHTML = '<span class="btn-spark">✦</span><span>Analyze Board &amp; Generate Images</span>';
   }
 }
 
 function renderPalette(colors) {
   document.getElementById('paletteRow').innerHTML = (colors || []).map(hex =>
-    `<div class="palette-chip"><div class="palette-swatch" style="background:${hex}"></div><span class="palette-hex">${hex}</span></div>`
+    `<div class="swatch"><div class="swatch-color" style="background:${hex}"></div><span class="swatch-hex">${hex}</span></div>`
   ).join('');
 }
 
 function renderMoodTags(tags) {
-  document.getElementById('moodTags').innerHTML = (tags || []).map(t => `<span class="mood-tag">${t}</span>`).join('');
+  document.getElementById('moodTags').innerHTML = (tags || []).map(t =>
+    `<span class="tag">${t}</span>`
+  ).join('');
 }
 
 function copyPrompt() {
@@ -424,7 +753,8 @@ function copyPrompt() {
 
 function downloadAll() {
   state.imageUrls.forEach((url, i) => {
-    const a = document.createElement('a'); a.href = url; a.download = `pinstyle-${i+1}.jpg`; a.target = '_blank'; a.click();
+    const a = document.createElement('a');
+    a.href = url; a.download = `pinstyle-${i+1}.jpg`; a.target = '_blank'; a.click();
   });
 }
 
@@ -434,10 +764,7 @@ function resetForm() {
   document.getElementById('results').classList.remove('show');
   document.getElementById('loadingBar').classList.remove('show');
   const badge = document.getElementById('pinsBadge');
-  badge.style.display = 'none';
-  badge.style.background = '';
-  badge.style.color = '';
-  badge.style.borderColor = '';
+  badge.style.display = 'none'; badge.className = 'pins-badge';
   hideError();
   state.generatedPrompt = ''; state.imageUrls = [];
 }
