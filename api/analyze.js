@@ -64,10 +64,11 @@ module.exports = async function handler(req, res) {
         },
         body: JSON.stringify({
           input: {
-            redux_image: styleImage,
             prompt: prompt,
-            num_inference_steps: 28,
-            guidance: 3.5,
+            image: styleImage,
+            prompt_strength: 0.85,
+            num_inference_steps: 35,
+            guidance_scale: 7.5,
             megapixels: "1",
             output_format: "webp",
           }
