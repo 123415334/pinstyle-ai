@@ -299,7 +299,13 @@ function renderResults(data) {
       <div class="result-block">
         <h3>Generated Images</h3>
         <div class="gen-images">
-          ${images.map(url => `<img src="${escAttr(url)}" alt="Generated image" loading="lazy">`).join('')}
+          ${images.map((url, i) => `
+            <div class="gen-img-wrap">
+              <img src="${escAttr(url)}" alt="Generated image" loading="lazy">
+              <a class="download-btn" href="${escAttr(url)}" download="pinstyle-${i+1}.png" target="_blank">
+                ↓ Download
+              </a>
+            </div>`).join('')}
         </div>
       </div>`;
   }
