@@ -252,7 +252,11 @@ async function generate() {
       throw new Error(err.error || `API returned ${resp.status}`);
     }
 
-    renderResults(await resp.json());
+    const data = await resp.json();
+    renderResults(data);
+    if (data.images && data.images.length > 0) {
+      await saveToHistory(subject, data.images, data.prompt || subject);
+    }
 
   } catch (err) {
     resultsEl.innerHTML = `<p class="error-msg">⚠ ${err.message}</p>`;
@@ -349,3 +353,76 @@ function escHtml(str) {
 function escAttr(str) {
   return str.replace(/"/g, '&quot;');
 }
+
+// ── History Archive ───────────────────────────────────────────────────────────
+const HISTORY_KEY = 'pinstyle_history';
+const MAX_HISTORY = 50;
+
+async function saveToHistory(subject, images, prompt) {
+  const entry = {
+    id: Date.now(),
+    subject,
+    prompt,
+    images,
+    date: new Date().toLocaleDateString(),
+  };
+  const result = await chrome.storage.local.get(HISTORY_KEY);
+  const history = result[HISTORY_KEY] || [];
+  history.unshift(entry);
+  if (history.length > MAX_HISTORY) history.pop();
+  await chrome.storage.local.set({ [HISTORY_KEY]: history });
+}
+
+async function loadHistory() {
+  const result = await chrome.storage.local.get(HISTORY_KEY);
+  return result[HISTORY_KEY] || [];
+}
+
+async function renderHistory() {
+  const history = await loadHistory();
+  const listEl = document.getElementById('history-list');
+
+  if (history.length === 0) {
+    listEl.innerHTML = '<p class="history-empty">No generations yet.<br>Your images will appear here.</p>';
+    return;
+  }
+
+  listEl.innerHTML = history.map(entry => `
+    <div class="history-entry" data-id="${entry.id}">
+      <div class="history-thumbs">
+        ${entry.images.map(url => `<img src="${escAttr(url)}" alt="">`).join('')}
+      </div>
+      <div class="history-meta">
+        <span class="history-subject">${escHtml(entry.subject)}</span>
+        <span class="history-date">${entry.date}</span>
+      </div>
+    </div>
+  `).join('');
+
+  // Click entry to restore results
+  listEl.querySelectorAll('.history-entry').forEach(el => {
+    el.addEventListener('click', () => {
+      const entry = history.find(h => h.id === parseInt(el.dataset.id));
+      if (!entry) return;
+      document.getElementById('history-panel').classList.add('hidden');
+      renderResults({ images: entry.images, prompt: entry.prompt });
+      resultsEl.scrollIntoView({ behavior: 'smooth' });
+    });
+  });
+}
+
+// Hook up history button
+document.addEventListener('DOMContentLoaded', () => {
+  const historyBtn = document.getElementById('history-btn');
+  const historyPanel = document.getElementById('history-panel');
+  const historyClose = document.getElementById('history-close');
+
+  historyBtn.addEventListener('click', () => {
+    historyPanel.classList.toggle('hidden');
+    if (!historyPanel.classList.contains('hidden')) renderHistory();
+  });
+
+  historyClose.addEventListener('click', () => {
+    historyPanel.classList.add('hidden');
+  });
+});
