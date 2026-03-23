@@ -1,5 +1,5 @@
-// Open the side panel automatically when the toolbar icon is clicked.
-// setPanelBehavior is the recommended MV3 approach — no onClicked listener needed.
-chrome.sidePanel
-  .setPanelBehavior({ openPanelOnActionClick: true })
-  .catch(console.error);
+// Explicitly open the side panel when the toolbar icon is clicked.
+// More reliable than setPanelBehavior across Chrome and Arc versions.
+chrome.action.onClicked.addListener((tab) => {
+  chrome.sidePanel.open({ windowId: tab.windowId });
+});
