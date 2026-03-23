@@ -1,5 +1,3 @@
-
-
 async function fetchImageAsBase64(url) {
   try {
     const controller = new AbortController();
@@ -45,16 +43,12 @@ module.exports = async function handler(req, res) {
   if (!Array.isArray(imageUrls) || imageUrls.length === 0) return res.status(400).json({ error: "Missing imageUrls" });
 
   try {
-    // Download reference images as base64
     const downloaded = await Promise.all(imageUrls.slice(0, 3).map(fetchImageAsBase64));
     const validImages = downloaded.filter(Boolean);
-    console.log(`[analyze] Got ${validImages.length} reference images`);
     if (validImages.length === 0) return res.status(400).json({ error: "Could not load reference images" });
 
-    // Use first image as style reference for Flux Redux
     const styleImage = validImages[0];
 
-    // Start two predictions in parallel
     const startPrediction = async (prompt) => {
       const resp = await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-redux-dev/predictions", {
         method: "POST",
@@ -64,18 +58,17 @@ module.exports = async function handler(req, res) {
         },
         body: JSON.stringify({
           input: {
+            redux_image: styleImage,
             prompt: prompt,
-            image: styleImage,
-            prompt_strength: 0.85,
-            num_inference_steps: 35,
-            guidance_scale: 7.5,
+            num_inference_steps: 28,
+            guidance: 3.5,
             megapixels: "1",
             output_format: "webp",
           }
         }),
       });
       const data = await resp.json();
-      if (!resp.ok) throw new Error(data.detail || "Failed to start prediction");
+      if (!resp.ok) throw new Error(data.detail || JSON.stringify(data) || "Failed to start prediction");
       return data.id;
     };
 
