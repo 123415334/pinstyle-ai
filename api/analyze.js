@@ -64,7 +64,7 @@ Use these reference images to match the exact visual style — lighting, color g
 
     // Generate 2 variations in parallel
     const [resp1, resp2] = await Promise.all([
-      fetch("https://api.openai.com/v1/chat/completions", {
+      fetch("https://api.openai.com/v1/images/generations", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -72,7 +72,7 @@ Use these reference images to match the exact visual style — lighting, color g
         },
         body: JSON.stringify({
           model: "gpt-image-1",
-          messages,
+          prompt: `${subject} — match the exact visual style, lighting, color grading, mood and aesthetic of the reference images`,
           n: 1,
           size: "1024x1024",
           quality: "high",
