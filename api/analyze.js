@@ -79,15 +79,10 @@ module.exports = async function handler(req, res) {
       return data.id;
     };
 
-    const [id1, id2] = await Promise.all([
-      startPrediction(subject),
-      startPrediction(`${subject}, slightly different angle`),
-    ]);
-
-    const [output1, output2] = await Promise.all([
-      waitForResult(id1),
-      waitForResult(id2),
-    ]);
+    const id1 = await startPrediction(subject);
+    const output1 = await waitForResult(id1);
+    const id2 = await startPrediction(`${subject}, slightly different angle`);
+    const output2 = await waitForResult(id2);
 
     const images = [
       Array.isArray(output1) ? output1[0] : output1,
