@@ -1,4 +1,4 @@
-const fetch = require("node-fetch");
+
 
 async function fetchImageAsBase64(url) {
   try {
