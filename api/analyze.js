@@ -234,11 +234,13 @@ async function fetchImageAsBase64(url) {
     const controller = new AbortController();
     const abortTimer = setTimeout(() => controller.abort(), 6000);
 
+    // Use a Pinterest referer for pinimg.com URLs, generic headers otherwise
+    const isPinterest = url.includes('pinimg.com') || url.includes('pinterest.com');
     const resp = await fetch(url, {
       signal: controller.signal,
       headers: {
-        'Referer': 'https://www.pinterest.com/',
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        ...(isPinterest ? { 'Referer': 'https://www.pinterest.com/' } : {}),
       },
     });
     clearTimeout(abortTimer);
@@ -263,10 +265,16 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { boardUrl, subject, intensity, format } = req.body;
+  const { boardUrl, imageUrls, subject, intensity, format, pageUrl } = req.body;
 
-  if (!boardUrl || !subject) {
-    return res.status(400).json({ error: 'Missing boardUrl or subject' });
+  // Accept either a Pinterest boardUrl (web app) or direct imageUrls (extension)
+  const useDirectImages = Array.isArray(imageUrls) && imageUrls.length > 0;
+
+  if (!subject) {
+    return res.status(400).json({ error: 'Missing subject' });
+  }
+  if (!useDirectImages && !boardUrl) {
+    return res.status(400).json({ error: 'Missing boardUrl or imageUrls' });
   }
 
   function parseBoardContext(url) {
@@ -277,8 +285,19 @@ module.exports = async function handler(req, res) {
     return { username: 'user', board: 'inspiration board' };
   }
 
-  const { username, board } = parseBoardContext(boardUrl);
-  const boardCtx = `Pinterest board "${board}" curated by @${username}`;
+  let boardCtx;
+  if (useDirectImages) {
+    // Build context from the page URL the extension is viewing
+    try {
+      const origin = pageUrl ? new URL(pageUrl).hostname.replace(/^www\./, '') : 'the web';
+      boardCtx = `${imageUrls.length} selected image${imageUrls.length !== 1 ? 's' : ''} from ${origin}`;
+    } catch {
+      boardCtx = `${imageUrls.length} selected image${imageUrls.length !== 1 ? 's' : ''}`;
+    }
+  } else {
+    const { username, board } = parseBoardContext(boardUrl);
+    boardCtx = `Pinterest board "${board}" curated by @${username}`;
+  }
 
   const intensityMap = {
     subtle: 'subtly inspired by',
@@ -292,10 +311,17 @@ module.exports = async function handler(req, res) {
   };
 
   try {
-    // ── Step 0: Scrape real pin images from the Pinterest board ──────────────
-    console.log(`[analyze] Scraping board: ${boardUrl}`);
-    const pinImageUrls = await scrapePinterestImages(boardUrl);
-    console.log(`[analyze] Scraper returned ${pinImageUrls.length} image URL(s)`);
+    // ── Step 0: Obtain pin images (scrape or use provided URLs) ─────────────
+    let pinImageUrls;
+    if (useDirectImages) {
+      // Extension mode — images were selected directly by the user
+      pinImageUrls = imageUrls.slice(0, 20);
+      console.log(`[analyze] Extension mode: using ${pinImageUrls.length} provided image URLs`);
+    } else {
+      console.log(`[analyze] Scraping board: ${boardUrl}`);
+      pinImageUrls = await scrapePinterestImages(boardUrl);
+      console.log(`[analyze] Scraper returned ${pinImageUrls.length} image URL(s)`);
+    }
 
     // Download images in parallel for Claude vision
     let visionImages = [];
@@ -306,7 +332,7 @@ module.exports = async function handler(req, res) {
     }
 
     const hasVision = visionImages.length > 0;
-    console.log(`[analyze] Mode: ${hasVision ? `VISION (${visionImages.length} real pin images)` : 'TEXT-ONLY FALLBACK'}`);
+    console.log(`[analyze] Mode: ${hasVision ? `VISION (${visionImages.length} images)` : 'TEXT-ONLY FALLBACK'}`);
 
     // ── Step 1: Extract style profile with Claude (vision if we have images) ─
     let styleUserContent;
@@ -474,7 +500,7 @@ Write one cohesive, detailed prompt (150-200 words). Be specific about lighting,
       style,
       prompt: imagePrompt,
       images: [imageUrl, imageUrl2].filter(Boolean),
-      scrapedPins: pinImageUrls.length,
+      scrapedPins: useDirectImages ? 0 : pinImageUrls.length,
     });
 
   } catch (err) {

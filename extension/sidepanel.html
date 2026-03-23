@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PinStyle AI</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+
+  <header>
+    <div class="logo-pin"></div>
+    <span class="logo-text">Pin<em>Style</em> AI</span>
+    <span class="header-badge">Beta</span>
+  </header>
+
+  <main>
+
+    <!-- ── IMAGE PICKER ──────────────────────────────────────── -->
+    <section>
+      <div class="scan-row">
+        <span class="section-label">Images on this page</span>
+        <button class="btn-scan" id="refresh-btn">↻ Rescan</button>
+      </div>
+      <div id="status"></div>
+      <div id="image-grid"></div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- ── SUBJECT INPUT ─────────────────────────────────────── -->
+    <section>
+      <label class="input-label" for="subject-input">
+        What do you want to <em>create?</em>
+      </label>
+      <textarea
+        id="subject-input"
+        placeholder="e.g. a cozy coffee shop interior, a woman in a linen dress, a minimalist product shot…"
+        rows="3"
+      ></textarea>
+    </section>
+
+    <!-- ── GENERATE ──────────────────────────────────────────── -->
+    <button id="generate-btn" disabled>
+      Generate Images
+    </button>
+
+    <!-- ── RESULTS ───────────────────────────────────────────── -->
+    <section id="results" class="hidden"></section>
+
+  </main>
+
+  <footer>
+    <a href="https://pinstyle-ai.vercel.app" target="_blank" rel="noopener">pinstyle-ai.vercel.app</a>
+  </footer>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>
