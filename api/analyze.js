@@ -466,11 +466,11 @@ Write a single prompt of 150-200 words. Be hyper-specific about photographic tec
           'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
         },
         body: JSON.stringify({
-          model: 'dall-e-3',
+          model: 'gpt-image-1',
           prompt: imagePrompt,
           n: 1,
           size: '1024x1024',
-          quality: 'standard',
+          quality: 'high',
         }),
       }),
       fetch('https://api.openai.com/v1/images/generations', {
@@ -480,11 +480,11 @@ Write a single prompt of 150-200 words. Be hyper-specific about photographic tec
           'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
         },
         body: JSON.stringify({
-          model: 'dall-e-3',
+          model: 'gpt-image-1',
           prompt: imagePrompt + ', slightly different angle, same aesthetic style and color palette',
           n: 1,
           size: '1024x1024',
-          quality: 'standard',
+          quality: 'high',
         }),
       }),
     ]);
