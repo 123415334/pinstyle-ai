@@ -1,6 +1,6 @@
 'use strict';
 
-const API_URL  = 'https://pinstyle-ai.vercel.app/api/analyze';
+const API_URL  = 'https://pinstyle.co/api/analyze';
 const MIN_SIZE = 200; // px — filter out nav icons / UI chrome
 
 const selectedUrls = new Set();

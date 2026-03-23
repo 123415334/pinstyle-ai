@@ -426,19 +426,26 @@ Be specific, evocative, and professional. Make color choices realistic and cohes
         system: 'You are a world-class AI image prompt engineer specializing in DALL-E and Midjourney. Write highly specific, detailed prompts that produce stunning professional results. Return only the prompt text — no quotes, no explanation.',
         messages: [{
           role: 'user',
-          content: `Write a detailed AI image generation prompt for:
-Subject: ${subject}
-Style reference: ${boardCtx}
-Color palette: ${(style.colors || []).join(', ')}
-Aesthetic: ${style.aesthetic}
-Composition: ${style.composition}
-Lighting: ${style.lighting}
-Style keywords: ${(style.styleKeywords || []).join(', ')}
-Mood: ${(style.mood || []).join(', ')}
-Style intensity: ${intensityMap[intensity] || intensityMap.balanced}
-Format: ${formatMap[format] || formatMap.square}
+          content: `Create a DALL-E 3 prompt that will generate an image of "${subject}" that looks like it belongs in this exact Pinterest board.
 
-Write one cohesive, detailed prompt (150-200 words). Be specific about lighting, color grading, texture, composition, and mood. End with: professional photography, highly detailed, 8k resolution.`,
+STYLE EXTRACTED FROM THE ACTUAL BOARD IMAGES:
+- Photography style: ${style.lighting}
+- Composition: ${style.composition}  
+- Color grading: ${(style.colors || []).join(', ')} — ${(style.colorNames || []).join(', ')}
+- Mood/atmosphere: ${(style.mood || []).join(', ')}
+- Aesthetic: ${style.aesthetic}
+- Visual keywords: ${(style.styleKeywords || []).join(', ')}
+
+RULES:
+1. The subject is "${subject}" — make this the clear focus
+2. Match the EXACT photographic/artistic style of the board, not just the colors
+3. If the board has film grain, add it. If flat lay, make it flat lay. If moody shadows, add them.
+4. Color grade to match — desaturated, warm, cool, high contrast, muted, etc.
+5. Match the shooting distance and angle typical of these images
+6. ${intensityMap[intensity] || intensityMap.balanced} the board's visual style
+7. ${formatMap[format] || formatMap.square}
+
+Write a single prompt of 150-200 words. Be hyper-specific about photographic technique, color grading, grain, lighting direction, and atmosphere. The result must feel like it was pulled from this exact board.`,
         }],
       }),
     });
