@@ -495,12 +495,14 @@ Write a single prompt of 150-200 words. Be hyper-specific about photographic tec
     }
 
     const imageData = await imageResp.json();
-    const imageUrl = imageData.data[0].url;
+    const img1 = imageData.data[0];
+    const imageUrl = img1.url || (img1.b64_json ? `data:image/png;base64,${img1.b64_json}` : null);
 
     let imageUrl2 = null;
     if (imageResp2.ok) {
       const imageData2 = await imageResp2.json();
-      imageUrl2 = imageData2.data[0].url;
+      const img2 = imageData2.data[0];
+      imageUrl2 = img2.url || (img2.b64_json ? `data:image/png;base64,${img2.b64_json}` : null);
     }
 
     return res.status(200).json({
