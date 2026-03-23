@@ -1,4 +1,3 @@
-
 const fetch = require("node-fetch");
 
 async function fetchImageAsBase64(url) {
@@ -9,7 +8,7 @@ async function fetchImageAsBase64(url) {
     const resp = await fetch(url, {
       signal: controller.signal,
       headers: {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0",
         ...(isPinterest ? { "Referer": "https://www.pinterest.com/" } : {}),
       },
     });
@@ -17,8 +16,21 @@ async function fetchImageAsBase64(url) {
     if (!resp.ok) return null;
     const ct = (resp.headers.get("content-type") || "image/jpeg").split(";")[0].trim();
     const buf = await resp.arrayBuffer();
-    return { base64: Buffer.from(buf).toString("base64"), mediaType: ct };
+    return `data:${ct};base64,${Buffer.from(buf).toString("base64")}`;
   } catch (_) { return null; }
+}
+
+async function waitForResult(predictionId) {
+  for (let i = 0; i < 30; i++) {
+    await new Promise(r => setTimeout(r, 2000));
+    const resp = await fetch(`https://api.replicate.com/v1/predictions/${predictionId}`, {
+      headers: { "Authorization": `Token ${process.env.REPLICATE_API_KEY}` }
+    });
+    const data = await resp.json();
+    if (data.status === "succeeded") return data.output;
+    if (data.status === "failed") throw new Error(data.error || "Prediction failed");
+  }
+  throw new Error("Timed out waiting for image");
 }
 
 module.exports = async function handler(req, res) {
@@ -28,99 +40,60 @@ module.exports = async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { imageUrls, subject, pageUrl } = req.body;
-
+  const { imageUrls, subject } = req.body;
   if (!subject) return res.status(400).json({ error: "Missing subject" });
   if (!Array.isArray(imageUrls) || imageUrls.length === 0) return res.status(400).json({ error: "Missing imageUrls" });
 
   try {
-    // Download up to 4 reference images
-    const downloaded = await Promise.all(imageUrls.slice(0, 4).map(fetchImageAsBase64));
+    // Download reference images as base64
+    const downloaded = await Promise.all(imageUrls.slice(0, 3).map(fetchImageAsBase64));
     const validImages = downloaded.filter(Boolean);
-    console.log(`[analyze] Downloaded ${validImages.length}/${Math.min(imageUrls.length, 4)} reference images`);
+    console.log(`[analyze] Got ${validImages.length} reference images`);
+    if (validImages.length === 0) return res.status(400).json({ error: "Could not load reference images" });
 
-    if (validImages.length === 0) {
-      return res.status(400).json({ error: "Could not download any reference images" });
-    }
+    // Use first image as style reference for Flux Redux
+    const styleImage = validImages[0];
 
-    // Build gpt-image-1 request with image references + subject
-    const messages = [
-      {
-        role: "user",
-        content: [
-          {
-            type: "text",
-            text: `Generate a photorealistic image of: "${subject}"
-
-Use these reference images to match the exact visual style — lighting, color grading, mood, composition, texture, and aesthetic. The output should look like it belongs in the same collection as these reference images. Match the photography style precisely.`
-          },
-          ...validImages.map(img => ({
-            type: "image_url",
-            image_url: { url: `data:${img.mediaType};base64,${img.base64}` }
-          }))
-        ]
-      }
-    ];
-
-    // Generate 2 variations in parallel
-    const [resp1, resp2] = await Promise.all([
-      fetch("https://api.openai.com/v1/images/generations", {
+    // Start two predictions in parallel
+    const startPrediction = async (prompt) => {
+      const resp = await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-redux-dev/predictions", {
         method: "POST",
         headers: {
+          "Authorization": `Token ${process.env.REPLICATE_API_KEY}`,
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
         },
         body: JSON.stringify({
-          model: "gpt-image-1",
-          prompt: `${subject} — match the exact visual style, lighting, color grading, mood and aesthetic of the reference images`,
-          n: 1,
-          size: "1024x1024",
-          quality: "high",
+          input: {
+            redux_image: styleImage,
+            prompt: prompt,
+            num_inference_steps: 28,
+            guidance: 3.5,
+            megapixels: "1",
+            output_format: "webp",
+          }
         }),
-      }),
-      fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-image-1",
-          messages: [...messages.slice(0, -0), {
-            role: "user",
-            content: [{ type: "text", text: `Generate a second variation of: "${subject}" — same style, slightly different angle or composition.` },
-              ...validImages.map(img => ({ type: "image_url", image_url: { url: `data:${img.mediaType};base64,${img.base64}` } }))
-            ]
-          }],
-          n: 1,
-          size: "1024x1024",
-          quality: "high",
-        }),
-      }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.detail || "Failed to start prediction");
+      return data.id;
+    };
+
+    const [id1, id2] = await Promise.all([
+      startPrediction(subject),
+      startPrediction(`${subject}, slightly different angle`),
     ]);
 
-    const data1 = await resp1.json();
-    console.log("[analyze] gpt-image-1 response:", JSON.stringify(data1).slice(0, 300));
+    const [output1, output2] = await Promise.all([
+      waitForResult(id1),
+      waitForResult(id2),
+    ]);
 
-    if (!resp1.ok) {
-      return res.status(500).json({ error: data1.error?.message || "Image generation failed" });
-    }
+    const images = [
+      Array.isArray(output1) ? output1[0] : output1,
+      Array.isArray(output2) ? output2[0] : output2,
+    ].filter(Boolean);
 
-    // gpt-image-1 returns base64 in data[0].b64_json
-    const img1 = data1.data?.[0];
-    const imageUrl = img1?.url || (img1?.b64_json ? `data:image/png;base64,${img1.b64_json}` : null);
-
-    let imageUrl2 = null;
-    if (resp2.ok) {
-      const data2 = await resp2.json();
-      const img2 = data2.data?.[0];
-      imageUrl2 = img2?.url || (img2?.b64_json ? `data:image/png;base64,${img2.b64_json}` : null);
-    }
-
-    return res.status(200).json({
-      images: [imageUrl, imageUrl2].filter(Boolean),
-      prompt: `Style-matched generation of "${subject}" using ${validImages.length} reference images`,
-    });
+    return res.status(200).json({ images, prompt: subject });
 
   } catch (err) {
     console.error("API error:", err);
