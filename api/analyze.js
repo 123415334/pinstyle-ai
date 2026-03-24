@@ -1,41 +1,34 @@
-async function fetchImageBase64(url) {
+async function fetchImageAsBase64(url) {
   try {
     const controller = new AbortController();
-    setTimeout(() => controller.abort(), 8000);
+    const timer = setTimeout(() => controller.abort(), 6000);
     const isPinterest = url.includes("pinimg.com") || url.includes("pinterest.com");
     const resp = await fetch(url, {
       signal: controller.signal,
       headers: {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+        "User-Agent": "Mozilla/5.0",
         ...(isPinterest ? { "Referer": "https://www.pinterest.com/" } : {}),
       },
     });
+    clearTimeout(timer);
     if (!resp.ok) return null;
     const ct = (resp.headers.get("content-type") || "image/jpeg").split(";")[0].trim();
     const buf = await resp.arrayBuffer();
-    return { b64: Buffer.from(buf).toString("base64"), mediaType: ct, size: buf.byteLength };
+    return { base64: Buffer.from(buf).toString("base64"), mediaType: ct };
   } catch (_) { return null; }
 }
 
-function buildMultipart(imageBuffers, prompt) {
-  const boundary = "PSBound" + Date.now();
-  const parts = [];
-  imageBuffers.forEach((img, i) => {
-    parts.push(Buffer.from(
-      `--${boundary}\r\nContent-Disposition: form-data; name="image[]"; filename="ref${i}.jpg"\r\nContent-Type: ${img.mediaType}\r\n\r\n`
-    ));
-    parts.push(Buffer.from(img.b64, "base64"));
-    parts.push(Buffer.from("\r\n"));
-  });
-  parts.push(Buffer.from(
-    `--${boundary}\r\nContent-Disposition: form-data; name="prompt"\r\n\r\n${prompt}\r\n` +
-    `--${boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\ngpt-image-1\r\n` +
-    `--${boundary}\r\nContent-Disposition: form-data; name="n"\r\n\r\n1\r\n` +
-    `--${boundary}\r\nContent-Disposition: form-data; name="size"\r\n\r\n1024x1024\r\n` +
-    `--${boundary}\r\nContent-Disposition: form-data; name="quality"\r\n\r\nhigh\r\n` +
-    `--${boundary}--\r\n`
-  ));
-  return { body: Buffer.concat(parts), boundary };
+async function waitForResult(predictionId) {
+  for (let i = 0; i < 60; i++) {
+    await new Promise(r => setTimeout(r, 2000));
+    const resp = await fetch(`https://api.replicate.com/v1/predictions/${predictionId}`, {
+      headers: { "Authorization": `Bearer ${process.env.REPLICATE_API_KEY}` }
+    });
+    const data = await resp.json();
+    if (data.status === "succeeded") return data.output;
+    if (data.status === "failed") throw new Error(data.error || "Prediction failed");
+  }
+  throw new Error("Timed out waiting for image");
 }
 
 module.exports = async function handler(req, res) {
@@ -50,14 +43,23 @@ module.exports = async function handler(req, res) {
   if (!Array.isArray(imageUrls) || imageUrls.length === 0) return res.status(400).json({ error: "Missing imageUrls" });
 
   try {
-    // Fetch images server-side — no client size limit
-    const fetched = await Promise.all(imageUrls.slice(0, 3).map(fetchImageBase64));
-    const valid = fetched.filter(Boolean);
-    console.log(`[analyze] Fetched ${valid.length} images, sizes: ${valid.map(i => Math.round(i.size/1024) + "kb").join(", ")}`);
+    // Download reference images
+    const downloaded = await Promise.all(imageUrls.slice(0, 4).map(fetchImageAsBase64));
+    const validImages = downloaded.filter(Boolean);
+    if (validImages.length === 0) return res.status(400).json({ error: "Could not load reference images" });
 
-    if (valid.length === 0) return res.status(400).json({ error: "Could not load reference images" });
+    // Step 1: Claude Vision extracts style from ALL reference images
+    const claudeContent = [
+      {
+        type: "text",
+        text: `Analyze the visual style of these reference images. Be extremely specific about what you see — describe the exact rendering technique, lighting, color treatment, texture, mood, and aesthetic. Return ONLY a comma-separated list of precise style descriptors (no explanation, no JSON). Examples: "flat vector illustration, bold color blocking, grainy texture overlay, minimal shadows, geometric shapes, cream background" or "moody film photography, desaturated warm tones, shallow depth of field, grainy 35mm, natural window light". Be specific to what you actually see.`
+      },
+      ...validImages.map(img => ({
+        type: "image",
+        source: { type: "base64", media_type: img.mediaType, data: img.base64 }
+      }))
+    ];
 
-    // Step 1: Claude Vision writes a full DALL-E optimized prompt
     const claudeResp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -67,60 +69,144 @@ module.exports = async function handler(req, res) {
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
-        max_tokens: 400,
-        messages: [{
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: `You are an expert AI image prompt engineer. Analyze these reference images and write a single DALL-E generation prompt for: "${subject}"
-
-The prompt must make the output look like it belongs in the same visual collection as these references. Study the rendering style, lighting, colors, texture, composition, and mood.
-
-Write ONE prompt of 80-120 words starting with "${subject}". Be specific about visual style. End with the medium (e.g. "digital illustration" or "studio photography"). Return ONLY the prompt, nothing else.`
-            },
-            ...valid.slice(0, 2).map(img => ({
-              type: "image",
-              source: { type: "base64", media_type: img.mediaType, data: img.b64 }
-            }))
-          ]
-        }],
+        max_tokens: 300,
+        messages: [{ role: "user", content: claudeContent }],
       }),
     });
 
-    let imagePrompt = subject;
+    let styleDescriptors = "professional photography, natural lighting, high quality";
     if (claudeResp.ok) {
-      const d = await claudeResp.json();
-      imagePrompt = d.content?.[0]?.text?.trim() || subject;
+      const claudeData = await claudeResp.json();
+      styleDescriptors = claudeData.content?.[0]?.text?.trim() || styleDescriptors;
     }
-    console.log("[analyze] Prompt:", imagePrompt.slice(0, 100));
+    console
+cd ~/Downloads/pinstyle-ai && git add -A && git commit -m "switch to FLUX.1 Kontext for style-matched generation" && git push
+cat > ~/Downloads/pinstyle-ai/api/analyze.js << 'ENDOFFILE'
+async function waitForResult(predictionId) {
+  for (let i = 0; i < 60; i++) {
+    await new Promise(r => setTimeout(r, 2000));
+    const resp = await fetch(`https://api.replicate.com/v1/predictions/${predictionId}`, {
+      headers: { "Authorization": `Bearer ${process.env.REPLICATE_API_KEY}` }
+    });
+    const data = await resp.json();
+    if (data.status === "succeeded") return data.output;
+    if (data.status === "failed") throw new Error(data.error || "Prediction failed");
+  }
+  throw new Error("Timed out waiting for image");
+}
 
-    // Step 2: Use only the 2 smallest images for gpt-image-1 to stay under limits
-    const sorted = [...valid].sort((a, b) => a.size - b.size);
-    const forEdit = sorted.slice(0, 2);
-    console.log(`[analyze] Sending ${forEdit.length} images to gpt-image-1, total: ${Math.round(forEdit.reduce((s,i) => s+i.size, 0)/1024)}kb`);
+async function fetchImageAsBase64Small(url) {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6000);
+    const isPinterest = url.includes("pinimg.com") || url.includes("pinterest.com");
+    const resp = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        ...(isPinterest ? { "Referer": "https://www.pinterest.com/" } : {}),
+      },
+    });
+    clearTimeout(timer);
+    if (!resp.ok) return null;
+    const ct = (resp.headers.get("content-type") || "image/jpeg").split(";")[0].trim();
+    const buf = await resp.arrayBuffer();
+    // Only use if under 1MB to avoid quota issues
+    if (buf.byteLength > 1000000) return null;
+    return { base64: Buffer.from(buf).toString("base64"), mediaType: ct };
+  } catch (_) { return null; }
+}
 
-    const generateImage = async (prompt) => {
-      const { body, boundary } = buildMultipart(forEdit, prompt);
-      const resp = await fetch("https://api.openai.com/v1/images/edits", {
+module.exports = async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+
+  const { imageUrls, subject } = req.body;
+  if (!subject) return res.status(400).json({ error: "Missing subject" });
+  if (!Array.isArray(imageUrls) || imageUrls.length === 0) return res.status(400).json({ error: "Missing imageUrls" });
+
+  try {
+    // Step 1: Claude Vision — only download small images for analysis
+    const downloaded = await Promise.all(imageUrls.slice(0, 4).map(fetchImageAsBase64Small));
+    const validImages = downloaded.filter(Boolean);
+
+    let styleDescriptors = "professional photography, natural lighting, high quality";
+
+    if (validImages.length > 0) {
+      const claudeContent = [
+        {
+          type: "text",
+          text: `Analyze the visual style of these reference images. Return ONLY a comma-separated list of precise style descriptors — rendering technique, lighting, color treatment, texture, mood. No explanation. Examples: "flat vector illustration, bold color blocking, grainy texture, minimal shadows" or "moody film photography, desaturated warm tones, 35mm grain, natural light". Be specific to what you see.`
+        },
+        ...validImages.slice(0, 2).map(img => ({
+          type: "image",
+          source: { type: "base64", media_type: img.mediaType, data: img.base64 }
+        }))
+      ];
+
+      const claudeResp = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-          "Content-Type": `multipart/form-data; boundary=${boundary}`,
+          "Content-Type": "application/json",
+          "anthropic-version": "2023-06-01",
+          "x-api-key": process.env.ANTHROPIC_API_KEY,
         },
-        body,
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 200,
+          messages: [{ role: "user", content: claudeContent }],
+        }),
+      });
+
+      if (claudeResp.ok) {
+        const claudeData = await claudeResp.json();
+        styleDescriptors = claudeData.content?.[0]?.text?.trim() || styleDescriptors;
+      }
+    }
+
+    console.log(`[analyze] Style: ${styleDescriptors}`);
+
+    // Step 2: Pass image URL directly to Kontext — no base64 needed
+    const referenceImageUrl = imageUrls[0];
+    const fullPrompt = `${subject}, ${styleDescriptors}`;
+    console.log(`[analyze] Prompt: ${fullPrompt}`);
+
+    const startPrediction = async (prompt) => {
+      const resp = await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-kontext-dev/predictions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.REPLICATE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          input: {
+            prompt,
+            input_image: referenceImageUrl,
+            aspect_ratio: "1:1",
+            output_format: "webp",
+            safety_tolerance: 2,
+          }
+        }),
       });
       const data = await resp.json();
-      if (!resp.ok) throw new Error(data.error?.message || JSON.stringify(data));
-      const img = data.data?.[0];
-      return img?.url || (img?.b64_json ? `data:image/png;base64,${img.b64_json}` : null);
+      if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
+      return data.id;
     };
 
-    const image1 = await generateImage(imagePrompt);
-    const image2 = await generateImage(imagePrompt + " Slightly different angle.");
-    const images = [image1, image2].filter(Boolean);
+    const id1 = await startPrediction(fullPrompt);
+    const output1 = await waitForResult(id1);
+    const id2 = await startPrediction(`${fullPrompt}, slightly different angle or composition`);
+    const output2 = await waitForResult(id2);
 
-    return res.status(200).json({ images, prompt: imagePrompt });
+    const images = [
+      Array.isArray(output1) ? output1[0] : output1,
+      Array.isArray(output2) ? output2[0] : output2,
+    ].filter(Boolean);
+
+    return res.status(200).json({ images, prompt: fullPrompt, styleDescriptors });
 
   } catch (err) {
     console.error("API error:", err);
