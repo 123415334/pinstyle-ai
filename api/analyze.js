@@ -80,10 +80,7 @@ module.exports = async function handler(req, res) {
 
     const id1 = await startPrediction(fullPrompt);
     const output1 = await waitForResult(id1);
-    const id2 = await startPrediction(fullPrompt + ", slightly different composition");
-    const output2 = await waitForResult(id2);
-
-    const images = [Array.isArray(output1) ? output1[0] : output1, Array.isArray(output2) ? output2[0] : output2].filter(Boolean);
+    const images = [Array.isArray(output1) ? output1[0] : output1].filter(Boolean);
     return res.status(200).json({ images, prompt: fullPrompt, styleDescriptors });
 
   } catch (err) {
