@@ -64,7 +64,7 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    const fullPrompt = subject + ". " + subject + ". Style: " + styleDescriptors + ". Important: the main subject is " + subject + ".";
+    const fullPrompt = subject + ", " + styleDescriptors;
     console.log("[analyze] Prompt:", fullPrompt);
 
     const startPrediction = async (prompt) => {
