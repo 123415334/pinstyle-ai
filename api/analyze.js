@@ -1,31 +1,30 @@
-async function fetchImageBuffer(url) {
+async function fetchImageBase64(url) {
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 6000);
+    setTimeout(() => controller.abort(), 8000);
     const isPinterest = url.includes("pinimg.com") || url.includes("pinterest.com");
     const resp = await fetch(url, {
       signal: controller.signal,
       headers: {
-        "User-Agent": "Mozilla/5.0",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
         ...(isPinterest ? { "Referer": "https://www.pinterest.com/" } : {}),
       },
     });
-    clearTimeout(timer);
     if (!resp.ok) return null;
+    const ct = (resp.headers.get("content-type") || "image/jpeg").split(";")[0].trim();
     const buf = await resp.arrayBuffer();
-    if (buf.byteLength > 800000) return null;
-    return { buffer: Buffer.from(buf), mediaType: (resp.headers.get("content-type") || "image/jpeg").split(";")[0].trim() };
+    return { b64: Buffer.from(buf).toString("base64"), mediaType: ct, size: buf.byteLength };
   } catch (_) { return null; }
 }
 
-function buildMultipart(buffers, prompt) {
-  const boundary = "----PSBoundary" + Math.random().toString(36).slice(2);
+function buildMultipart(imageBuffers, prompt) {
+  const boundary = "PSBound" + Date.now();
   const parts = [];
-  buffers.forEach((img, i) => {
+  imageBuffers.forEach((img, i) => {
     parts.push(Buffer.from(
       `--${boundary}\r\nContent-Disposition: form-data; name="image[]"; filename="ref${i}.jpg"\r\nContent-Type: ${img.mediaType}\r\n\r\n`
     ));
-    parts.push(img.buffer);
+    parts.push(Buffer.from(img.b64, "base64"));
     parts.push(Buffer.from("\r\n"));
   });
   parts.push(Buffer.from(
@@ -51,44 +50,14 @@ module.exports = async function handler(req, res) {
   if (!Array.isArray(imageUrls) || imageUrls.length === 0) return res.status(400).json({ error: "Missing imageUrls" });
 
   try {
-    // Download reference images
-    const downloaded = await Promise.all(imageUrls.slice(0, 2).map(fetchImageBuffer));
-    const validImages = downloaded.filter(Boolean);
-    if (validImages.length === 0) return res.status(400).json({ error: "Could not load reference images" });
+    // Fetch images server-side — no client size limit
+    const fetched = await Promise.all(imageUrls.slice(0, 3).map(fetchImageBase64));
+    const valid = fetched.filter(Boolean);
+    console.log(`[analyze] Fetched ${valid.length} images, sizes: ${valid.map(i => Math.round(i.size/1024) + "kb").join(", ")}`);
 
-    // Step 1: Claude Vision analyzes ALL references and writes a DALL-E optimized style prompt
-    const claudeContent = [
-      {
-        type: "text",
-        text: `You are an expert AI image prompt engineer. Analyze these ${validImages.length} reference images carefully.
+    if (valid.length === 0) return res.status(400).json({ error: "Could not load reference images" });
 
-Your job: write a single DALL-E image generation prompt that will produce an image of "${subject}" in the EXACT visual style of these references.
-
-Study the references for:
-- Rendering style (photo, illustration, 3D render, flat design, etc)
-- Lighting (studio, natural, dramatic, flat, moody, etc)
-- Color palette and grading (saturated, muted, warm, cool, specific hues)
-- Texture and finish (glossy, matte, grainy, smooth, etc)
-- Composition style (centered, diagonal, floating, etc)
-- Background treatment (solid color, gradient, contextual, etc)
-- Overall mood and aesthetic
-
-Write ONE complete prompt (100-150 words) for: "${subject}"
-
-The prompt must:
-1. Start with the subject: "${subject}"
-2. Include specific visual style details from the references
-3. Mention lighting, color, texture, composition
-4. End with the rendering quality (e.g. "professional photography" or "digital illustration")
-
-Return ONLY the prompt text. No explanation, no preamble.`
-      },
-      ...validImages.slice(0, 3).map(img => ({
-        type: "image",
-        source: { type: "base64", media_type: img.mediaType, data: img.buffer.toString("base64") }
-      }))
-    ];
-
+    // Step 1: Claude Vision writes a full DALL-E optimized prompt
     const claudeResp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -99,20 +68,40 @@ Return ONLY the prompt text. No explanation, no preamble.`
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
         max_tokens: 400,
-        messages: [{ role: "user", content: claudeContent }],
+        messages: [{
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `You are an expert AI image prompt engineer. Analyze these reference images and write a single DALL-E generation prompt for: "${subject}"
+
+The prompt must make the output look like it belongs in the same visual collection as these references. Study the rendering style, lighting, colors, texture, composition, and mood.
+
+Write ONE prompt of 80-120 words starting with "${subject}". Be specific about visual style. End with the medium (e.g. "digital illustration" or "studio photography"). Return ONLY the prompt, nothing else.`
+            },
+            ...valid.slice(0, 2).map(img => ({
+              type: "image",
+              source: { type: "base64", media_type: img.mediaType, data: img.b64 }
+            }))
+          ]
+        }],
       }),
     });
 
     let imagePrompt = subject;
     if (claudeResp.ok) {
-      const claudeData = await claudeResp.json();
-      imagePrompt = claudeData.content?.[0]?.text?.trim() || subject;
+      const d = await claudeResp.json();
+      imagePrompt = d.content?.[0]?.text?.trim() || subject;
     }
-    console.log("[analyze] Image prompt:", imagePrompt);
+    console.log("[analyze] Prompt:", imagePrompt.slice(0, 100));
 
-    // Step 2: Generate with gpt-image-1 /edits — real images as visual reference
+    // Step 2: Use only the 2 smallest images for gpt-image-1 to stay under limits
+    const sorted = [...valid].sort((a, b) => a.size - b.size);
+    const forEdit = sorted.slice(0, 2);
+    console.log(`[analyze] Sending ${forEdit.length} images to gpt-image-1, total: ${Math.round(forEdit.reduce((s,i) => s+i.size, 0)/1024)}kb`);
+
     const generateImage = async (prompt) => {
-      const { body, boundary } = buildMultipart(validImages, prompt);
+      const { body, boundary } = buildMultipart(forEdit, prompt);
       const resp = await fetch("https://api.openai.com/v1/images/edits", {
         method: "POST",
         headers: {
@@ -128,9 +117,9 @@ Return ONLY the prompt text. No explanation, no preamble.`
     };
 
     const image1 = await generateImage(imagePrompt);
-    const image2 = await generateImage(imagePrompt + " Alternative composition, same style.");
-
+    const image2 = await generateImage(imagePrompt + " Slightly different angle.");
     const images = [image1, image2].filter(Boolean);
+
     return res.status(200).json({ images, prompt: imagePrompt });
 
   } catch (err) {
