@@ -52,7 +52,7 @@ module.exports = async function handler(req, res) {
 
   try {
     // Download reference images
-    const downloaded = await Promise.all(imageUrls.slice(0, 4).map(fetchImageBuffer));
+    const downloaded = await Promise.all(imageUrls.slice(0, 2).map(fetchImageBuffer));
     const validImages = downloaded.filter(Boolean);
     if (validImages.length === 0) return res.status(400).json({ error: "Could not load reference images" });
 
