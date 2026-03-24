@@ -405,8 +405,10 @@ async function renderHistory() {
       const entry = history.find(h => h.id === parseInt(el.dataset.id));
       if (!entry) return;
       document.getElementById('history-panel').classList.add('hidden');
+      resultsEl.className = '';
+      resultsEl.style.display = 'block';
       renderResults({ images: entry.images, prompt: entry.prompt });
-      resultsEl.scrollIntoView({ behavior: 'smooth' });
+      setTimeout(() => resultsEl.scrollIntoView({ behavior: 'smooth' }), 100);
     });
   });
 }
