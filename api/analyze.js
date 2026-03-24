@@ -64,7 +64,7 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    const fullPrompt = "Create a completely new image of: " + subject + ". Visual style only from reference: " + styleDescriptors + ". The subject must be " + subject + ", not anything from the reference image.";
+    const fullPrompt = subject + ". " + subject + ". Style: " + styleDescriptors + ". Important: the main subject is " + subject + ".";
     console.log("[analyze] Prompt:", fullPrompt);
 
     const startPrediction = async (prompt) => {
