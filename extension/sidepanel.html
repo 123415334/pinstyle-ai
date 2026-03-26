@@ -20,10 +20,13 @@
 
     <!-- ── IMAGE PICKER ──────────────────────────────────────── -->
     <section>
-      <div class="scan-row" style="justify-content:flex-end;">
+      <div class="scan-row">
+        <div>
+          <div id="status"></div>
+          <div id="scan-hint-inline" style="font-size:11px;color:var(--ink-muted);margin-top:2px;"></div>
+        </div>
         <button class="btn-scan" id="refresh-btn">↻ Rescan</button>
       </div>
-      <div id="status"></div>
       <div id="image-grid"></div>
     </section>
 

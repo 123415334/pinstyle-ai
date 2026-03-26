@@ -31,14 +31,14 @@ body {
 header {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  padding: 20px 18px 16px;
+  align-items: center;
+  padding: 16px 18px 14px;
   border-bottom: 1px solid var(--border);
   background: var(--bg);
   position: sticky;
   top: 0;
   z-index: 10;
-  gap: 4px;
+  gap: 0;
 }
 
 .header-top {
@@ -46,6 +46,7 @@ header {
   align-items: center;
   justify-content: space-between;
   width: 100%;
+  margin-bottom: 2px;
 }
 
 .logo-lockup {
@@ -94,14 +95,16 @@ header {
 }
 
 .header-tagline {
-  font-size: 15px;
+  font-size: 28px;
   font-family: "Cormorant Garamond", Georgia, serif;
   font-style: italic;
-  color: var(--ink-muted);
-  padding-left: 0;
+  font-weight: 300;
+  color: var(--ink);
+  padding: 12px 0 4px;
   text-align: center;
   width: 100%;
-  letter-spacing: 0.01em;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
 }
 
 /* ── MAIN CONTENT ───────────────────────────────────────────────────────── */
@@ -120,9 +123,10 @@ main { padding: 16px; display: flex; flex-direction: column; gap: 18px; }
 /* ── SCAN BUTTON ────────────────────────────────────────────────────────── */
 .scan-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
+  gap: 8px;
 }
 .btn-scan {
   font-family: "DM Sans", sans-serif;
@@ -141,9 +145,9 @@ main { padding: 16px; display: flex; flex-direction: column; gap: 18px; }
 /* ── STATUS TEXT ────────────────────────────────────────────────────────── */
 #status {
   font-size: 12px;
-  color: var(--ink-muted);
+  color: var(--ink);
   min-height: 16px;
-  text-align: center;
+  text-align: left;
 }
 
 /* ── IMAGE GRID ─────────────────────────────────────────────────────────── */
