@@ -109,7 +109,7 @@ Rules:
     const id1 = await startPrediction(fullPrompt);
     const output1 = await waitForResult(id1);
     await new Promise(r => setTimeout(r, 12000));
-    const id2 = await startPrediction(fullPrompt + ", slightly different composition");
+    const id2 = await startPrediction(fullPrompt + ". Focus specifically on: " + subject + ". Different angle and composition than the first image.");
     const output2 = await waitForResult(id2);
 
     const images = [
