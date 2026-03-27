@@ -43,11 +43,12 @@ module.exports = async function handler(req, res) {
   if (!Array.isArray(imageUrls) || imageUrls.length === 0) return res.status(400).json({ error: "Missing imageUrls" });
 
   try {
-    const downloaded = await Promise.all(imageUrls.slice(0, 2).map(fetchImageAsBase64));
+    const downloaded = await Promise.all(imageUrls.slice(0, 4).map(fetchImageAsBase64));
     const validImages = downloaded.filter(Boolean);
     console.log("[analyze] Got " + validImages.length + " images for Claude Vision");
 
     let styleDescriptors = "professional photography, natural lighting, high quality";
+    let bestImageIndex = 0;
 
     if (validImages.length > 0) {
       const claudeResp = await fetch("https://api.anthropic.com/v1/messages", {
@@ -64,6 +65,11 @@ module.exports = async function handler(req, res) {
           messages: [{ role: "user", content: [
             ...validImages.map(img => ({ type: "image", source: { type: "base64", media_type: img.mediaType, data: img.base64 } })),
             { type: "text", text: `Analyze these reference images and extract their shared artistic style DNA.
+
+FIRST: If there are multiple images, identify which single image (by index, starting at 0) best represents the dominant shared style. Output this on the very first line as: BEST_IMAGE_INDEX: <number>
+
+THEN on the next line, write the style prompt:
+Analyze these reference images and extract their shared artistic style DNA.
 
 STEP 1 — Identify the DOMINANT STYLE ELEMENT: Look at these images and decide which single visual property is most distinctive and defining. Choose ONE:
 - TEXTURE/SURFACE PATTERN (e.g. topographic lines, marbling, weaving, engraving, dots) — if the surface detail is what makes these images unique
@@ -85,7 +91,14 @@ Rules:
       });
       if (claudeResp.ok) {
         const d = await claudeResp.json();
-        styleDescriptors = d.content?.[0]?.text?.trim() || styleDescriptors;
+        const rawText = d.content?.[0]?.text?.trim() || "";
+        const indexMatch = rawText.match(/BEST_IMAGE_INDEX:\s*(\d+)/);
+        if (indexMatch) {
+          bestImageIndex = Math.min(parseInt(indexMatch[1]), validImages.length - 1);
+          styleDescriptors = rawText.replace(/BEST_IMAGE_INDEX:\s*\d+\s*/, "").trim();
+        } else {
+          styleDescriptors = rawText || styleDescriptors;
+        }
       }
     }
 
@@ -99,7 +112,7 @@ Rules:
           "Authorization": "Bearer " + process.env.REPLICATE_API_KEY,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ input: { prompt, input_image: imageUrls[0], aspect_ratio: "1:1", output_format: "jpg", safety_tolerance: 2 } }),
+        body: JSON.stringify({ input: { prompt, input_image: imageUrls[bestImageIndex] || imageUrls[0], aspect_ratio: "1:1", output_format: "jpg", safety_tolerance: 2 } }),
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
