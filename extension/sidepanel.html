@@ -68,6 +68,11 @@
     <a href="https://pinstyle.co" target="_blank" rel="noopener">pinstyle.co</a>
   </footer>
 
+  <!-- Image preview overlay -->
+  <div id="preview-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:999;align-items:center;justify-content:center;cursor:pointer;" onclick="this.style.display='none'">
+    <img id="preview-img" style="max-width:90%;max-height:90%;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,0.8);">
+    <div style="position:absolute;top:16px;right:20px;color:rgba(255,255,255,0.5);font-size:24px;cursor:pointer;" onclick="document.getElementById('preview-overlay').style.display='none'">✕</div>
+  </div>
   <script src="sidepanel.js"></script>
 </body>
 </html>

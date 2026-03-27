@@ -39,11 +39,32 @@ async function loadImages() {
 
   const isPinterest = tab.url && tab.url.includes('pinterest.com');
 
+  // Auto-scroll to load more images before scanning
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: () => {
+        return new Promise(resolve => {
+          let scrolls = 0;
+          const maxScrolls = 3;
+          const interval = setInterval(() => {
+            window.scrollBy(0, window.innerHeight);
+            scrolls++;
+            if (scrolls >= maxScrolls) {
+              clearInterval(interval);
+              setTimeout(resolve, 800);
+            }
+          }, 400);
+        });
+      },
+    });
+  } catch (_) {}
+
   let results;
   try {
     results = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      func: collectImages,   // runs in page context — must be self-contained
+      func: collectImages,
       args: [MIN_SIZE],
     });
   } catch (err) {
@@ -304,9 +325,9 @@ function renderResults(data) {
         <h3>Generated Images</h3>
         <div class="gen-images">
           ${images.map((url, i) => `
-            <div class="gen-img-wrap">
+            <div class="gen-img-wrap" onclick="showPreview('${escAttr(url)}')">
               <img src="${escAttr(url)}" alt="Generated image" loading="lazy">
-              <a class="download-btn" href="${escAttr(url)}" download="pinstyle-${i+1}.png" target="_blank">
+              <a class="download-btn" href="${escAttr(url)}" download="pinstyle-${i+1}.png" target="_blank" onclick="event.stopPropagation()">
                 ↓ Download
               </a>
             </div>`).join('')}
@@ -428,3 +449,13 @@ document.addEventListener('DOMContentLoaded', () => {
     historyPanel.classList.add('hidden');
   });
 });
+
+
+// ── Image Preview ─────────────────────────────────────────────────────────────
+function showPreview(url) {
+  const overlay = document.getElementById('preview-overlay');
+  const img = document.getElementById('preview-img');
+  if (!overlay || !img) return;
+  img.src = url;
+  overlay.style.display = 'flex';
+}
