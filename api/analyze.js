@@ -106,13 +106,13 @@ Rules:
     console.log("[analyze] Prompt: " + fullPrompt);
 
     const startPrediction = async (prompt) => {
-      const resp = await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-kontext-pro/predictions", {
+      const resp = await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-1.1-pro/predictions", {
         method: "POST",
         headers: {
           "Authorization": "Bearer " + process.env.REPLICATE_API_KEY,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ input: { prompt, input_image: imageUrls[bestImageIndex] || imageUrls[0], aspect_ratio: "1:1", output_format: "jpg", safety_tolerance: 2 } }),
+        body: JSON.stringify({ input: { prompt, aspect_ratio: "1:1", output_format: "webp", output_quality: 90, safety_tolerance: 2 } }),
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
