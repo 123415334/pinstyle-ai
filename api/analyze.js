@@ -89,13 +89,13 @@ Return a single dense image generation prompt (no headers, no explanation) that 
     console.log("[analyze] Prompt: " + fullPrompt);
 
     const startPrediction = async (prompt) => {
-      const resp = await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-1.1-pro/predictions", {
+      const resp = await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-kontext-pro/predictions", {
         method: "POST",
         headers: {
           "Authorization": "Bearer " + process.env.REPLICATE_API_KEY,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ input: { prompt, aspect_ratio: "1:1", output_format: "webp", safety_tolerance: 2, output_quality: 90 } }),
+        body: JSON.stringify({ input: { prompt, input_image: imageUrls[0], aspect_ratio: "1:1", output_format: "webp", safety_tolerance: 2 } }),
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
