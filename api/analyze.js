@@ -59,10 +59,23 @@ module.exports = async function handler(req, res) {
         },
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
-          max_tokens: 200,
+          max_tokens: 600,
+          system: "You are an expert art director and image generation prompt engineer. Your job is to deeply analyze reference images and extract their complete artistic fingerprint so an AI image generator can reproduce the exact same style for a new subject.",
           messages: [{ role: "user", content: [
-            { type: "text", text: "Analyze these images. Return ONLY a comma-separated list of style descriptors: rendering technique, lighting, colors, texture, mood. No explanation, no preamble." },
-            ...validImages.map(img => ({ type: "image", source: { type: "base64", media_type: img.mediaType, data: img.base64 } }))
+            ...validImages.map(img => ({ type: "image", source: { type: "base64", media_type: img.mediaType, data: img.base64 } })),
+            { type: "text", text: `Analyze these reference images deeply and extract their shared artistic style DNA. Focus on:
+
+1. RENDERING TECHNIQUE: Is this illustration, photography, 3D render, painting, collage, digital art, etc? What specific technique within that?
+2. ARTISTIC STYLE: What art movement or aesthetic does this belong to? (e.g. Y2K, brutalist, maximalist, folk art, surrealism, etc)
+3. LINE QUALITY: Hard edges or soft? Thick outlines or none? Clean vectors or hand-drawn imperfection?
+4. COLOR PALETTE: Specific dominant colors, saturation level, contrast, whether it uses gradients or flat color
+5. TEXTURE & SURFACE: Matte, glossy, grainy, paper-like, plastic, organic, etc
+6. LIGHTING: Flat, studio, dramatic, ambient, no lighting (illustration), etc
+7. COMPOSITION STYLE: Centered objects, white/colored backgrounds, perspective used
+8. MOOD & ENERGY: Playful, dark, luxurious, raw, minimal, chaotic, etc
+9. WHAT MAKES THIS STYLE UNIQUE: The specific details that define this artist's visual voice
+
+Return a single dense image generation prompt (no headers, no explanation) that captures ALL of this — written so that an AI image generator will reproduce this exact style for any new subject. Be extremely specific. 120-180 words.` }
           ]}],
         }),
       });
@@ -72,17 +85,17 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    const fullPrompt = subject + ", " + styleDescriptors;
+    const fullPrompt = "Subject: " + subject + ". Style: " + styleDescriptors;
     console.log("[analyze] Prompt: " + fullPrompt);
 
     const startPrediction = async (prompt) => {
-      const resp = await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-kontext-dev/predictions", {
+      const resp = await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-1.1-pro/predictions", {
         method: "POST",
         headers: {
           "Authorization": "Bearer " + process.env.REPLICATE_API_KEY,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ input: { prompt, input_image: imageUrls[0], aspect_ratio: "1:1", output_format: "webp", safety_tolerance: 2 } }),
+        body: JSON.stringify({ input: { prompt, aspect_ratio: "1:1", output_format: "webp", safety_tolerance: 2, output_quality: 90 } }),
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
