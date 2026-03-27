@@ -63,24 +63,20 @@ module.exports = async function handler(req, res) {
           system: "You are an expert art director and image generation prompt engineer. Your job is to deeply analyze reference images, identify the single most distinctive visual element that defines their style, and write a prompt that leads with that element so an AI image generator reproduces the exact same style for any new subject.",
           messages: [{ role: "user", content: [
             ...validImages.map(img => ({ type: "image", source: { type: "base64", media_type: img.mediaType, data: img.base64 } })),
-            { type: "text", text: `You are analyzing reference images to extract a style, then reconciling that style with the user's subject description.
+            { type: "text", text: `Analyze these reference images and extract their shared artistic style DNA.
 
-USER'S SUBJECT: "${subject}"
+STEP 1 — Identify the DOMINANT STYLE ELEMENT: Look at these images and decide which single visual property is most distinctive and defining. Choose ONE:
+- TEXTURE/SURFACE PATTERN (e.g. topographic lines, marbling, weaving, engraving, dots) — if the surface detail is what makes these images unique
+- RENDERING TECHNIQUE (e.g. hand-drawn illustration, 3D render, collage, painting) — if the medium itself is the signature
+- COLOR & LIGHT (e.g. neon gradients, flat bold primaries, moody shadows) — if color treatment is the dominant signature
+- FORM & SHAPE LANGUAGE (e.g. inflated organic blobs, geometric precision, fluid curves) — if the silhouette and form is what's most distinctive
+- ARTISTIC MOVEMENT (e.g. Y2K, folk art, brutalism, surrealism) — if a specific aesthetic movement defines the look
 
-STEP 1 — Identify the DOMINANT STYLE ELEMENT from the reference images. Choose ONE:
-- TEXTURE/SURFACE PATTERN (e.g. topographic lines, marbling, weaving, engraving, dots)
-- RENDERING TECHNIQUE (e.g. hand-drawn illustration, 3D render, collage, painting)
-- COLOR & LIGHT (e.g. neon gradients, flat bold primaries, moody shadows)
-- FORM & SHAPE LANGUAGE (e.g. inflated organic blobs, geometric precision, fluid curves)
-- ARTISTIC MOVEMENT (e.g. Y2K, folk art, brutalism, surrealism)
+STEP 2 — Write the prompt: Start with the dominant element (2-3 sentences describing it in extreme detail), then cover the remaining style properties: rendering technique, color palette, lighting, composition, mood, and what makes this artist's visual voice unique.
 
-STEP 2 — Check the user's subject description for any OVERRIDE PROPERTIES: specific textures, patterns, colors, or materials they explicitly named (e.g. "dot grid", "marble", "red", "wooden"). These override the equivalent style element from the references while ALL OTHER style properties are inherited unchanged.
-
-STEP 3 — Write the final prompt:
-- Start with the dominant style element — but substitute any override properties from the user's subject
-- Then describe all remaining style properties from the references: rendering technique, form language, lighting, composition, color (unless overridden), mood
-- Naturally weave the user's subject into the description as the object being rendered
-- Be extremely specific and concrete
+Rules:
+- Lead with the dominant element — describe it with maximum specificity
+- Be concrete, not vague ("lime green topographic contour lines carved into a matte clay surface" not "interesting texture")
 - No headers, no explanation, just the prompt
 - 140-180 words total` }
           ]}],
