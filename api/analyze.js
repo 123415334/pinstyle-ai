@@ -95,7 +95,7 @@ Return a single dense image generation prompt (no headers, no explanation) that 
           "Authorization": "Bearer " + process.env.REPLICATE_API_KEY,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ input: { prompt, input_image: imageUrls[0], aspect_ratio: "1:1", output_format: "webp", safety_tolerance: 2 } }),
+        body: JSON.stringify({ input: { prompt, input_image: imageUrls[0], aspect_ratio: "1:1", output_format: "jpg", safety_tolerance: 2 } }),
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
