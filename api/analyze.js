@@ -77,7 +77,8 @@ STEP 2 — Write the prompt: Start with the dominant element (2-3 sentences desc
 Rules:
 - Lead with the dominant element — describe it with maximum specificity
 - Be concrete, not vague ("lime green topographic contour lines carved into a matte clay surface" not "interesting texture")
-- No headers, no explanation, just the prompt
+- Output ONLY the final image generation prompt — no headers, no labels, no "DOMINANT STYLE ELEMENT:" prefix, no markdown, no explanation whatsoever
+- Start the output directly with descriptive words about the style
 - 140-180 words total` }
           ]}],
         }),
