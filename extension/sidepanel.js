@@ -28,6 +28,7 @@ const subjectInput = document.getElementById('subject-input');
 const resultsEl    = document.getElementById('results');
 const trialBadge   = document.getElementById('trial-badge');
 const authScreen   = document.getElementById('auth-screen');
+const verifyScreen = document.getElementById('verify-screen');
 const planScreen   = document.getElementById('plan-screen');
 
 // ── Init ─────────────────────────────────────────────────────────────────────
@@ -48,6 +49,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (e.key === 'Enter') handleAuthSubmit();
   });
   document.getElementById('logout-btn').addEventListener('click', logout);
+
+  // Email verification screen wiring
+  document.getElementById('verify-signin-btn').addEventListener('click', () => {
+    verifyScreen.classList.add('hidden');
+    authScreen.classList.remove('hidden');
+    switchAuthTab('login');
+  });
+  document.getElementById('verify-back-btn').addEventListener('click', () => {
+    verifyScreen.classList.add('hidden');
+    authScreen.classList.remove('hidden');
+    switchAuthTab('signup');
+  });
 
   // Plan selection wiring
   document.getElementById('choose-free-btn').addEventListener('click', () => {
@@ -81,6 +94,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   await initAuth();
 });
 
+// ── Email verification screen ────────────────────────────────────────────────
+function showVerifyScreen(email) {
+  authScreen.classList.add('hidden');
+  document.getElementById('verify-email-display').textContent = email;
+  verifyScreen.classList.remove('hidden');
+}
+
 // ── Plan selection screen ────────────────────────────────────────────────────
 function showPlanScreen() {
   authScreen.classList.add('hidden');
@@ -102,9 +122,9 @@ function openUpgradeFlow(plan) {
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
 async function initAuth() {
-  const stored = await chrome.storage.local.get(['ps_token', 'ps_email', 'ps_used', 'ps_plan', 'ps_monthly', 'ps_reset']);
+  const stored = await chrome.storage.local.get(['ps_token', 'ps_refresh', 'ps_email', 'ps_used', 'ps_plan', 'ps_monthly', 'ps_reset']);
   if (stored.ps_token) {
-    // Validate the stored token is still good
+    // Check if the stored access token is still valid
     const ok = await validateToken(stored.ps_token);
     if (ok) {
       _authToken       = stored.ps_token;
@@ -118,10 +138,45 @@ async function initAuth() {
       showMainUI();
       return;
     }
-    // Token expired — clear it
-    await chrome.storage.local.remove(['ps_token', 'ps_email', 'ps_used', 'ps_plan', 'ps_monthly', 'ps_reset']);
+
+    // Access token expired — try to silently refresh using the refresh token
+    if (stored.ps_refresh) {
+      const refreshed = await refreshAccessToken(stored.ps_refresh);
+      if (refreshed) {
+        _authToken       = refreshed.access_token;
+        _authEmail       = stored.ps_email   || '';
+        _generationsUsed = stored.ps_used    || 0;
+        _monthlyUsed     = stored.ps_monthly || 0;
+        _monthlyResetAt  = stored.ps_reset   || null;
+        _plan            = stored.ps_plan    || 'free';
+        await chrome.storage.local.set({
+          ps_token:   refreshed.access_token,
+          ps_refresh: refreshed.refresh_token,
+        });
+        await fetchPlan();
+        showMainUI();
+        return;
+      }
+    }
+
+    // Both tokens invalid — clear everything and show login
+    await chrome.storage.local.remove(['ps_token', 'ps_refresh', 'ps_email', 'ps_used', 'ps_plan', 'ps_monthly', 'ps_reset']);
   }
   showAuthScreen();
+}
+
+// Silently renew the session using a stored refresh token
+async function refreshAccessToken(refreshToken) {
+  try {
+    const resp = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    return data.access_token ? data : null;
+  } catch { return null; }
 }
 
 // Fetch current plan + usage from Supabase and update local state
@@ -239,7 +294,7 @@ async function logout() {
   _monthlyUsed = 0;
   _monthlyResetAt = null;
   _plan = 'free';
-  await chrome.storage.local.remove(['ps_token', 'ps_email', 'ps_used', 'ps_plan', 'ps_monthly', 'ps_reset']);
+  await chrome.storage.local.remove(['ps_token', 'ps_refresh', 'ps_email', 'ps_used', 'ps_plan', 'ps_monthly', 'ps_reset']);
   showAuthScreen();
 }
 
@@ -285,6 +340,13 @@ async function handleAuthSubmit() {
       data = await supabaseSignup(email, password);
     }
 
+    // If Supabase requires email confirmation, there's no session yet
+    if (!data.access_token) {
+      // Email verification is enabled — show the "check your email" screen
+      showVerifyScreen(email);
+      return;
+    }
+
     _authToken       = data.access_token;
     _authEmail       = email;
     _generationsUsed = 0;
@@ -294,6 +356,7 @@ async function handleAuthSubmit() {
 
     await chrome.storage.local.set({
       ps_token:   _authToken,
+      ps_refresh: data.refresh_token || null,
       ps_email:   _authEmail,
       ps_used:    0,
       ps_plan:    'free',

@@ -29,6 +29,26 @@
     </div>
   </div>
 
+  <!-- ── EMAIL VERIFICATION SCREEN (shown after signup if email confirmation required) ── -->
+  <div id="verify-screen" class="auth-screen hidden">
+    <div class="auth-inner">
+      <img src="pinstyle_logo.png" alt="PinStyle AI" class="auth-logo">
+      <div style="font-size:28px;margin-bottom:12px;">✉️</div>
+      <h2 class="auth-title">Check your <em>email</em></h2>
+      <p class="auth-subtitle" style="margin-bottom:8px;">
+        We sent a confirmation link to<br>
+        <strong id="verify-email-display" style="color:var(--ink);"></strong>
+      </p>
+      <p class="auth-subtitle" style="margin-bottom:24px;">
+        Click the link in that email to activate your account, then sign in below.
+      </p>
+      <button id="verify-signin-btn" class="auth-submit-btn">I've confirmed — Sign In →</button>
+      <button id="verify-back-btn" style="margin-top:12px;background:none;border:none;font-size:12px;color:var(--ink-muted);cursor:pointer;text-decoration:underline;">
+        Use a different email
+      </button>
+    </div>
+  </div>
+
   <!-- ── PLAN SELECTION SCREEN (shown after new account creation) ─── -->
   <div id="plan-screen" class="plan-screen hidden">
     <div class="plan-inner">
