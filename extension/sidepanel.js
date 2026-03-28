@@ -15,6 +15,7 @@ const selectedUrls = new Set();
 let _authToken        = null;
 let _authEmail        = null;
 let _generationsUsed  = 0;
+let _plan             = 'free'; // 'free' | 'pro'
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
 const imageGrid    = document.getElementById('image-grid');
@@ -52,7 +53,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
 async function initAuth() {
-  const stored = await chrome.storage.local.get(['ps_token', 'ps_email', 'ps_used']);
+  const stored = await chrome.storage.local.get(['ps_token', 'ps_email', 'ps_used', 'ps_plan']);
   if (stored.ps_token) {
     // Validate the stored token is still good
     const ok = await validateToken(stored.ps_token);
@@ -60,13 +61,34 @@ async function initAuth() {
       _authToken       = stored.ps_token;
       _authEmail       = stored.ps_email || '';
       _generationsUsed = stored.ps_used  || 0;
+      _plan            = stored.ps_plan  || 'free';
+      // Always fetch latest plan from Supabase in case they upgraded
+      await fetchPlan();
       showMainUI();
       return;
     }
     // Token expired — clear it
-    await chrome.storage.local.remove(['ps_token', 'ps_email', 'ps_used']);
+    await chrome.storage.local.remove(['ps_token', 'ps_email', 'ps_used', 'ps_plan']);
   }
   showAuthScreen();
+}
+
+// Fetch current plan + usage from Supabase and update local state
+async function fetchPlan() {
+  if (!_authToken) return;
+  try {
+    const resp = await fetch(
+      `${SUPABASE_URL}/rest/v1/user_profiles?email=eq.${encodeURIComponent(_authEmail)}&select=plan,generations_used`,
+      { headers: { 'Authorization': `Bearer ${_authToken}`, 'apikey': SUPABASE_ANON_KEY } }
+    );
+    if (!resp.ok) return;
+    const rows = await resp.json();
+    if (rows?.[0]) {
+      _plan            = rows[0].plan            || 'free';
+      _generationsUsed = rows[0].generations_used ?? _generationsUsed;
+      await chrome.storage.local.set({ ps_plan: _plan, ps_used: _generationsUsed });
+    }
+  } catch { /* best-effort */ }
 }
 
 async function validateToken(token) {
@@ -89,17 +111,33 @@ function showMainUI() {
 }
 
 function updateTrialBadge() {
+  if (_plan === 'pro') {
+    trialBadge.className = 'trial-badge';
+    trialBadge.innerHTML = `✦ <strong>Pro</strong> — unlimited generations`;
+    generateBtn.disabled = false;
+    generateBtn.title    = '';
+    return;
+  }
   const remaining = FREE_TRIAL_LIMIT - _generationsUsed;
   if (remaining <= 0) {
     trialBadge.className = 'trial-badge exhausted';
     const upgradeUrl = `https://pinstyle.co/upgrade${_authEmail ? '?email=' + encodeURIComponent(_authEmail) : ''}`;
-    trialBadge.innerHTML = `Trial complete — <a href="${upgradeUrl}" target="_blank" rel="noopener" style="color:var(--red);font-weight:500;text-decoration:underline;cursor:pointer;">upgrade to Pro</a> to keep generating`;
+    trialBadge.innerHTML = `Trial complete — <a href="${upgradeUrl}" target="_blank" rel="noopener" style="color:var(--red);font-weight:500;text-decoration:underline;cursor:pointer;">upgrade to Pro</a> to keep generating &nbsp;<button onclick="refreshPlanStatus()" style="font-size:10px;color:var(--ink-muted);background:none;border:1px solid var(--border);border-radius:10px;padding:2px 7px;cursor:pointer;">Already upgraded?</button>`;
     generateBtn.disabled = true;
     generateBtn.title    = 'Upgrade to Pro to generate more images';
   } else {
     trialBadge.className = 'trial-badge';
     trialBadge.innerHTML = `<strong>${remaining}</strong> free generation${remaining !== 1 ? 's' : ''} remaining`;
   }
+}
+
+// Called by the "Already upgraded?" button — re-checks Supabase
+async function refreshPlanStatus() {
+  const btn = document.querySelector('[onclick="refreshPlanStatus()"]');
+  if (btn) btn.textContent = 'Checking…';
+  await fetchPlan();
+  updateTrialBadge();
+  updateGenerateBtn();
 }
 
 async function logout() {
@@ -441,7 +479,7 @@ function toggleSelect(item, src) {
 }
 
 function updateGenerateBtn() {
-  const trialExhausted = _generationsUsed >= FREE_TRIAL_LIMIT;
+  const trialExhausted = _plan !== 'pro' && _generationsUsed >= FREE_TRIAL_LIMIT;
   generateBtn.disabled =
     trialExhausted ||
     selectedUrls.size === 0 ||
@@ -454,7 +492,7 @@ async function generate() {
   if (!subject || selectedUrls.size === 0) return;
 
   // Guard: if trial exhausted, open upgrade page instead
-  if (_generationsUsed >= FREE_TRIAL_LIMIT) {
+  if (_plan !== 'pro' && _generationsUsed >= FREE_TRIAL_LIMIT) {
     const upgradeUrl = `https://pinstyle.co/upgrade${_authEmail ? '?email=' + encodeURIComponent(_authEmail) : ''}`;
     chrome.tabs.create({ url: upgradeUrl });
     return;
