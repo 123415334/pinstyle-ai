@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS public.user_profiles (
   email            TEXT,
   generations_used INTEGER NOT NULL DEFAULT 0,
   plan             TEXT    NOT NULL DEFAULT 'free',  -- 'free' | 'pro'
+  stripe_subscription_id TEXT,
   created_at       TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at       TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

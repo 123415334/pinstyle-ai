@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upgrade to Pro — PinStyle AI</title>
+  <meta name="description" content="Unlock unlimited AI image generations with PinStyle Pro. Generate without limits.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --ink:       #f0ebe3;
+      --ink-muted: #8a8070;
+      --red:       #e03d2f;
+      --red-soft:  rgba(224, 61, 47, 0.12);
+      --bg:        #0e0c0a;
+      --bg2:       #141210;
+      --bg3:       #1a1714;
+      --border:    rgba(240, 235, 227, 0.08);
+      --gold:      #c9a96e;
+      --radius:    14px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 300;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    /* Grain overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 1000;
+      opacity: 0.4;
+    }
+
+    /* Nav */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      padding: 20px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: linear-gradient(to bottom, rgba(14,12,10,0.95), transparent);
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+
+    .nav-pin {
+      width: 26px; height: 26px;
+      background: var(--red);
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      position: relative;
+      flex-shrink: 0;
+    }
+    .nav-pin::after {
+      content: '';
+      position: absolute;
+      inset: 6px;
+      background: var(--bg);
+      border-radius: 50%;
+    }
+
+    .nav-wordmark {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 21px;
+      font-weight: 400;
+      color: var(--ink);
+      letter-spacing: 0.01em;
+    }
+    .nav-wordmark em { color: var(--gold); font-style: italic; }
+
+    .nav-back {
+      font-size: 12px;
+      color: var(--ink-muted);
+      text-decoration: none;
+      letter-spacing: 0.04em;
+      transition: color 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .nav-back:hover { color: var(--ink); }
+
+    /* Page wrapper */
+    .page {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 120px 24px 80px;
+    }
+
+    /* Radial glow */
+    .glow {
+      position: fixed;
+      top: 30%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 700px;
+      height: 500px;
+      background: radial-gradient(ellipse, rgba(224,61,47,0.07) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Eyebrow */
+    .eyebrow {
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--red);
+      margin-bottom: 20px;
+      position: relative;
+      z-index: 1;
+      opacity: 0;
+      animation: fadeUp 0.7s ease 0.1s forwards;
+    }
+
+    /* Headline */
+    h1 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(40px, 6vw, 72px);
+      font-weight: 300;
+      line-height: 1.05;
+      letter-spacing: -0.02em;
+      text-align: center;
+      max-width: 680px;
+      position: relative;
+      z-index: 1;
+      opacity: 0;
+      animation: fadeUp 0.7s ease 0.25s forwards;
+    }
+    h1 em { color: var(--gold); font-style: italic; }
+
+    .subtitle {
+      font-size: 16px;
+      color: var(--ink-muted);
+      text-align: center;
+      margin-top: 20px;
+      max-width: 440px;
+      line-height: 1.7;
+      position: relative;
+      z-index: 1;
+      opacity: 0;
+      animation: fadeUp 0.7s ease 0.4s forwards;
+    }
+
+    /* Pricing cards */
+    .pricing {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2px;
+      margin-top: 56px;
+      max-width: 720px;
+      width: 100%;
+      position: relative;
+      z-index: 1;
+      opacity: 0;
+      animation: fadeUp 0.7s ease 0.55s forwards;
+    }
+
+    .plan {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      padding: 36px 32px 40px;
+      position: relative;
+    }
+    .plan:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+    .plan:last-child  { border-radius: 0 var(--radius) var(--radius) 0; }
+
+    .plan-pro {
+      background: var(--bg2);
+      border-color: rgba(201, 169, 110, 0.25);
+    }
+
+    .plan-label {
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--ink-muted);
+      margin-bottom: 20px;
+    }
+    .plan-pro .plan-label { color: var(--gold); }
+
+    .plan-price {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 52px;
+      font-weight: 300;
+      letter-spacing: -0.02em;
+      line-height: 1;
+      color: var(--ink);
+      margin-bottom: 4px;
+    }
+    .plan-price sup {
+      font-size: 22px;
+      vertical-align: super;
+      font-weight: 400;
+      color: var(--ink-muted);
+    }
+
+    .plan-period {
+      font-size: 12px;
+      color: var(--ink-muted);
+      margin-bottom: 28px;
+      letter-spacing: 0.03em;
+    }
+
+    .plan-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin-bottom: 24px;
+    }
+
+    .feature-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 11px;
+    }
+
+    .feature-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--ink-muted);
+      line-height: 1.4;
+    }
+
+    .feature-list .check {
+      flex-shrink: 0;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--red-soft);
+      border: 1px solid rgba(224,61,47,0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 1px;
+    }
+    .plan-pro .feature-list .check {
+      background: rgba(201,169,110,0.12);
+      border-color: rgba(201,169,110,0.3);
+    }
+
+    .check svg { width: 8px; height: 8px; }
+    .check svg path { stroke: var(--red); }
+    .plan-pro .check svg path { stroke: var(--gold); }
+
+    .feature-list .cross {
+      flex-shrink: 0;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 1px;
+    }
+    .cross svg { width: 7px; height: 7px; }
+    .cross svg path { stroke: var(--ink-muted); }
+
+    .feature-text-muted { opacity: 0.45; }
+
+    .plan-badge {
+      position: absolute;
+      top: -13px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--gold);
+      color: #0e0c0a;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 4px 14px;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+
+    /* CTA button */
+    .upgrade-btn {
+      display: block;
+      width: 100%;
+      margin-top: 32px;
+      padding: 15px 24px;
+      background: var(--gold);
+      color: #0e0c0a;
+      border: none;
+      border-radius: 100px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 6px 28px rgba(201,169,110,0.28);
+      text-align: center;
+      text-decoration: none;
+    }
+    .upgrade-btn:hover {
+      opacity: 0.9;
+      transform: translateY(-2px);
+      box-shadow: 0 10px 36px rgba(201,169,110,0.38);
+    }
+    .upgrade-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .current-plan-note {
+      display: block;
+      width: 100%;
+      margin-top: 32px;
+      padding: 14px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--ink-muted);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      letter-spacing: 0.03em;
+    }
+
+    /* Guarantee strip */
+    .guarantee {
+      margin-top: 32px;
+      max-width: 720px;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 28px;
+      position: relative;
+      z-index: 1;
+      opacity: 0;
+      animation: fadeUp 0.7s ease 0.7s forwards;
+    }
+
+    .guarantee-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--ink-muted);
+      letter-spacing: 0.02em;
+    }
+
+    .guarantee-dot {
+      width: 4px; height: 4px;
+      background: var(--border);
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* Success state */
+    .success-view {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 20px;
+      position: relative;
+      z-index: 1;
+      max-width: 480px;
+    }
+
+    .success-icon {
+      width: 64px; height: 64px;
+      border-radius: 50%;
+      background: rgba(201,169,110,0.12);
+      border: 1px solid rgba(201,169,110,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      margin-bottom: 4px;
+    }
+
+    .success-view h2 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 44px;
+      font-weight: 300;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+    }
+    .success-view h2 em { color: var(--gold); font-style: italic; }
+
+    .success-view p {
+      font-size: 15px;
+      color: var(--ink-muted);
+      line-height: 1.7;
+    }
+
+    .back-to-ext {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+      padding: 14px 28px;
+      background: var(--red);
+      color: #fff;
+      border: none;
+      border-radius: 100px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      transition: opacity 0.2s, transform 0.2s;
+      box-shadow: 0 6px 24px rgba(224,61,47,0.28);
+    }
+    .back-to-ext:hover { opacity: 0.88; transform: translateY(-2px); }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 24px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--ink-muted);
+    }
+    footer a { color: var(--ink-muted); text-decoration: none; }
+    footer a:hover { color: var(--ink); }
+
+    /* Spinner */
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid rgba(14,12,10,0.3);
+      border-top-color: #0e0c0a;
+      border-radius: 50%;
+      animation: spin 0.65s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+
+    /* Animations */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      nav { padding: 16px 20px; }
+      .pricing { grid-template-columns: 1fr; }
+      .plan:first-child { border-radius: var(--radius) var(--radius) 0 0; }
+      .plan:last-child  { border-radius: 0 0 var(--radius) var(--radius); }
+      footer { flex-direction: column; gap: 12px; text-align: center; }
+      .guarantee { flex-wrap: wrap; gap: 14px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Nav -->
+  <nav>
+    <a href="/" class="nav-logo">
+      <div class="nav-pin"></div>
+      <span class="nav-wordmark">Pin<em>Style</em> AI</span>
+    </a>
+    <a href="/" class="nav-back">← Back to site</a>
+  </nav>
+
+  <!-- Glow -->
+  <div class="glow"></div>
+
+  <!-- Main content -->
+  <div class="page" id="main-view">
+
+    <p class="eyebrow">PinStyle Pro</p>
+
+    <h1>Create without <em>limits.</em></h1>
+
+    <p class="subtitle">
+      You've discovered what PinStyle can do. Upgrade to Pro and generate as many images as your creativity demands.
+    </p>
+
+    <!-- Pricing cards -->
+    <div class="pricing">
+
+      <!-- Free -->
+      <div class="plan">
+        <p class="plan-label">Free Trial</p>
+        <p class="plan-price"><sup></sup>$0</p>
+        <p class="plan-period">3 generations total</p>
+        <hr class="plan-divider">
+        <ul class="feature-list">
+          <li>
+            <span class="check">
+              <svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span>3 AI image generations</span>
+          </li>
+          <li>
+            <span class="check">
+              <svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span>Style analysis via Claude AI</span>
+          </li>
+          <li>
+            <span class="cross">
+              <svg viewBox="0 0 7 7" fill="none"><path d="M1 1l5 5M6 1L1 6" stroke-width="1.4" stroke-linecap="round"/></svg>
+            </span>
+            <span class="feature-text-muted">Unlimited generations</span>
+          </li>
+          <li>
+            <span class="cross">
+              <svg viewBox="0 0 7 7" fill="none"><path d="M1 1l5 5M6 1L1 6" stroke-width="1.4" stroke-linecap="round"/></svg>
+            </span>
+            <span class="feature-text-muted">Priority processing</span>
+          </li>
+          <li>
+            <span class="cross">
+              <svg viewBox="0 0 7 7" fill="none"><path d="M1 1l5 5M6 1L1 6" stroke-width="1.4" stroke-linecap="round"/></svg>
+            </span>
+            <span class="feature-text-muted">Full image history</span>
+          </li>
+        </ul>
+        <span class="current-plan-note">Your current plan</span>
+      </div>
+
+      <!-- Pro -->
+      <div class="plan plan-pro">
+        <div class="plan-badge">Most popular</div>
+        <p class="plan-label">Pro</p>
+        <p class="plan-price"><sup>$</sup>12</p>
+        <p class="plan-period">per month, cancel anytime</p>
+        <hr class="plan-divider">
+        <ul class="feature-list">
+          <li>
+            <span class="check">
+              <svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span>Unlimited AI image generations</span>
+          </li>
+          <li>
+            <span class="check">
+              <svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span>Style analysis via Claude AI</span>
+          </li>
+          <li>
+            <span class="check">
+              <svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span>Priority processing speed</span>
+          </li>
+          <li>
+            <span class="check">
+              <svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span>Full persistent image history</span>
+          </li>
+          <li>
+            <span class="check">
+              <svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span>Early access to new features</span>
+          </li>
+        </ul>
+        <button class="upgrade-btn" id="upgrade-btn" onclick="startCheckout()">
+          Upgrade to Pro →
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Trust strip -->
+    <div class="guarantee">
+      <span class="guarantee-item">🔒 Secure checkout via Stripe</span>
+      <span class="guarantee-dot"></span>
+      <span class="guarantee-item">Cancel anytime</span>
+      <span class="guarantee-dot"></span>
+      <span class="guarantee-item">Instant activation</span>
+    </div>
+
+  </div>
+
+  <!-- Success view (shown after payment) -->
+  <div class="page" id="success-view" style="display:none;">
+    <div class="success-view" style="display:flex;">
+      <div class="success-icon">✦</div>
+      <h2>Welcome to <em>Pro.</em></h2>
+      <p>
+        Your account has been upgraded. Head back to the PinStyle extension and generate without limits — your creativity is the only constraint now.
+      </p>
+      <a href="#" class="back-to-ext" onclick="window.close(); return false;">
+        Close this tab &amp; keep creating
+      </a>
+      <p style="font-size:12px;color:var(--ink-muted);margin-top:8px;">
+        Or simply close this tab and return to your browser extension.
+      </p>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    <span>© 2026 PinStyle AI</span>
+    <div style="display:flex;gap:24px">
+      <a href="/privacy">Privacy Policy</a>
+      <a href="mailto:hello@pinstyle.co">Contact</a>
+    </div>
+  </footer>
+
+  <script>
+    // Read email from URL params (passed by the extension)
+    const params = new URLSearchParams(window.location.search);
+    const email  = params.get('email') || '';
+    const isSuccess = params.get('success') === 'true';
+
+    // Show success state if redirected back from Stripe
+    if (isSuccess) {
+      document.getElementById('main-view').style.display = 'none';
+      document.getElementById('success-view').style.display = 'flex';
+    }
+
+    async function startCheckout() {
+      const btn = document.getElementById('upgrade-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Preparing checkout…';
+
+      try {
+        const resp = await fetch('/api/create-checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          throw new Error(err.error || 'Something went wrong. Please try again.');
+        }
+
+        const { url } = await resp.json();
+        window.location.href = url;
+
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = 'Upgrade to Pro →';
+        alert(err.message);
+      }
+    }
+  </script>
+
+</body>
+</html>
