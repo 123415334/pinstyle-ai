@@ -122,7 +122,8 @@ function updateTrialBadge() {
   if (remaining <= 0) {
     trialBadge.className = 'trial-badge exhausted';
     const upgradeUrl = `https://pinstyle.co/upgrade${_authEmail ? '?email=' + encodeURIComponent(_authEmail) : ''}`;
-    trialBadge.innerHTML = `Trial complete — <a href="${upgradeUrl}" target="_blank" rel="noopener" style="color:var(--red);font-weight:500;text-decoration:underline;cursor:pointer;">upgrade to Pro</a> to keep generating &nbsp;<button onclick="refreshPlanStatus()" style="font-size:10px;color:var(--ink-muted);background:none;border:1px solid var(--border);border-radius:10px;padding:2px 7px;cursor:pointer;">Already upgraded?</button>`;
+    trialBadge.innerHTML = `Trial complete — <a href="${upgradeUrl}" target="_blank" rel="noopener" style="color:var(--red);font-weight:500;text-decoration:underline;cursor:pointer;">upgrade to Pro</a> to keep generating &nbsp;<button id="already-upgraded-btn" style="font-size:10px;color:var(--ink-muted);background:none;border:1px solid var(--border);border-radius:10px;padding:2px 7px;cursor:pointer;">Already upgraded?</button>`;
+    document.getElementById('already-upgraded-btn')?.addEventListener('click', refreshPlanStatus);
     generateBtn.disabled = true;
     generateBtn.title    = 'Upgrade to Pro to generate more images';
   } else {
@@ -133,8 +134,8 @@ function updateTrialBadge() {
 
 // Called by the "Already upgraded?" button — re-checks Supabase
 async function refreshPlanStatus() {
-  const btn = document.querySelector('[onclick="refreshPlanStatus()"]');
-  if (btn) btn.textContent = 'Checking…';
+  const btn = document.getElementById('already-upgraded-btn');
+  if (btn) { btn.textContent = 'Checking…'; btn.disabled = true; }
   await fetchPlan();
   updateTrialBadge();
   updateGenerateBtn();
