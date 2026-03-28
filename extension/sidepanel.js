@@ -92,7 +92,8 @@ function updateTrialBadge() {
   const remaining = FREE_TRIAL_LIMIT - _generationsUsed;
   if (remaining <= 0) {
     trialBadge.className = 'trial-badge exhausted';
-    trialBadge.innerHTML = `Trial complete — <strong>upgrade to Pro</strong> to keep generating`;
+    const upgradeUrl = `https://pinstyle.co/upgrade${_authEmail ? '?email=' + encodeURIComponent(_authEmail) : ''}`;
+    trialBadge.innerHTML = `Trial complete — <a href="${upgradeUrl}" target="_blank" rel="noopener" style="color:var(--red);font-weight:500;text-decoration:underline;cursor:pointer;">upgrade to Pro</a> to keep generating`;
     generateBtn.disabled = true;
     generateBtn.title    = 'Upgrade to Pro to generate more images';
   } else {
@@ -440,14 +441,24 @@ function toggleSelect(item, src) {
 }
 
 function updateGenerateBtn() {
+  const trialExhausted = _generationsUsed >= FREE_TRIAL_LIMIT;
   generateBtn.disabled =
-    selectedUrls.size === 0 || subjectInput.value.trim().length === 0;
+    trialExhausted ||
+    selectedUrls.size === 0 ||
+    subjectInput.value.trim().length === 0;
 }
 
 // ── Generate ─────────────────────────────────────────────────────────────────
 async function generate() {
   const subject = subjectInput.value.trim();
   if (!subject || selectedUrls.size === 0) return;
+
+  // Guard: if trial exhausted, open upgrade page instead
+  if (_generationsUsed >= FREE_TRIAL_LIMIT) {
+    const upgradeUrl = `https://pinstyle.co/upgrade${_authEmail ? '?email=' + encodeURIComponent(_authEmail) : ''}`;
+    chrome.tabs.create({ url: upgradeUrl });
+    return;
+  }
 
   generateBtn.disabled = true;
   generateBtn.textContent = 'Generating…';
