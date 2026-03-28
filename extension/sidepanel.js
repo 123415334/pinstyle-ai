@@ -150,7 +150,8 @@ async function logout() {
   } catch { /* best-effort */ }
   _authToken = _authEmail = null;
   _generationsUsed = 0;
-  await chrome.storage.local.remove(['ps_token', 'ps_email', 'ps_used']);
+  _plan = 'free';
+  await chrome.storage.local.remove(['ps_token', 'ps_email', 'ps_used', 'ps_plan']);
   showAuthScreen();
 }
 
@@ -199,12 +200,17 @@ async function handleAuthSubmit() {
     _authToken       = data.access_token;
     _authEmail       = email;
     _generationsUsed = 0;
+    _plan            = 'free';
 
     await chrome.storage.local.set({
       ps_token: _authToken,
       ps_email: _authEmail,
       ps_used:  0,
+      ps_plan:  'free',
     });
+
+    // Fetch real plan + usage from Supabase before showing UI
+    await fetchPlan();
 
     showMainUI();
 
