@@ -398,13 +398,18 @@ async function supabaseSignup(email, password) {
   const resp = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({
+      email,
+      password,
+      options: { emailRedirectTo: 'https://pinstyle.co/confirmed' }
+    }),
   });
   const data = await resp.json();
   if (!resp.ok) throw new Error(data.error_description || data.msg || 'Sign up failed');
   // Supabase returns the session directly on signup if email confirmation is off
+  // If no access_token, email verification is pending — show the verify screen
   if (!data.access_token) {
-    throw new Error('Check your email to confirm your account, then sign in.');
+    return { __verifyPending: true };
   }
   return data;
 }
