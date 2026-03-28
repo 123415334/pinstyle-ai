@@ -8,6 +8,28 @@
 </head>
 <body>
 
+  <!-- ── AUTH SCREEN ──────────────────────────────────────────────── -->
+  <div id="auth-screen" class="auth-screen hidden">
+    <div class="auth-inner">
+      <img src="pinstyle_logo.png" alt="PinStyle AI" class="auth-logo">
+      <h1 class="auth-title">Welcome to <em>PinStyle</em></h1>
+      <p class="auth-subtitle">New accounts get <strong>3 free generations</strong></p>
+
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-tab="login">Sign In</button>
+        <button class="auth-tab" data-tab="signup">Create Account</button>
+      </div>
+
+      <div class="auth-form">
+        <input type="email"    id="auth-email"    class="auth-input" placeholder="Email address" autocomplete="email">
+        <input type="password" id="auth-password" class="auth-input" placeholder="Password" autocomplete="current-password">
+        <p id="auth-error" class="auth-error"></p>
+        <button id="auth-submit" class="auth-submit-btn">Sign In</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MAIN UI ───────────────────────────────────────────────────── -->
   <header>
     <div class="header-top">
       <img src="pinstyle_logo.png" alt="PinStyle AI" style="height:28px;width:auto;filter:brightness(0.9);">
@@ -49,6 +71,9 @@
       Generate Images
     </button>
 
+    <!-- ── TRIAL BADGE ───────────────────────────────────────── -->
+    <div id="trial-badge" class="trial-badge hidden"></div>
+
     <!-- ── RESULTS ───────────────────────────────────────────── -->
     <section id="results" class="hidden"></section>
 
@@ -65,7 +90,10 @@
 
   <footer>
     <button id="history-btn" class="history-toggle">🕓 History</button>
-    <a href="https://pinstyle.co" target="_blank" rel="noopener">pinstyle.co</a>
+    <div style="display:flex;align-items:center;gap:12px">
+      <a href="https://pinstyle.co" target="_blank" rel="noopener" style="font-size:10px;color:var(--ink-muted);text-decoration:none;">pinstyle.co</a>
+      <button id="logout-btn" class="logout-btn">Sign out</button>
+    </div>
   </footer>
 
   <!-- Image preview overlay -->
@@ -73,6 +101,7 @@
     <img id="preview-img" style="max-width:90%;max-height:90%;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,0.8);">
     <div style="position:absolute;top:16px;right:20px;color:rgba(255,255,255,0.5);font-size:24px;cursor:pointer;" onclick="document.getElementById('preview-overlay').style.display='none'">✕</div>
   </div>
+
   <script src="sidepanel.js"></script>
 </body>
 </html>

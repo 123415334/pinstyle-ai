@@ -3,7 +3,18 @@
 const API_URL  = 'https://pinstyle.co/api/analyze';
 const MIN_SIZE = 200; // px — filter out nav icons / UI chrome
 
+// ── Supabase config (replace with your project values) ───────────────────────
+// Find these in your Supabase dashboard → Project Settings → API
+const SUPABASE_URL      = 'https://sbdowcielgtcfholfyry.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiZG93Y2llbGd0Y2Zob2xmeXJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2NjkwNzMsImV4cCI6MjA5MDI0NTA3M30.3dUuwXB8kcAbKvEWWMpvyrXhcdLx1x8x4wKxp3UY4Kk';
+const FREE_TRIAL_LIMIT  = 3;
+
 const selectedUrls = new Set();
+
+// ── Auth state ────────────────────────────────────────────────────────────────
+let _authToken        = null;
+let _authEmail        = null;
+let _generationsUsed  = 0;
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
 const imageGrid    = document.getElementById('image-grid');
@@ -12,14 +23,184 @@ const refreshBtn   = document.getElementById('refresh-btn');
 const generateBtn  = document.getElementById('generate-btn');
 const subjectInput = document.getElementById('subject-input');
 const resultsEl    = document.getElementById('results');
+const trialBadge   = document.getElementById('trial-badge');
+const authScreen   = document.getElementById('auth-screen');
 
 // ── Init ─────────────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   refreshBtn.addEventListener('click', loadImages);
   generateBtn.addEventListener('click', generate);
   subjectInput.addEventListener('input', updateGenerateBtn);
-  loadImages();
+
+  // Auth form wiring
+  document.querySelectorAll('.auth-tab').forEach(tab => {
+    tab.addEventListener('click', () => switchAuthTab(tab.dataset.tab));
+  });
+  document.getElementById('auth-submit').addEventListener('click', handleAuthSubmit);
+  document.getElementById('auth-email').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('auth-password').focus();
+  });
+  document.getElementById('auth-password').addEventListener('keydown', e => {
+    if (e.key === 'Enter') handleAuthSubmit();
+  });
+  document.getElementById('logout-btn').addEventListener('click', logout);
+
+  // Check for existing session
+  await initAuth();
 });
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+async function initAuth() {
+  const stored = await chrome.storage.local.get(['ps_token', 'ps_email', 'ps_used']);
+  if (stored.ps_token) {
+    // Validate the stored token is still good
+    const ok = await validateToken(stored.ps_token);
+    if (ok) {
+      _authToken       = stored.ps_token;
+      _authEmail       = stored.ps_email || '';
+      _generationsUsed = stored.ps_used  || 0;
+      showMainUI();
+      return;
+    }
+    // Token expired — clear it
+    await chrome.storage.local.remove(['ps_token', 'ps_email', 'ps_used']);
+  }
+  showAuthScreen();
+}
+
+async function validateToken(token) {
+  try {
+    const resp = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { 'Authorization': `Bearer ${token}`, 'apikey': SUPABASE_ANON_KEY },
+    });
+    return resp.ok;
+  } catch { return false; }
+}
+
+function showAuthScreen() {
+  authScreen.classList.remove('hidden');
+}
+
+function showMainUI() {
+  authScreen.classList.add('hidden');
+  updateTrialBadge();
+  loadImages();
+}
+
+function updateTrialBadge() {
+  const remaining = FREE_TRIAL_LIMIT - _generationsUsed;
+  if (remaining <= 0) {
+    trialBadge.className = 'trial-badge exhausted';
+    trialBadge.innerHTML = `Trial complete — <strong>upgrade to Pro</strong> to keep generating`;
+    generateBtn.disabled = true;
+    generateBtn.title    = 'Upgrade to Pro to generate more images';
+  } else {
+    trialBadge.className = 'trial-badge';
+    trialBadge.innerHTML = `<strong>${remaining}</strong> free generation${remaining !== 1 ? 's' : ''} remaining`;
+  }
+}
+
+async function logout() {
+  try {
+    await fetch(`${SUPABASE_URL}/auth/v1/logout`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${_authToken}`, 'apikey': SUPABASE_ANON_KEY },
+    });
+  } catch { /* best-effort */ }
+  _authToken = _authEmail = null;
+  _generationsUsed = 0;
+  await chrome.storage.local.remove(['ps_token', 'ps_email', 'ps_used']);
+  showAuthScreen();
+}
+
+// ── Auth form ─────────────────────────────────────────────────────────────────
+
+let _authMode = 'login'; // 'login' | 'signup'
+
+function switchAuthTab(tab) {
+  _authMode = tab;
+  document.querySelectorAll('.auth-tab').forEach(el => {
+    el.classList.toggle('active', el.dataset.tab === tab);
+  });
+  document.getElementById('auth-submit').textContent =
+    tab === 'login' ? 'Sign In' : 'Create Account';
+  document.getElementById('auth-error').textContent = '';
+}
+
+async function handleAuthSubmit() {
+  const email    = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const errorEl  = document.getElementById('auth-error');
+  const submitBtn = document.getElementById('auth-submit');
+
+  errorEl.textContent = '';
+
+  if (!email || !password) {
+    errorEl.textContent = 'Please enter your email and password.';
+    return;
+  }
+  if (password.length < 6) {
+    errorEl.textContent = 'Password must be at least 6 characters.';
+    return;
+  }
+
+  submitBtn.disabled    = true;
+  submitBtn.textContent = _authMode === 'login' ? 'Signing in…' : 'Creating account…';
+
+  try {
+    let data;
+    if (_authMode === 'login') {
+      data = await supabaseLogin(email, password);
+    } else {
+      data = await supabaseSignup(email, password);
+    }
+
+    _authToken       = data.access_token;
+    _authEmail       = email;
+    _generationsUsed = 0;
+
+    await chrome.storage.local.set({
+      ps_token: _authToken,
+      ps_email: _authEmail,
+      ps_used:  0,
+    });
+
+    showMainUI();
+
+  } catch (err) {
+    errorEl.textContent = err.message || 'Something went wrong. Please try again.';
+  } finally {
+    submitBtn.disabled    = false;
+    submitBtn.textContent = _authMode === 'login' ? 'Sign In' : 'Create Account';
+  }
+}
+
+async function supabaseLogin(email, password) {
+  const resp = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+    body: JSON.stringify({ email, password }),
+  });
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(data.error_description || data.msg || 'Login failed');
+  return data;
+}
+
+async function supabaseSignup(email, password) {
+  const resp = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+    body: JSON.stringify({ email, password }),
+  });
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(data.error_description || data.msg || 'Sign up failed');
+  // Supabase returns the session directly on signup if email confirmation is off
+  if (!data.access_token) {
+    throw new Error('Check your email to confirm your account, then sign in.');
+  }
+  return data;
+}
 
 // ── Scan current tab for images ───────────────────────────────────────────────
 async function loadImages() {
@@ -39,26 +220,32 @@ async function loadImages() {
 
   const isPinterest = tab.url && tab.url.includes('pinterest.com');
 
-  // Auto-scroll to load more images before scanning
-  try {
-    await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: () => {
-        return new Promise(resolve => {
-          let scrolls = 0;
-          const maxScrolls = 3;
-          const interval = setInterval(() => {
-            window.scrollBy(0, window.innerHeight);
-            scrolls++;
-            if (scrolls >= maxScrolls) {
-              clearInterval(interval);
-              setTimeout(resolve, 800);
-            }
-          }, 400);
-        });
-      },
-    });
-  } catch (_) {}
+  // Auto-scroll to load more images before scanning (non-Pinterest only)
+  if (!isPinterest) {
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: () => {
+          return new Promise(resolve => {
+            const startY = window.scrollY;
+            let scrolls = 0;
+            const maxScrolls = 3;
+            const interval = setInterval(() => {
+              window.scrollBy(0, window.innerHeight);
+              scrolls++;
+              if (scrolls >= maxScrolls) {
+                clearInterval(interval);
+                setTimeout(() => {
+                  window.scrollTo({ top: startY, behavior: 'instant' });
+                  setTimeout(resolve, 100);
+                }, 800);
+              }
+            }, 400);
+          });
+        },
+      });
+    } catch (_) {}
+  }
 
   let results;
   try {
@@ -134,20 +321,15 @@ function collectImages(minSize) {
   // ── Pinterest-specific path ────────────────────────────────────────────────
   if (window.location.hostname.includes('pinterest.com')) {
 
-    // Strategy A: Parse __PWS_DATA__ JSON data island.
-    // Pinterest embeds its initial server-side data here. Pins that haven't
-    // scrolled into view yet won't be in the DOM but ARE in this JSON.
     try {
       const scriptEl = document.getElementById('__PWS_DATA__');
       if (scriptEl) {
         const raw = scriptEl.textContent.trim()
-          .replace(/^[^\[{]*/, '')   // strip any "window.__PWS_DATA__ = " prefix
-          .replace(/[;\s]*$/, '');   // strip trailing semicolon
+          .replace(/^[^\[{]*/, '')
+          .replace(/[;\s]*$/, '');
 
         const pws = JSON.parse(raw);
 
-        // Walk the entire JSON tree looking for pin image objects.
-        // A pin has an `images` field whose values have a `.url` on i.pinimg.com.
         function walk(obj, depth) {
           if (!obj || typeof obj !== 'object' || depth > 25) return;
 
@@ -158,7 +340,6 @@ function collectImages(minSize) {
               obj.images[k].url.includes('i.pinimg.com')
             );
             if (validKey) {
-              // Prefer highest quality: 736x > 474x > originals > orig > 236x
               const best = (
                 obj.images['736x']      ||
                 obj.images['474x']      ||
@@ -167,10 +348,9 @@ function collectImages(minSize) {
                 obj.images['236x']      ||
                 obj.images[validKey]
               );
-              // Normalise to 736x URL regardless of which size we found
               const url = best.url.replace(/\/\d+x\//, '/736x/');
               add(url, best.width || 736, best.height || 736, '');
-              return; // don't recurse further into this pin's subtree
+              return;
             }
           }
 
@@ -185,24 +365,34 @@ function collectImages(minSize) {
 
         walk(pws, 0);
       }
-    } catch (_) {
-      // PWS_DATA unavailable or unparseable — fall through to DOM scan
-    }
+    } catch (_) {}
 
-    // Strategy B: Scan rendered <img> tags for i.pinimg.com URLs.
-    // Catches any pins that loaded after the initial page render
-    // (i.e. pins the user has already scrolled to).
     document.querySelectorAll('img').forEach(img => {
       const src = img.currentSrc || img.src;
       if (!src || !src.includes('i.pinimg.com')) return;
 
-      const w = img.naturalWidth  || img.getBoundingClientRect().width;
-      const h = img.naturalHeight || img.getBoundingClientRect().height;
+      const w = img.naturalWidth  || img.offsetWidth;
+      const h = img.naturalHeight || img.offsetHeight;
       if (w < minSize || h < minSize) return;
 
-      // Normalise to 736x for best quality
       const upgraded = src.replace(/\/\d+x\//, '/736x/');
       add(upgraded, Math.max(w, 736), Math.max(h, 736), img.alt || '');
+    });
+
+    const posMap = {};
+    document.querySelectorAll('img').forEach(img => {
+      const src = img.currentSrc || img.src;
+      if (!src || !src.includes('i.pinimg.com')) return;
+      const upgraded = src.replace(/\/\d+x\//, '/736x/');
+      if (posMap[upgraded]) return;
+      const rect = img.getBoundingClientRect();
+      posMap[upgraded] = { top: rect.top + window.scrollY, left: rect.left };
+    });
+
+    results.sort((a, b) => {
+      const pa = posMap[a.src] || { top: 9999, left: 9999 };
+      const pb = posMap[b.src] || { top: 9999, left: 9999 };
+      return pa.top !== pb.top ? pa.top - pb.top : pa.left - pb.left;
     });
 
     return results;
@@ -213,11 +403,25 @@ function collectImages(minSize) {
     const src = img.currentSrc || img.src;
     if (!src || src.startsWith('data:')) return;
 
-    const w = img.naturalWidth  || img.getBoundingClientRect().width;
-    const h = img.naturalHeight || img.getBoundingClientRect().height;
+    const w = img.naturalWidth  || img.offsetWidth;
+    const h = img.naturalHeight || img.offsetHeight;
     if (w < minSize || h < minSize) return;
 
     add(src, w, h, img.alt || '');
+  });
+
+  const posMap = {};
+  document.querySelectorAll('img').forEach(img => {
+    const src = img.currentSrc || img.src;
+    if (!src || src.startsWith('data:') || posMap[src]) return;
+    const rect = img.getBoundingClientRect();
+    posMap[src] = { top: rect.top + window.scrollY, left: rect.left };
+  });
+
+  results.sort((a, b) => {
+    const pa = posMap[a.src] || { top: 9999, left: 9999 };
+    const pb = posMap[b.src] || { top: 9999, left: 9999 };
+    return pa.top !== pb.top ? pa.top - pb.top : pa.left - pb.left;
   });
 
   return results;
@@ -264,19 +468,60 @@ async function generate() {
   try {
     const resp = await fetch(API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${_authToken}`,
+      },
       body: JSON.stringify({ imageUrls: [...selectedUrls], subject, pageUrl }),
     });
 
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({}));
-      throw new Error(err.error || `API returned ${resp.status}`);
+    const data = await resp.json().catch(() => ({}));
+
+    if (resp.status === 401) {
+      // Session expired — force re-login
+      _authToken = null;
+      await chrome.storage.local.remove(['ps_token', 'ps_email', 'ps_used']);
+      showAuthScreen();
+      return;
     }
 
-    const data = await resp.json();
+    if (resp.status === 402) {
+      // Trial exhausted
+      _generationsUsed = FREE_TRIAL_LIMIT;
+      await chrome.storage.local.set({ ps_used: FREE_TRIAL_LIMIT });
+      updateTrialBadge();
+      resultsEl.className = '';
+      resultsEl.innerHTML = `
+        <div class="result-block" style="text-align:center;padding:24px">
+          <p style="font-size:13px;color:var(--ink);margin-bottom:12px">
+            You've used all ${FREE_TRIAL_LIMIT} free generations.
+          </p>
+          <a href="https://pinstyle.co/upgrade" target="_blank" rel="noopener"
+             style="display:inline-block;background:var(--red);color:#fff;font-size:13px;font-weight:500;
+                    padding:10px 24px;border-radius:var(--radius);text-decoration:none;
+                    box-shadow:0 4px 16px rgba(224,61,47,0.3)">
+            Upgrade to Pro →
+          </a>
+        </div>`;
+      return;
+    }
+
+    if (!resp.ok) {
+      throw new Error(data.error || `API returned ${resp.status}`);
+    }
+
     renderResults(data);
+
+    // Update usage count from API response
+    if (data.usage) {
+      _generationsUsed = data.usage.used;
+      await chrome.storage.local.set({ ps_used: _generationsUsed });
+      updateTrialBadge();
+    }
+
+    // Save images to history (fetch blobs while URLs are still valid)
     if (data.images && data.images.length > 0) {
-      await saveToHistory(subject, data.images, data.prompt || subject);
+      saveToHistory(data.images).catch(e => console.warn('[PinStyle] history save failed:', e));
     }
 
   } catch (err) {
@@ -327,9 +572,11 @@ function renderResults(data) {
           ${images.map((url, i) => `
             <div class="gen-img-wrap" onclick="showPreview('${escAttr(url)}')">
               <img src="${escAttr(url)}" alt="Generated image" loading="lazy">
-              <a class="download-btn" href="${escAttr(url)}" download="pinstyle-${i+1}.png" target="_blank" onclick="event.stopPropagation()">
-                ↓ Download
-              </a>
+              <div class="img-actions" onclick="event.stopPropagation()">
+                <button class="download-btn" data-url="${escAttr(url)}" data-filename="pinstyle-${i+1}.png">
+                  ↓ Download
+                </button>
+              </div>
             </div>`).join('')}
         </div>
       </div>`;
@@ -342,6 +589,12 @@ function renderResults(data) {
 
   resultsEl.innerHTML = html;
 
+  // Download as PNG buttons
+  resultsEl.querySelectorAll('.download-btn').forEach(btn => {
+    btn.addEventListener('click', () => downloadAsPng(btn.dataset.url, btn.dataset.filename));
+  });
+
+  // Copy prompt button
   resultsEl.querySelectorAll('.btn-copy').forEach(btn => {
     btn.addEventListener('click', () => {
       navigator.clipboard.writeText(btn.dataset.prompt || '').then(() => {
@@ -350,6 +603,32 @@ function renderResults(data) {
       });
     });
   });
+}
+
+// ── Download as PNG ───────────────────────────────────────────────────────────
+async function downloadAsPng(url, filename) {
+  try {
+    const resp = await fetch(url);
+    const blob = await resp.blob();
+    const objUrl = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width  = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      canvas.getContext('2d').drawImage(img, 0, 0);
+      canvas.toBlob(pngBlob => {
+        const a = document.createElement('a');
+        a.href     = URL.createObjectURL(pngBlob);
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(objUrl);
+      }, 'image/png');
+    };
+    img.src = objUrl;
+  } catch (err) {
+    console.error('[PinStyle] download error:', err);
+  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -375,68 +654,147 @@ function escAttr(str) {
   return str.replace(/"/g, '&quot;');
 }
 
-// ── History Archive ───────────────────────────────────────────────────────────
-const HISTORY_KEY = 'pinstyle_history';
-const MAX_HISTORY = 50;
+// ── History Archive (IndexedDB) ───────────────────────────────────────────────
+// Images are fetched and stored as binary blobs so they persist indefinitely
+// even after the original API URLs expire. Capped at MAX_HISTORY sessions.
 
-async function saveToHistory(subject, images, prompt) {
-  const entry = {
-    id: Date.now(),
-    subject,
-    prompt,
-    images,
-    date: new Date().toLocaleDateString(),
-  };
-  const result = await chrome.storage.local.get(HISTORY_KEY);
-  const history = result[HISTORY_KEY] || [];
-  history.unshift(entry);
-  if (history.length > MAX_HISTORY) history.pop();
-  await chrome.storage.local.set({ [HISTORY_KEY]: history });
+const DB_NAME     = 'pinstyle_db';
+const DB_VERSION  = 1;
+const STORE_NAME  = 'history';
+const MAX_HISTORY = 100; // maximum number of generation sessions to keep
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        // autoIncrement key: lower = older, higher = newer
+        db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+      }
+    };
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+async function saveToHistory(imageUrls) {
+  // Download all images as ArrayBuffers while the (temporary) URLs are still valid
+  const buffers = await Promise.all(imageUrls.map(async url => {
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok) return null;
+      return await resp.arrayBuffer();
+    } catch { return null; }
+  }));
+
+  const validBuffers = buffers.filter(Boolean);
+  if (validBuffers.length === 0) return;
+
+  const db = await openDB();
+
+  // Add new entry
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.oncomplete = resolve;
+    tx.onerror    = () => reject(tx.error);
+    tx.objectStore(STORE_NAME).add({ timestamp: Date.now(), buffers: validBuffers });
+  });
+
+  // Trim oldest entries to stay within MAX_HISTORY
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.oncomplete = resolve;
+    tx.onerror    = () => reject(tx.error);
+    const store = tx.objectStore(STORE_NAME);
+
+    const countReq = store.count();
+    countReq.onsuccess = () => {
+      const count = countReq.result;
+      if (count <= MAX_HISTORY) return;
+
+      let toDelete = count - MAX_HISTORY;
+      const cursorReq = store.openCursor(); // ascending = oldest first
+      cursorReq.onsuccess = e => {
+        const cursor = e.target.result;
+        if (cursor && toDelete > 0) {
+          cursor.delete();
+          toDelete--;
+          cursor.continue();
+        }
+      };
+    };
+  });
 }
 
 async function loadHistory() {
-  const result = await chrome.storage.local.get(HISTORY_KEY);
-  return result[HISTORY_KEY] || [];
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx    = db.transaction(STORE_NAME, 'readonly');
+    const store = tx.objectStore(STORE_NAME);
+    const req   = store.getAll();
+    req.onsuccess = () => resolve(req.result.reverse()); // newest first
+    req.onerror   = () => reject(req.error);
+  });
 }
 
+// Object URLs created for history images (revoked when panel closes)
+let _historyObjectUrls = [];
+
 async function renderHistory() {
-  const history = await loadHistory();
   const listEl = document.getElementById('history-list');
+
+  // Revoke any previous object URLs to free memory
+  _historyObjectUrls.forEach(u => URL.revokeObjectURL(u));
+  _historyObjectUrls = [];
+
+  listEl.innerHTML = '<p class="history-empty" style="padding:16px;text-align:center;color:var(--ink-muted)">Loading…</p>';
+
+  let history;
+  try {
+    history = await loadHistory();
+  } catch (e) {
+    listEl.innerHTML = '<p class="history-empty">Could not load history.</p>';
+    return;
+  }
 
   if (history.length === 0) {
     listEl.innerHTML = '<p class="history-empty">No generations yet.<br>Your images will appear here.</p>';
     return;
   }
 
-  listEl.innerHTML = history.map(entry => `
-    <div class="history-entry" data-id="${entry.id}">
-      <div class="history-thumbs">
-        ${entry.images.map(url => `<img src="${escAttr(url)}" alt="">`).join('')}
-      </div>
-      <div class="history-meta">
-        <span class="history-subject">${escHtml(entry.subject)}</span>
-        <span class="history-date">${entry.date}</span>
-      </div>
-    </div>
-  `).join('');
+  // Build a flat grid of every generated image, newest session first
+  listEl.innerHTML = '';
 
-  // Click entry to restore results
-  listEl.querySelectorAll('.history-entry').forEach(el => {
-    el.addEventListener('click', () => {
-      const entry = history.find(h => h.id === parseInt(el.dataset.id));
-      if (!entry) return;
-      document.getElementById('history-panel').classList.add('hidden');
-      resultsEl.className = '';
-      resultsEl.style.display = 'block';
-      renderResults({ images: entry.images, prompt: entry.prompt });
-      setTimeout(() => resultsEl.scrollIntoView({ behavior: 'smooth' }), 100);
+  const grid = document.createElement('div');
+  grid.style.cssText = 'display:grid;grid-template-columns:repeat(2,1fr);gap:6px;padding:10px';
+
+  history.forEach(entry => {
+    (entry.buffers || []).forEach(buf => {
+      const blob = new Blob([buf], { type: 'image/png' });
+      const url  = URL.createObjectURL(blob);
+      _historyObjectUrls.push(url);
+
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'border-radius:8px;overflow:hidden;cursor:pointer;aspect-ratio:1;background:#f0ebe8';
+
+      const img = document.createElement('img');
+      img.src   = url;
+      img.alt   = '';
+      img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block';
+      img.addEventListener('click', () => showPreview(url));
+
+      wrap.appendChild(img);
+      grid.appendChild(wrap);
     });
   });
+
+  listEl.appendChild(grid);
 }
 
-// Hook up history button
+// ── History panel wiring ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  const historyBtn = document.getElementById('history-btn');
+  const historyBtn   = document.getElementById('history-btn');
   const historyPanel = document.getElementById('history-panel');
   const historyClose = document.getElementById('history-close');
 
@@ -447,9 +805,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   historyClose.addEventListener('click', () => {
     historyPanel.classList.add('hidden');
+    // Free object URLs when panel is closed
+    _historyObjectUrls.forEach(u => URL.revokeObjectURL(u));
+    _historyObjectUrls = [];
   });
 });
-
 
 // ── Image Preview ─────────────────────────────────────────────────────────────
 function showPreview(url) {

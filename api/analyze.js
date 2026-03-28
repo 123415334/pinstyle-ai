@@ -1,3 +1,61 @@
+const FREE_TRIAL_LIMIT = 3;
+
+// ── Supabase helpers ──────────────────────────────────────────────────────────
+
+async function validateToken(token) {
+  const resp = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'apikey': process.env.SUPABASE_ANON_KEY,
+    },
+  });
+  if (!resp.ok) return null;
+  return await resp.json(); // { id, email, ... }
+}
+
+async function getUsage(userId) {
+  const resp = await fetch(
+    `${process.env.SUPABASE_URL}/rest/v1/user_profiles?id=eq.${userId}&select=generations_used,plan`,
+    {
+      headers: {
+        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+        'apikey':        process.env.SUPABASE_SERVICE_KEY,
+      },
+    }
+  );
+  if (!resp.ok) return null;
+  const rows = await resp.json();
+  return rows[0] || null;
+}
+
+async function incrementUsage(userId) {
+  await fetch(
+    `${process.env.SUPABASE_URL}/rest/v1/user_profiles?id=eq.${userId}`,
+    {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+        'apikey':        process.env.SUPABASE_SERVICE_KEY,
+        'Content-Type':  'application/json',
+        'Prefer':        'return=minimal',
+      },
+      body: JSON.stringify({ generations_used: { __increment: true } }),
+    }
+  );
+  // Use RPC for atomic increment instead
+  await fetch(`${process.env.SUPABASE_URL}/rest/v1/rpc/increment_generations`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+      'apikey':        process.env.SUPABASE_SERVICE_KEY,
+      'Content-Type':  'application/json',
+    },
+    body: JSON.stringify({ user_id: userId }),
+  });
+}
+
+// ── Image helpers ─────────────────────────────────────────────────────────────
+
 async function fetchImageAsBase64(url) {
   try {
     const controller = new AbortController();
@@ -31,13 +89,43 @@ async function waitForResult(predictionId) {
   throw new Error("Timed out");
 }
 
+// ── Main handler ──────────────────────────────────────────────────────────────
+
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
+  // ── Auth check ──────────────────────────────────────────────────────────────
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+  if (!token) {
+    return res.status(401).json({ error: 'auth_required', message: 'Please sign in to use PinStyle AI.' });
+  }
+
+  const user = await validateToken(token);
+  if (!user) {
+    return res.status(401).json({ error: 'auth_invalid', message: 'Your session has expired. Please sign in again.' });
+  }
+
+  // ── Usage / trial check ─────────────────────────────────────────────────────
+  const profile = await getUsage(user.id);
+  const generationsUsed = profile?.generations_used ?? 0;
+  const plan = profile?.plan ?? 'free';
+
+  if (plan === 'free' && generationsUsed >= FREE_TRIAL_LIMIT) {
+    return res.status(402).json({
+      error: 'trial_exhausted',
+      message: `You've used all ${FREE_TRIAL_LIMIT} free generations. Upgrade to Pro to keep creating.`,
+      used: generationsUsed,
+      limit: FREE_TRIAL_LIMIT,
+    });
+  }
+
+  // ── Generation ──────────────────────────────────────────────────────────────
   const { imageUrls, subject } = req.body;
   if (!subject) return res.status(400).json({ error: "Missing subject" });
   if (!Array.isArray(imageUrls) || imageUrls.length === 0) return res.status(400).json({ error: "Missing imageUrls" });
@@ -45,10 +133,8 @@ module.exports = async function handler(req, res) {
   try {
     const downloaded = await Promise.all(imageUrls.slice(0, 4).map(fetchImageAsBase64));
     const validImages = downloaded.filter(Boolean);
-    console.log("[analyze] Got " + validImages.length + " images for Claude Vision");
 
     let styleDescriptors = "professional photography, natural lighting, high quality";
-    let bestImageIndex = 0;
 
     if (validImages.length > 0) {
       const claudeResp = await fetch("https://api.anthropic.com/v1/messages", {
@@ -94,7 +180,6 @@ Rules:
         const rawText = d.content?.[0]?.text?.trim() || "";
         const indexMatch = rawText.match(/BEST_IMAGE_INDEX:\s*(\d+)/);
         if (indexMatch) {
-          bestImageIndex = Math.min(parseInt(indexMatch[1]), validImages.length - 1);
           styleDescriptors = rawText.replace(/BEST_IMAGE_INDEX:\s*\d+\s*/, "").trim();
         } else {
           styleDescriptors = rawText || styleDescriptors;
@@ -103,16 +188,13 @@ Rules:
     }
 
     const fullPrompt = "Subject: " + subject + ". Style: " + styleDescriptors;
-    console.log("[analyze] Prompt: " + fullPrompt);
 
     const startPrediction = async (prompt) => {
-      // Build input_image fields for up to 4 reference images
       const refInput = {};
       imageUrls.slice(0, 4).forEach((url, i) => {
         if (i === 0) refInput.input_image = url;
         else refInput[`input_image_${i + 1}`] = url;
       });
-
       const resp = await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-2-pro/predictions", {
         method: "POST",
         headers: {
@@ -134,10 +216,24 @@ Rules:
 
     const images = [
       Array.isArray(output1) ? output1[0] : output1,
-      Array.isArray(output2) ? output2[0] : output2
+      Array.isArray(output2) ? output2[0] : output2,
     ].filter(Boolean);
 
-    return res.status(200).json({ images, prompt: fullPrompt, styleDescriptors });
+    // ── Increment usage after successful generation ──────────────────────────
+    await incrementUsage(user.id);
+    const newUsed = generationsUsed + 1;
+
+    return res.status(200).json({
+      images,
+      prompt: fullPrompt,
+      styleDescriptors,
+      usage: {
+        used:      newUsed,
+        limit:     plan === 'free' ? FREE_TRIAL_LIMIT : null,
+        remaining: plan === 'free' ? FREE_TRIAL_LIMIT - newUsed : null,
+        plan,
+      },
+    });
 
   } catch (err) {
     console.error("API error:", err);

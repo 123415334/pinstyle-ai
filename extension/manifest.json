@@ -17,7 +17,7 @@
   },
   "side_panel": {
     "default_path": "sidepanel.html",
-    "default_width": 400
+    "default_width": 600
   },
   "action": {
     "default_title": "PinStyle AI",
