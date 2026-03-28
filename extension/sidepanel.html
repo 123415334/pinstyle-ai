@@ -29,6 +29,54 @@
     </div>
   </div>
 
+  <!-- ── PLAN SELECTION SCREEN (shown after new account creation) ─── -->
+  <div id="plan-screen" class="plan-screen hidden">
+    <div class="plan-inner">
+      <img src="pinstyle_logo.png" alt="PinStyle AI" class="auth-logo">
+      <h2 class="plan-select-title">Choose your <em>plan</em></h2>
+      <p class="plan-select-sub">You can upgrade or change anytime</p>
+
+      <div class="plan-cards" id="plan-cards">
+
+        <!-- Free -->
+        <div class="ps-card">
+          <p class="ps-name">Free</p>
+          <p class="ps-price">$0</p>
+          <p class="ps-detail">3 generations to try it out</p>
+          <button class="ps-btn ps-btn-outline" id="choose-free-btn">Start free</button>
+        </div>
+
+        <!-- Pro -->
+        <div class="ps-card ps-card-featured">
+          <div class="ps-badge">Popular</div>
+          <p class="ps-name">Pro</p>
+          <p class="ps-price">$12<span class="ps-mo">/mo</span></p>
+          <p class="ps-detail">120 generations / month</p>
+          <button class="ps-btn ps-btn-gold" id="choose-pro-btn">Get Pro →</button>
+        </div>
+
+        <!-- Unlimited -->
+        <div class="ps-card">
+          <p class="ps-name">Unlimited</p>
+          <p class="ps-price">$35<span class="ps-mo">/mo</span></p>
+          <p class="ps-detail">No limits, ever</p>
+          <button class="ps-btn ps-btn-red" id="choose-unlimited-btn">Go Unlimited →</button>
+        </div>
+
+      </div>
+
+      <!-- Waiting state (after clicking a paid plan) -->
+      <div id="plan-waiting" class="plan-waiting hidden">
+        <div class="plan-waiting-icon">↗</div>
+        <p class="plan-waiting-title">Checkout opened in a new tab</p>
+        <p class="plan-waiting-sub">Complete your payment, then come back here and click below.</p>
+        <button class="ps-btn ps-btn-gold" id="plan-done-btn">I've upgraded — continue →</button>
+        <button class="plan-waiting-skip" id="plan-skip-btn">Start free instead</button>
+      </div>
+
+    </div>
+  </div>
+
   <!-- ── MAIN UI ───────────────────────────────────────────────────── -->
   <header>
     <div class="header-top">

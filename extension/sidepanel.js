@@ -28,6 +28,7 @@ const subjectInput = document.getElementById('subject-input');
 const resultsEl    = document.getElementById('results');
 const trialBadge   = document.getElementById('trial-badge');
 const authScreen   = document.getElementById('auth-screen');
+const planScreen   = document.getElementById('plan-screen');
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
@@ -48,9 +49,55 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   document.getElementById('logout-btn').addEventListener('click', logout);
 
+  // Plan selection wiring
+  document.getElementById('choose-free-btn').addEventListener('click', () => {
+    hidePlanScreen();
+    showMainUI();
+  });
+  document.getElementById('choose-pro-btn').addEventListener('click', () => openUpgradeFlow('pro'));
+  document.getElementById('choose-unlimited-btn').addEventListener('click', () => openUpgradeFlow('unlimited'));
+  document.getElementById('plan-done-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('plan-done-btn');
+    btn.disabled = true;
+    btn.textContent = 'Checking…';
+    await fetchPlan();
+    if (_plan === 'free') {
+      btn.disabled = false;
+      btn.textContent = 'I\'ve upgraded — continue →';
+      document.getElementById('plan-waiting').insertAdjacentHTML('beforeend',
+        '<p style="font-size:11px;color:var(--red);margin-top:-4px;">Plan not updated yet — complete checkout first, or start free below.</p>'
+      );
+    } else {
+      hidePlanScreen();
+      showMainUI();
+    }
+  });
+  document.getElementById('plan-skip-btn').addEventListener('click', () => {
+    hidePlanScreen();
+    showMainUI();
+  });
+
   // Check for existing session
   await initAuth();
 });
+
+// ── Plan selection screen ────────────────────────────────────────────────────
+function showPlanScreen() {
+  authScreen.classList.add('hidden');
+  planScreen.classList.remove('hidden');
+}
+
+function hidePlanScreen() {
+  planScreen.classList.add('hidden');
+}
+
+function openUpgradeFlow(plan) {
+  const upgradeUrl = `https://pinstyle.co/upgrade?email=${encodeURIComponent(_authEmail)}&plan=${plan}`;
+  chrome.tabs.create({ url: upgradeUrl });
+  // Switch plan screen to waiting state
+  document.getElementById('plan-cards').classList.add('hidden');
+  document.getElementById('plan-waiting').classList.remove('hidden');
+}
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
@@ -257,7 +304,13 @@ async function handleAuthSubmit() {
     // Fetch real plan + usage from Supabase before showing UI
     await fetchPlan();
 
-    showMainUI();
+    // After signup → show plan selection so user can choose their tier
+    // After login → go straight to main UI
+    if (_authMode === 'signup') {
+      showPlanScreen();
+    } else {
+      showMainUI();
+    }
 
   } catch (err) {
     errorEl.textContent = err.message || 'Something went wrong. Please try again.';
