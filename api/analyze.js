@@ -29,20 +29,7 @@ async function getUsage(userId) {
 }
 
 async function incrementUsage(userId) {
-  await fetch(
-    `${process.env.SUPABASE_URL}/rest/v1/user_profiles?id=eq.${userId}`,
-    {
-      method: 'PATCH',
-      headers: {
-        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
-        'apikey':        process.env.SUPABASE_SERVICE_KEY,
-        'Content-Type':  'application/json',
-        'Prefer':        'return=minimal',
-      },
-      body: JSON.stringify({ generations_used: { __increment: true } }),
-    }
-  );
-  // Use RPC for atomic increment instead
+  // Atomic increment via RPC
   await fetch(`${process.env.SUPABASE_URL}/rest/v1/rpc/increment_generations`, {
     method: 'POST',
     headers: {
@@ -145,7 +132,7 @@ module.exports = async function handler(req, res) {
           "x-api-key": process.env.ANTHROPIC_API_KEY,
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
+          model: "claude-sonnet-4-6",
           max_tokens: 600,
           system: "You are an expert art director and image generation prompt engineer. Your job is to deeply analyze reference images, identify the single most distinctive visual element that defines their style, and write a prompt that leads with that element so an AI image generator reproduces the exact same style for any new subject.",
           messages: [{ role: "user", content: [
