@@ -23,8 +23,8 @@ function getRawBody(req) {
   });
 }
 
-// Update the user's plan in Supabase
-async function upgradeToPro(email) {
+// Update the user's plan in Supabase ('pro' or 'unlimited')
+async function upgradePlan(email, plan) {
   const url = `${process.env.SUPABASE_URL}/rest/v1/user_profiles?email=eq.${encodeURIComponent(email)}`;
   const resp = await fetch(url, {
     method: 'PATCH',
@@ -34,7 +34,7 @@ async function upgradeToPro(email) {
       'apikey':        process.env.SUPABASE_SERVICE_KEY,
       'Prefer':        'return=minimal',
     },
-    body: JSON.stringify({ plan: 'pro' }),
+    body: JSON.stringify({ plan }),
   });
 
   if (!resp.ok) {
@@ -103,7 +103,7 @@ module.exports = async function handler(req, res) {
   try {
     switch (event.type) {
 
-      // Payment succeeded → upgrade user
+      // Payment succeeded → upgrade user to correct plan
       case 'checkout.session.completed': {
         const session = event.data.object;
         // Prefer customer_details.email, fall back to metadata
@@ -112,11 +112,13 @@ module.exports = async function handler(req, res) {
           console.warn('checkout.session.completed: no email found, skipping upgrade');
           break;
         }
-        await upgradeToPro(email);
+        // Determine plan from metadata (set by create-checkout.js)
+        const plan = session.metadata?.plan === 'unlimited' ? 'unlimited' : 'pro';
+        await upgradePlan(email, plan);
         if (session.subscription) {
           await storeSubscriptionId(email, session.subscription);
         }
-        console.log(`Upgraded to Pro: ${email}`);
+        console.log(`Upgraded to ${plan}: ${email}`);
         break;
       }
 

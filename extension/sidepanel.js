@@ -15,7 +15,9 @@ const selectedUrls = new Set();
 let _authToken        = null;
 let _authEmail        = null;
 let _generationsUsed  = 0;
-let _plan             = 'free'; // 'free' | 'pro'
+let _monthlyUsed      = 0;
+let _monthlyResetAt   = null;
+let _plan             = 'free'; // 'free' | 'pro' | 'unlimited'
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
 const imageGrid    = document.getElementById('image-grid');
@@ -53,22 +55,24 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
 async function initAuth() {
-  const stored = await chrome.storage.local.get(['ps_token', 'ps_email', 'ps_used', 'ps_plan']);
+  const stored = await chrome.storage.local.get(['ps_token', 'ps_email', 'ps_used', 'ps_plan', 'ps_monthly', 'ps_reset']);
   if (stored.ps_token) {
     // Validate the stored token is still good
     const ok = await validateToken(stored.ps_token);
     if (ok) {
       _authToken       = stored.ps_token;
-      _authEmail       = stored.ps_email || '';
-      _generationsUsed = stored.ps_used  || 0;
-      _plan            = stored.ps_plan  || 'free';
+      _authEmail       = stored.ps_email   || '';
+      _generationsUsed = stored.ps_used    || 0;
+      _monthlyUsed     = stored.ps_monthly || 0;
+      _monthlyResetAt  = stored.ps_reset   || null;
+      _plan            = stored.ps_plan    || 'free';
       // Always fetch latest plan from Supabase in case they upgraded
       await fetchPlan();
       showMainUI();
       return;
     }
     // Token expired — clear it
-    await chrome.storage.local.remove(['ps_token', 'ps_email', 'ps_used', 'ps_plan']);
+    await chrome.storage.local.remove(['ps_token', 'ps_email', 'ps_used', 'ps_plan', 'ps_monthly', 'ps_reset']);
   }
   showAuthScreen();
 }
@@ -78,15 +82,22 @@ async function fetchPlan() {
   if (!_authToken) return;
   try {
     const resp = await fetch(
-      `${SUPABASE_URL}/rest/v1/user_profiles?email=eq.${encodeURIComponent(_authEmail)}&select=plan,generations_used`,
+      `${SUPABASE_URL}/rest/v1/user_profiles?email=eq.${encodeURIComponent(_authEmail)}&select=plan,generations_used,monthly_generations,monthly_reset_at`,
       { headers: { 'Authorization': `Bearer ${_authToken}`, 'apikey': SUPABASE_ANON_KEY } }
     );
     if (!resp.ok) return;
     const rows = await resp.json();
     if (rows?.[0]) {
-      _plan            = rows[0].plan            || 'free';
-      _generationsUsed = rows[0].generations_used ?? _generationsUsed;
-      await chrome.storage.local.set({ ps_plan: _plan, ps_used: _generationsUsed });
+      _plan            = rows[0].plan               || 'free';
+      _generationsUsed = rows[0].generations_used   ?? _generationsUsed;
+      _monthlyUsed     = rows[0].monthly_generations ?? 0;
+      _monthlyResetAt  = rows[0].monthly_reset_at   || null;
+      await chrome.storage.local.set({
+        ps_plan:    _plan,
+        ps_used:    _generationsUsed,
+        ps_monthly: _monthlyUsed,
+        ps_reset:   _monthlyResetAt,
+      });
     }
   } catch { /* best-effort */ }
 }
@@ -110,19 +121,47 @@ function showMainUI() {
   loadImages();
 }
 
+const PRO_MONTHLY_LIMIT = 120;
+
 function updateTrialBadge() {
-  if (_plan === 'pro') {
+  const upgradeBase = `https://pinstyle.co/upgrade${_authEmail ? '?email=' + encodeURIComponent(_authEmail) : ''}`;
+  const btnHtml = `<button id="already-upgraded-btn" style="font-size:10px;color:var(--ink-muted);background:none;border:1px solid var(--border);border-radius:10px;padding:2px 7px;cursor:pointer;margin-left:4px;">Already upgraded?</button>`;
+
+  // ── Unlimited plan ──
+  if (_plan === 'unlimited') {
     trialBadge.className = 'trial-badge';
-    trialBadge.innerHTML = `✦ <strong>Pro</strong> — unlimited generations`;
+    trialBadge.innerHTML = `✦ <strong>Unlimited</strong> — no monthly limit`;
     generateBtn.disabled = false;
     generateBtn.title    = '';
     return;
   }
+
+  // ── Pro plan ──
+  if (_plan === 'pro') {
+    const remaining = PRO_MONTHLY_LIMIT - _monthlyUsed;
+    if (remaining <= 0) {
+      trialBadge.className = 'trial-badge exhausted';
+      const resetDate = _monthlyResetAt
+        ? new Date(_monthlyResetAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        : 'next month';
+      const unlimitedUrl = upgradeBase + (_authEmail ? '&current=pro' : '?current=pro');
+      trialBadge.innerHTML = `Monthly limit reached — <a href="${unlimitedUrl}" target="_blank" rel="noopener" style="color:var(--red);font-weight:500;text-decoration:underline;cursor:pointer;">upgrade to Unlimited</a> or resets ${resetDate} ${btnHtml}`;
+      document.getElementById('already-upgraded-btn')?.addEventListener('click', refreshPlanStatus);
+      generateBtn.disabled = true;
+      generateBtn.title    = 'Monthly limit reached. Upgrade to Unlimited for no limits.';
+    } else {
+      trialBadge.className = 'trial-badge';
+      trialBadge.innerHTML = `<strong>${_monthlyUsed}</strong> / ${PRO_MONTHLY_LIMIT} generations this month`;
+      generateBtn.title    = '';
+    }
+    return;
+  }
+
+  // ── Free plan ──
   const remaining = FREE_TRIAL_LIMIT - _generationsUsed;
   if (remaining <= 0) {
     trialBadge.className = 'trial-badge exhausted';
-    const upgradeUrl = `https://pinstyle.co/upgrade${_authEmail ? '?email=' + encodeURIComponent(_authEmail) : ''}`;
-    trialBadge.innerHTML = `Trial complete — <a href="${upgradeUrl}" target="_blank" rel="noopener" style="color:var(--red);font-weight:500;text-decoration:underline;cursor:pointer;">upgrade to Pro</a> to keep generating &nbsp;<button id="already-upgraded-btn" style="font-size:10px;color:var(--ink-muted);background:none;border:1px solid var(--border);border-radius:10px;padding:2px 7px;cursor:pointer;">Already upgraded?</button>`;
+    trialBadge.innerHTML = `Trial complete — <a href="${upgradeBase}" target="_blank" rel="noopener" style="color:var(--red);font-weight:500;text-decoration:underline;cursor:pointer;">upgrade to Pro</a> to keep generating ${btnHtml}`;
     document.getElementById('already-upgraded-btn')?.addEventListener('click', refreshPlanStatus);
     generateBtn.disabled = true;
     generateBtn.title    = 'Upgrade to Pro to generate more images';
@@ -150,8 +189,10 @@ async function logout() {
   } catch { /* best-effort */ }
   _authToken = _authEmail = null;
   _generationsUsed = 0;
+  _monthlyUsed = 0;
+  _monthlyResetAt = null;
   _plan = 'free';
-  await chrome.storage.local.remove(['ps_token', 'ps_email', 'ps_used', 'ps_plan']);
+  await chrome.storage.local.remove(['ps_token', 'ps_email', 'ps_used', 'ps_plan', 'ps_monthly', 'ps_reset']);
   showAuthScreen();
 }
 
@@ -200,13 +241,17 @@ async function handleAuthSubmit() {
     _authToken       = data.access_token;
     _authEmail       = email;
     _generationsUsed = 0;
+    _monthlyUsed     = 0;
+    _monthlyResetAt  = null;
     _plan            = 'free';
 
     await chrome.storage.local.set({
-      ps_token: _authToken,
-      ps_email: _authEmail,
-      ps_used:  0,
-      ps_plan:  'free',
+      ps_token:   _authToken,
+      ps_email:   _authEmail,
+      ps_used:    0,
+      ps_plan:    'free',
+      ps_monthly: 0,
+      ps_reset:   null,
     });
 
     // Fetch real plan + usage from Supabase before showing UI
@@ -486,9 +531,11 @@ function toggleSelect(item, src) {
 }
 
 function updateGenerateBtn() {
-  const trialExhausted = _plan !== 'pro' && _generationsUsed >= FREE_TRIAL_LIMIT;
+  const trialExhausted   = _plan === 'free'      && _generationsUsed >= FREE_TRIAL_LIMIT;
+  const monthlyExhausted = _plan === 'pro'        && _monthlyUsed     >= PRO_MONTHLY_LIMIT;
   generateBtn.disabled =
     trialExhausted ||
+    monthlyExhausted ||
     selectedUrls.size === 0 ||
     subjectInput.value.trim().length === 0;
 }
@@ -498,10 +545,14 @@ async function generate() {
   const subject = subjectInput.value.trim();
   if (!subject || selectedUrls.size === 0) return;
 
-  // Guard: if trial exhausted, open upgrade page instead
-  if (_plan !== 'pro' && _generationsUsed >= FREE_TRIAL_LIMIT) {
-    const upgradeUrl = `https://pinstyle.co/upgrade${_authEmail ? '?email=' + encodeURIComponent(_authEmail) : ''}`;
-    chrome.tabs.create({ url: upgradeUrl });
+  // Guard: if any limit is exhausted, show badge and bail
+  const upgradeBase = `https://pinstyle.co/upgrade${_authEmail ? '?email=' + encodeURIComponent(_authEmail) : ''}`;
+  if (_plan === 'free' && _generationsUsed >= FREE_TRIAL_LIMIT) {
+    updateTrialBadge();
+    return;
+  }
+  if (_plan === 'pro' && _monthlyUsed >= PRO_MONTHLY_LIMIT) {
+    updateTrialBadge();
     return;
   }
 
@@ -542,23 +593,45 @@ async function generate() {
     }
 
     if (resp.status === 402) {
-      // Trial exhausted
-      _generationsUsed = FREE_TRIAL_LIMIT;
-      await chrome.storage.local.set({ ps_used: FREE_TRIAL_LIMIT });
-      updateTrialBadge();
-      resultsEl.className = '';
-      resultsEl.innerHTML = `
-        <div class="result-block" style="text-align:center;padding:24px">
-          <p style="font-size:13px;color:var(--ink);margin-bottom:12px">
-            You've used all ${FREE_TRIAL_LIMIT} free generations.
-          </p>
-          <a href="https://pinstyle.co/upgrade" target="_blank" rel="noopener"
-             style="display:inline-block;background:var(--red);color:#fff;font-size:13px;font-weight:500;
-                    padding:10px 24px;border-radius:var(--radius);text-decoration:none;
-                    box-shadow:0 4px 16px rgba(224,61,47,0.3)">
-            Upgrade to Pro →
-          </a>
-        </div>`;
+      // Limit exhausted (free trial or pro monthly)
+      const errData = data || {};
+      if (errData.error === 'pro_limit_reached') {
+        _monthlyUsed = PRO_MONTHLY_LIMIT;
+        await chrome.storage.local.set({ ps_monthly: PRO_MONTHLY_LIMIT });
+        updateTrialBadge();
+        const unlimitedUrl = `https://pinstyle.co/upgrade?email=${encodeURIComponent(_authEmail)}&current=pro`;
+        resultsEl.className = '';
+        resultsEl.innerHTML = `
+          <div class="result-block" style="text-align:center;padding:24px">
+            <p style="font-size:13px;color:var(--ink);margin-bottom:12px">
+              You've reached your 120 generation monthly limit.
+            </p>
+            <a href="${unlimitedUrl}" target="_blank" rel="noopener"
+               style="display:inline-block;background:var(--red);color:#fff;font-size:13px;font-weight:500;
+                      padding:10px 24px;border-radius:var(--radius);text-decoration:none;
+                      box-shadow:0 4px 16px rgba(224,61,47,0.3)">
+              Upgrade to Unlimited →
+            </a>
+          </div>`;
+      } else {
+        _generationsUsed = FREE_TRIAL_LIMIT;
+        await chrome.storage.local.set({ ps_used: FREE_TRIAL_LIMIT });
+        updateTrialBadge();
+        const upgradeUrl = `https://pinstyle.co/upgrade${_authEmail ? '?email=' + encodeURIComponent(_authEmail) : ''}`;
+        resultsEl.className = '';
+        resultsEl.innerHTML = `
+          <div class="result-block" style="text-align:center;padding:24px">
+            <p style="font-size:13px;color:var(--ink);margin-bottom:12px">
+              You've used all ${FREE_TRIAL_LIMIT} free generations.
+            </p>
+            <a href="${upgradeUrl}" target="_blank" rel="noopener"
+               style="display:inline-block;background:var(--red);color:#fff;font-size:13px;font-weight:500;
+                      padding:10px 24px;border-radius:var(--radius);text-decoration:none;
+                      box-shadow:0 4px 16px rgba(224,61,47,0.3)">
+              Upgrade to Pro →
+            </a>
+          </div>`;
+      }
       return;
     }
 
@@ -571,7 +644,8 @@ async function generate() {
     // Update usage count from API response
     if (data.usage) {
       _generationsUsed = data.usage.used;
-      await chrome.storage.local.set({ ps_used: _generationsUsed });
+      if (data.usage.monthly_used !== undefined) _monthlyUsed = data.usage.monthly_used;
+      await chrome.storage.local.set({ ps_used: _generationsUsed, ps_monthly: _monthlyUsed });
       updateTrialBadge();
     }
 

@@ -1,6 +1,6 @@
 // api/create-checkout.js
-// Creates a Stripe Checkout session and returns the hosted URL.
-// POST /api/create-checkout  { email: "user@example.com" }
+// Creates a Stripe Checkout session for either Pro or Unlimited plan.
+// POST /api/create-checkout  { email: "user@example.com", plan: "pro" | "unlimited" }
 
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
@@ -15,7 +15,17 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST')   return res.status(405).json({ error: 'Method not allowed' });
 
-  const { email } = req.body || {};
+  const { email, plan = 'pro' } = req.body || {};
+
+  // Route to the correct Stripe price ID based on plan
+  const priceId = plan === 'unlimited'
+    ? process.env.STRIPE_PRICE_ID_UNLIMITED
+    : process.env.STRIPE_PRICE_ID_PRO;
+
+  if (!priceId) {
+    console.error(`Missing Stripe price ID for plan: ${plan}`);
+    return res.status(500).json({ error: `Stripe price not configured for plan: ${plan}` });
+  }
 
   try {
     const session = await stripe.checkout.sessions.create({
@@ -24,18 +34,14 @@ module.exports = async function handler(req, res) {
       // Pre-fill the email if passed from the extension
       ...(email ? { customer_email: email } : {}),
 
-      line_items: [{
-        // Set STRIPE_PRICE_ID in Vercel env vars after creating a product in Stripe
-        price:    process.env.STRIPE_PRICE_ID,
-        quantity: 1,
-      }],
+      line_items: [{ price: priceId, quantity: 1 }],
 
-      // After payment: redirect back to the upgrade page with ?success=true
-      success_url: 'https://pinstyle.co/upgrade?success=true&session_id={CHECKOUT_SESSION_ID}',
+      // After payment: redirect back to the upgrade page with success state
+      success_url: `https://pinstyle.co/upgrade?success=true&plan=${plan}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url:  'https://pinstyle.co/upgrade',
 
-      // Pass email in metadata so the webhook can find the Supabase user
-      metadata: { email: email || '' },
+      // Pass email + plan in metadata so the webhook can upgrade the right user
+      metadata: { email: email || '', plan },
 
       // Allow promo codes
       allow_promotion_codes: true,

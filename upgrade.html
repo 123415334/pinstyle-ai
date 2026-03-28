@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Upgrade to Pro — PinStyle AI</title>
-  <meta name="description" content="Unlock unlimited AI image generations with PinStyle Pro. Generate without limits.">
+  <title>Plans & Pricing — PinStyle AI</title>
+  <meta name="description" content="Choose a PinStyle AI plan. Start free, then upgrade to Pro or Unlimited for more generations.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
@@ -36,7 +36,7 @@
       overflow-x: hidden;
     }
 
-    /* Grain overlay */
+    /* Grain */
     body::before {
       content: '';
       position: fixed;
@@ -97,36 +97,31 @@
       text-decoration: none;
       letter-spacing: 0.04em;
       transition: color 0.2s;
-      display: flex;
-      align-items: center;
-      gap: 6px;
     }
     .nav-back:hover { color: var(--ink); }
 
-    /* Page wrapper */
+    /* Page */
     .page {
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
       padding: 120px 24px 80px;
     }
 
-    /* Radial glow */
+    /* Glow */
     .glow {
       position: fixed;
       top: 30%;
       left: 50%;
       transform: translate(-50%, -50%);
-      width: 700px;
-      height: 500px;
-      background: radial-gradient(ellipse, rgba(224,61,47,0.07) 0%, transparent 70%);
+      width: 900px;
+      height: 600px;
+      background: radial-gradient(ellipse, rgba(224,61,47,0.06) 0%, transparent 70%);
       pointer-events: none;
       z-index: 0;
     }
 
-    /* Eyebrow */
     .eyebrow {
       font-size: 11px;
       letter-spacing: 0.2em;
@@ -139,10 +134,9 @@
       animation: fadeUp 0.7s ease 0.1s forwards;
     }
 
-    /* Headline */
     h1 {
       font-family: 'Cormorant Garamond', serif;
-      font-size: clamp(40px, 6vw, 72px);
+      font-size: clamp(36px, 5vw, 64px);
       font-weight: 300;
       line-height: 1.05;
       letter-spacing: -0.02em;
@@ -156,11 +150,11 @@
     h1 em { color: var(--gold); font-style: italic; }
 
     .subtitle {
-      font-size: 16px;
+      font-size: 15px;
       color: var(--ink-muted);
       text-align: center;
-      margin-top: 20px;
-      max-width: 440px;
+      margin-top: 18px;
+      max-width: 460px;
       line-height: 1.7;
       position: relative;
       z-index: 1;
@@ -168,13 +162,13 @@
       animation: fadeUp 0.7s ease 0.4s forwards;
     }
 
-    /* Pricing cards */
+    /* ── 3-column pricing grid ── */
     .pricing {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr 1fr 1fr;
       gap: 2px;
-      margin-top: 56px;
-      max-width: 720px;
+      margin-top: 52px;
+      max-width: 980px;
       width: 100%;
       position: relative;
       z-index: 1;
@@ -185,15 +179,28 @@
     .plan {
       background: var(--bg2);
       border: 1px solid var(--border);
-      padding: 36px 32px 40px;
+      padding: 36px 28px 40px;
       position: relative;
+      display: flex;
+      flex-direction: column;
     }
     .plan:first-child { border-radius: var(--radius) 0 0 var(--radius); }
     .plan:last-child  { border-radius: 0 var(--radius) var(--radius) 0; }
 
+    /* Pro — highlighted middle card */
     .plan-pro {
+      border-color: rgba(201,169,110,0.22);
       background: var(--bg2);
-      border-color: rgba(201, 169, 110, 0.25);
+      z-index: 2;
+      transform: scaleY(1.02);
+      transform-origin: center;
+      box-shadow: 0 0 0 1px rgba(201,169,110,0.22), 0 24px 60px rgba(0,0,0,0.4);
+    }
+
+    /* Unlimited — premium dark */
+    .plan-unlimited {
+      background: #110f0d;
+      border-color: rgba(201,169,110,0.12);
     }
 
     .plan-label {
@@ -203,7 +210,8 @@
       color: var(--ink-muted);
       margin-bottom: 20px;
     }
-    .plan-pro .plan-label { color: var(--gold); }
+    .plan-pro .plan-label       { color: var(--gold); }
+    .plan-unlimited .plan-label { color: var(--ink-muted); }
 
     .plan-price {
       font-family: 'Cormorant Garamond', serif;
@@ -238,7 +246,8 @@
       list-style: none;
       display: flex;
       flex-direction: column;
-      gap: 11px;
+      gap: 10px;
+      flex: 1;
     }
 
     .feature-list li {
@@ -250,7 +259,8 @@
       line-height: 1.4;
     }
 
-    .feature-list .check {
+    /* Check icon */
+    .check {
       flex-shrink: 0;
       width: 16px; height: 16px;
       border-radius: 50%;
@@ -261,16 +271,21 @@
       justify-content: center;
       margin-top: 1px;
     }
-    .plan-pro .feature-list .check {
+    .plan-pro .check {
       background: rgba(201,169,110,0.12);
       border-color: rgba(201,169,110,0.3);
     }
-
+    .plan-unlimited .check {
+      background: rgba(201,169,110,0.08);
+      border-color: rgba(201,169,110,0.2);
+    }
     .check svg { width: 8px; height: 8px; }
     .check svg path { stroke: var(--red); }
-    .plan-pro .check svg path { stroke: var(--gold); }
+    .plan-pro .check svg path,
+    .plan-unlimited .check svg path { stroke: var(--gold); }
 
-    .feature-list .cross {
+    /* Cross icon */
+    .cross {
       flex-shrink: 0;
       width: 16px; height: 16px;
       border-radius: 50%;
@@ -284,8 +299,9 @@
     .cross svg { width: 7px; height: 7px; }
     .cross svg path { stroke: var(--ink-muted); }
 
-    .feature-text-muted { opacity: 0.45; }
+    .feature-text-muted { opacity: 0.4; }
 
+    /* Plan badge */
     .plan-badge {
       position: absolute;
       top: -13px;
@@ -302,42 +318,45 @@
       white-space: nowrap;
     }
 
-    /* CTA button */
+    /* CTA buttons */
     .upgrade-btn {
       display: block;
       width: 100%;
-      margin-top: 32px;
-      padding: 15px 24px;
-      background: var(--gold);
-      color: #0e0c0a;
+      margin-top: 28px;
+      padding: 14px 20px;
       border: none;
       border-radius: 100px;
       font-family: 'DM Sans', sans-serif;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 500;
       letter-spacing: 0.02em;
       cursor: pointer;
       transition: opacity 0.2s, transform 0.2s, box-shadow 0.2s;
-      box-shadow: 0 6px 28px rgba(201,169,110,0.28);
       text-align: center;
       text-decoration: none;
     }
-    .upgrade-btn:hover {
-      opacity: 0.9;
-      transform: translateY(-2px);
-      box-shadow: 0 10px 36px rgba(201,169,110,0.38);
+    .upgrade-btn:hover       { opacity: 0.9; transform: translateY(-2px); }
+    .upgrade-btn:disabled    { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    .btn-gold {
+      background: var(--gold);
+      color: #0e0c0a;
+      box-shadow: 0 6px 28px rgba(201,169,110,0.28);
     }
-    .upgrade-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none;
+    .btn-gold:hover { box-shadow: 0 10px 36px rgba(201,169,110,0.38); }
+
+    .btn-red {
+      background: var(--red);
+      color: #fff;
+      box-shadow: 0 6px 24px rgba(224,61,47,0.25);
     }
+    .btn-red:hover { box-shadow: 0 10px 32px rgba(224,61,47,0.35); }
 
     .current-plan-note {
       display: block;
       width: 100%;
-      margin-top: 32px;
-      padding: 14px;
+      margin-top: 28px;
+      padding: 13px;
       text-align: center;
       font-size: 12px;
       color: var(--ink-muted);
@@ -346,15 +365,27 @@
       letter-spacing: 0.03em;
     }
 
-    /* Guarantee strip */
+    /* Spinner */
+    .spinner {
+      display: inline-block;
+      width: 13px; height: 13px;
+      border: 2px solid rgba(14,12,10,0.25);
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spin 0.65s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+
+    /* Trust strip */
     .guarantee {
-      margin-top: 32px;
-      max-width: 720px;
+      margin-top: 28px;
+      max-width: 980px;
       width: 100%;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 28px;
+      gap: 24px;
       position: relative;
       z-index: 1;
       opacity: 0;
@@ -367,30 +398,27 @@
       gap: 8px;
       font-size: 12px;
       color: var(--ink-muted);
-      letter-spacing: 0.02em;
     }
-
     .guarantee-dot {
       width: 4px; height: 4px;
       background: var(--border);
       border-radius: 50%;
-      flex-shrink: 0;
     }
 
-    /* Success state */
-    .success-view {
+    /* ── Success view ── */
+    .success-page {
       display: none;
       flex-direction: column;
       align-items: center;
       text-align: center;
+      max-width: 500px;
       gap: 20px;
       position: relative;
       z-index: 1;
-      max-width: 480px;
     }
 
     .success-icon {
-      width: 64px; height: 64px;
+      width: 68px; height: 68px;
       border-radius: 50%;
       background: rgba(201,169,110,0.12);
       border: 1px solid rgba(201,169,110,0.3);
@@ -398,19 +426,18 @@
       align-items: center;
       justify-content: center;
       font-size: 28px;
-      margin-bottom: 4px;
     }
 
-    .success-view h2 {
+    .success-page h2 {
       font-family: 'Cormorant Garamond', serif;
-      font-size: 44px;
+      font-size: 46px;
       font-weight: 300;
       letter-spacing: -0.02em;
       line-height: 1.1;
     }
-    .success-view h2 em { color: var(--gold); font-style: italic; }
+    .success-page h2 em { color: var(--gold); font-style: italic; }
 
-    .success-view p {
+    .success-page p {
       font-size: 15px;
       color: var(--ink-muted);
       line-height: 1.7;
@@ -420,8 +447,8 @@
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      margin-top: 12px;
-      padding: 14px 28px;
+      margin-top: 8px;
+      padding: 14px 32px;
       background: var(--red);
       color: #fff;
       border: none;
@@ -449,19 +476,6 @@
     footer a { color: var(--ink-muted); text-decoration: none; }
     footer a:hover { color: var(--ink); }
 
-    /* Spinner */
-    .spinner {
-      display: inline-block;
-      width: 14px; height: 14px;
-      border: 2px solid rgba(14,12,10,0.3);
-      border-top-color: #0e0c0a;
-      border-radius: 50%;
-      animation: spin 0.65s linear infinite;
-      vertical-align: middle;
-      margin-right: 6px;
-    }
-
-    /* Animations */
     @keyframes fadeUp {
       from { opacity: 0; transform: translateY(16px); }
       to   { opacity: 1; transform: translateY(0); }
@@ -469,19 +483,23 @@
     @keyframes spin { to { transform: rotate(360deg); } }
 
     /* Responsive */
-    @media (max-width: 600px) {
+    @media (max-width: 760px) {
       nav { padding: 16px 20px; }
-      .pricing { grid-template-columns: 1fr; }
-      .plan:first-child { border-radius: var(--radius) var(--radius) 0 0; }
-      .plan:last-child  { border-radius: 0 0 var(--radius) var(--radius); }
+      .pricing {
+        grid-template-columns: 1fr;
+        max-width: 420px;
+      }
+      .plan { border-radius: 0 !important; }
+      .plan:first-child { border-radius: var(--radius) var(--radius) 0 0 !important; }
+      .plan:last-child  { border-radius: 0 0 var(--radius) var(--radius) !important; }
+      .plan-pro { transform: none; box-shadow: none; }
+      .guarantee { flex-wrap: wrap; gap: 12px; }
       footer { flex-direction: column; gap: 12px; text-align: center; }
-      .guarantee { flex-wrap: wrap; gap: 14px; }
     }
   </style>
 </head>
 <body>
 
-  <!-- Nav -->
   <nav>
     <a href="/" class="nav-logo">
       <div class="nav-pin"></div>
@@ -490,62 +508,48 @@
     <a href="/" class="nav-back">← Back to site</a>
   </nav>
 
-  <!-- Glow -->
   <div class="glow"></div>
 
-  <!-- Main content -->
+  <!-- ── Main pricing view ── -->
   <div class="page" id="main-view">
 
-    <p class="eyebrow">PinStyle Pro</p>
-
-    <h1>Create without <em>limits.</em></h1>
-
+    <p class="eyebrow">Plans &amp; Pricing</p>
+    <h1>Choose how you <em>create.</em></h1>
     <p class="subtitle">
-      You've discovered what PinStyle can do. Upgrade to Pro and generate as many images as your creativity demands.
+      Start free, then upgrade when you're ready. Every plan includes the same powerful style analysis and image generation.
     </p>
 
-    <!-- Pricing cards -->
     <div class="pricing">
 
       <!-- Free -->
       <div class="plan">
         <p class="plan-label">Free Trial</p>
         <p class="plan-price"><sup></sup>$0</p>
-        <p class="plan-period">3 generations total</p>
+        <p class="plan-period">3 generations, no card required</p>
         <hr class="plan-divider">
         <ul class="feature-list">
           <li>
-            <span class="check">
-              <svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </span>
+            <span class="check"><svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
             <span>3 AI image generations</span>
           </li>
           <li>
-            <span class="check">
-              <svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </span>
-            <span>Style analysis via Claude AI</span>
+            <span class="check"><svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <span>Claude AI style analysis</span>
           </li>
           <li>
-            <span class="cross">
-              <svg viewBox="0 0 7 7" fill="none"><path d="M1 1l5 5M6 1L1 6" stroke-width="1.4" stroke-linecap="round"/></svg>
-            </span>
-            <span class="feature-text-muted">Unlimited generations</span>
+            <span class="check"><svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <span>Works on Pinterest &amp; Instagram</span>
           </li>
           <li>
-            <span class="cross">
-              <svg viewBox="0 0 7 7" fill="none"><path d="M1 1l5 5M6 1L1 6" stroke-width="1.4" stroke-linecap="round"/></svg>
-            </span>
-            <span class="feature-text-muted">Priority processing</span>
+            <span class="cross"><svg viewBox="0 0 7 7" fill="none"><path d="M1 1l5 5M6 1L1 6" stroke-width="1.4" stroke-linecap="round"/></svg></span>
+            <span class="feature-text-muted">Monthly generations</span>
           </li>
           <li>
-            <span class="cross">
-              <svg viewBox="0 0 7 7" fill="none"><path d="M1 1l5 5M6 1L1 6" stroke-width="1.4" stroke-linecap="round"/></svg>
-            </span>
+            <span class="cross"><svg viewBox="0 0 7 7" fill="none"><path d="M1 1l5 5M6 1L1 6" stroke-width="1.4" stroke-linecap="round"/></svg></span>
             <span class="feature-text-muted">Full image history</span>
           </li>
         </ul>
-        <span class="current-plan-note">Your current plan</span>
+        <span class="current-plan-note" id="free-note">Your current plan</span>
       </div>
 
       <!-- Pro -->
@@ -553,42 +557,65 @@
         <div class="plan-badge">Most popular</div>
         <p class="plan-label">Pro</p>
         <p class="plan-price"><sup>$</sup>12</p>
-        <p class="plan-period">per month, cancel anytime</p>
+        <p class="plan-period">per month · 120 generations</p>
         <hr class="plan-divider">
         <ul class="feature-list">
           <li>
-            <span class="check">
-              <svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </span>
-            <span>Unlimited AI image generations</span>
+            <span class="check"><svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <span><strong style="color:var(--ink)">120 generations</strong> per month</span>
           </li>
           <li>
-            <span class="check">
-              <svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </span>
-            <span>Style analysis via Claude AI</span>
+            <span class="check"><svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <span>Claude AI style analysis</span>
           </li>
           <li>
-            <span class="check">
-              <svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </span>
-            <span>Priority processing speed</span>
-          </li>
-          <li>
-            <span class="check">
-              <svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </span>
+            <span class="check"><svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
             <span>Full persistent image history</span>
           </li>
           <li>
-            <span class="check">
-              <svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </span>
+            <span class="check"><svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <span>Monthly counter resets automatically</span>
+          </li>
+          <li>
+            <span class="check"><svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
             <span>Early access to new features</span>
           </li>
         </ul>
-        <button class="upgrade-btn" id="upgrade-btn" onclick="startCheckout()">
+        <button class="upgrade-btn btn-gold" id="pro-btn">
           Upgrade to Pro →
+        </button>
+      </div>
+
+      <!-- Unlimited -->
+      <div class="plan plan-unlimited">
+        <p class="plan-label">Unlimited</p>
+        <p class="plan-price"><sup>$</sup>35</p>
+        <p class="plan-period">per month · no limits</p>
+        <hr class="plan-divider">
+        <ul class="feature-list">
+          <li>
+            <span class="check"><svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <span><strong style="color:var(--ink)">Unlimited</strong> generations, always</span>
+          </li>
+          <li>
+            <span class="check"><svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <span>Claude AI style analysis</span>
+          </li>
+          <li>
+            <span class="check"><svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <span>Full persistent image history</span>
+          </li>
+          <li>
+            <span class="check"><svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <span>No monthly caps or resets</span>
+          </li>
+          <li>
+            <span class="check"><svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <span>Priority support + early features</span>
+          </li>
+        </ul>
+        <button class="upgrade-btn btn-red" id="unlimited-btn">
+          Go Unlimited →
         </button>
       </div>
 
@@ -601,28 +628,29 @@
       <span class="guarantee-item">Cancel anytime</span>
       <span class="guarantee-dot"></span>
       <span class="guarantee-item">Instant activation</span>
+      <span class="guarantee-dot"></span>
+      <span class="guarantee-item">No hidden fees</span>
     </div>
 
   </div>
 
-  <!-- Success view (shown after payment) -->
-  <div class="page" id="success-view" style="display:none;">
-    <div class="success-view" style="display:flex;">
+  <!-- ── Success view ── -->
+  <div class="page" id="success-view" style="display:none; justify-content:center;">
+    <div class="success-page" style="display:flex;">
       <div class="success-icon">✦</div>
-      <h2>Welcome to <em>Pro.</em></h2>
-      <p>
-        Your account has been upgraded. Head back to the PinStyle extension and generate without limits — your creativity is the only constraint now.
+      <h2 id="success-heading">Welcome to <em>Pro.</em></h2>
+      <p id="success-body">
+        Your account has been upgraded. Head back to the PinStyle extension and start generating — click "Already upgraded?" to refresh your plan status.
       </p>
       <a href="#" class="back-to-ext" onclick="window.close(); return false;">
         Close this tab &amp; keep creating
       </a>
-      <p style="font-size:12px;color:var(--ink-muted);margin-top:8px;">
-        Or simply close this tab and return to your browser extension.
+      <p style="font-size:12px;color:var(--ink-muted);margin-top:4px;">
+        Or close this tab and return to your browser extension.
       </p>
     </div>
   </div>
 
-  <!-- Footer -->
   <footer>
     <span>© 2026 PinStyle AI</span>
     <div style="display:flex;gap:24px">
@@ -632,27 +660,48 @@
   </footer>
 
   <script>
-    // Read email from URL params (passed by the extension)
-    const params = new URLSearchParams(window.location.search);
-    const email  = params.get('email') || '';
-    const isSuccess = params.get('success') === 'true';
+    const params     = new URLSearchParams(window.location.search);
+    const email      = params.get('email')   || '';
+    const currentPlan = params.get('current') || 'free'; // 'free' | 'pro'
+    const isSuccess  = params.get('success') === 'true';
+    const successPlan = params.get('plan')   || 'pro';
 
-    // Show success state if redirected back from Stripe
+    // ── Success state ──
     if (isSuccess) {
       document.getElementById('main-view').style.display = 'none';
       document.getElementById('success-view').style.display = 'flex';
+      if (successPlan === 'unlimited') {
+        document.getElementById('success-heading').innerHTML = 'Welcome to <em>Unlimited.</em>';
+        document.getElementById('success-body').textContent =
+          'No more caps. Your account now has unlimited generations — head back to the extension and click "Already upgraded?" to unlock it.';
+      }
     }
 
-    async function startCheckout() {
-      const btn = document.getElementById('upgrade-btn');
+    // ── Hide CTA for current plan ──
+    if (currentPlan === 'pro') {
+      // Already Pro — hide pro button, show "current plan" note
+      document.getElementById('pro-btn').replaceWith(
+        Object.assign(document.createElement('span'), {
+          className: 'current-plan-note',
+          textContent: 'Your current plan',
+        })
+      );
+    }
+
+    // ── Checkout handlers ──
+    async function startCheckout(plan) {
+      const btnId = plan === 'unlimited' ? 'unlimited-btn' : 'pro-btn';
+      const btn   = document.getElementById(btnId);
+      if (!btn || btn.disabled) return;
+
       btn.disabled = true;
-      btn.innerHTML = '<span class="spinner"></span> Preparing checkout…';
+      btn.innerHTML = `<span class="spinner"></span> Preparing checkout…`;
 
       try {
         const resp = await fetch('/api/create-checkout', {
-          method: 'POST',
+          method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
+          body:    JSON.stringify({ email, plan }),
         });
 
         if (!resp.ok) {
@@ -665,10 +714,13 @@
 
       } catch (err) {
         btn.disabled = false;
-        btn.textContent = 'Upgrade to Pro →';
+        btn.textContent = plan === 'unlimited' ? 'Go Unlimited →' : 'Upgrade to Pro →';
         alert(err.message);
       }
     }
+
+    document.getElementById('pro-btn')?.addEventListener('click', () => startCheckout('pro'));
+    document.getElementById('unlimited-btn')?.addEventListener('click', () => startCheckout('unlimited'));
   </script>
 
 </body>
