@@ -395,14 +395,10 @@ async function supabaseLogin(email, password) {
 }
 
 async function supabaseSignup(email, password) {
-  const resp = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+  const resp = await fetch(`${SUPABASE_URL}/auth/v1/signup?redirect_to=https://pinstyle.co/confirmed`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
-    body: JSON.stringify({
-      email,
-      password,
-      options: { emailRedirectTo: 'https://pinstyle.co/confirmed' }
-    }),
+    body: JSON.stringify({ email, password }),
   });
   const data = await resp.json();
   if (!resp.ok) throw new Error(data.error_description || data.msg || 'Sign up failed');
