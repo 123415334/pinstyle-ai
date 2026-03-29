@@ -563,6 +563,19 @@ textarea#subject-input:focus {
 }
 .link-btn:hover { color: var(--ink); }
 
+.verify-polling {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 20px;
+  padding: 10px 16px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 11px;
+  color: var(--ink-muted);
+}
+
 /* ── PLAN SELECTION SCREEN ──────────────────────────────────────────────── */
 .plan-screen {
   position: fixed;

@@ -61,13 +61,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (e.key === 'Enter') handleAuthSubmit();
   });
 
-  // Email verify screen
-  document.getElementById('verify-signin-btn').addEventListener('click', () => {
-    verifyScreen.classList.add('hidden');
-    switchAuthTab('login');
-    showAuthModal();
-  });
+  // Email verify screen — "Use a different email" dismisses and restarts signup
   document.getElementById('verify-back-btn').addEventListener('click', () => {
+    stopVerifyPolling();
     verifyScreen.classList.add('hidden');
     switchAuthTab('signup');
     showAuthModal();
@@ -153,12 +149,68 @@ function hideUpgradeMoment() {
   upgradeMoment.classList.add('hidden');
 }
 
-// ── Verify screen ─────────────────────────────────────────────────────────────
+// ── Verify screen — auto-polls until email is confirmed ───────────────────────
 
-function showVerifyScreen(email) {
+let _verifyEmail    = null;
+let _verifyPassword = null;
+let _verifyTimer    = null;
+
+function showVerifyScreen(email, password) {
   hideAuthModal();
+  _verifyEmail    = email;
+  _verifyPassword = password;
   document.getElementById('verify-email-display').textContent = email;
+  document.getElementById('verify-status-text').textContent   = 'Waiting for confirmation…';
   verifyScreen.classList.remove('hidden');
+  startVerifyPolling();
+}
+
+function startVerifyPolling() {
+  stopVerifyPolling();
+  // Poll every 4 seconds — try signing in; succeeds once email is confirmed
+  _verifyTimer = setInterval(async () => {
+    if (!_verifyEmail || !_verifyPassword) return;
+    try {
+      const data = await supabaseLogin(_verifyEmail, _verifyPassword);
+      if (data?.access_token) {
+        stopVerifyPolling();
+        document.getElementById('verify-status-text').textContent = 'Confirmed! Signing you in…';
+
+        _authToken       = data.access_token;
+        _authEmail       = _verifyEmail;
+        _generationsUsed = 0;
+        _monthlyUsed     = 0;
+        _monthlyResetAt  = null;
+        _plan            = 'free';
+        _verifyEmail     = null;
+        _verifyPassword  = null;
+
+        await chrome.storage.local.set({
+          ps_token:   _authToken,
+          ps_refresh: data.refresh_token || null,
+          ps_email:   _authEmail,
+          ps_used:    0,
+          ps_plan:    'free',
+          ps_monthly: 0,
+          ps_reset:   null,
+        });
+
+        await fetchPlan();
+        verifyScreen.classList.add('hidden');
+        // New signup → plan selection
+        showPlanScreen();
+      }
+    } catch { /* not confirmed yet — keep polling */ }
+  }, 4000);
+}
+
+function stopVerifyPolling() {
+  if (_verifyTimer) {
+    clearInterval(_verifyTimer);
+    _verifyTimer = null;
+  }
+  _verifyEmail    = null;
+  _verifyPassword = null;
 }
 
 // ── Plan selection screen ─────────────────────────────────────────────────────
@@ -449,9 +501,9 @@ async function handleAuthSubmit() {
       data = await supabaseSignup(email, password);
     }
 
-    // Email verification pending — show verify screen
+    // Email verification pending — show verify screen with auto-polling
     if (!data.access_token) {
-      showVerifyScreen(email);
+      showVerifyScreen(email, password);
       return;
     }
 

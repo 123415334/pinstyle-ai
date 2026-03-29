@@ -45,12 +45,15 @@
       <div class="verify-envelope">✉</div>
       <h2 class="overlay-title">Check your <em>email</em></h2>
       <p class="overlay-sub">
-        We sent a confirmation link to<br>
+        We sent a link to<br>
         <strong id="verify-email-display"></strong>
       </p>
-      <p class="overlay-hint">Click the link in that email to activate your account, then sign in below.</p>
-      <button id="verify-signin-btn" class="auth-submit-btn" style="margin-top:4px;">I've confirmed — Sign In →</button>
-      <button id="verify-back-btn" class="link-btn">Use a different email</button>
+      <p class="overlay-hint">Click it to confirm your account — we'll sign you in automatically.</p>
+      <div class="verify-polling">
+        <div class="spinner" style="width:13px;height:13px;border-width:1.5px;margin:0;flex-shrink:0;"></div>
+        <span id="verify-status-text">Waiting for confirmation…</span>
+      </div>
+      <button id="verify-back-btn" class="link-btn" style="margin-top:16px;">Use a different email</button>
     </div>
   </div>
 
