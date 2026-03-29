@@ -8,88 +8,90 @@
 </head>
 <body>
 
-  <!-- ── AUTH SCREEN ──────────────────────────────────────────────── -->
-  <div id="auth-screen" class="auth-screen hidden">
-    <div class="auth-inner">
-      <img src="pinstyle_logo.png" alt="PinStyle AI" class="auth-logo">
-      <h1 class="auth-title">Welcome to <em>PinStyle</em></h1>
-      <p class="auth-subtitle">New accounts get <strong>3 free generations</strong></p>
+  <!-- ── AUTH MODAL (slides up from bottom when Generate is clicked, not logged in) ── -->
+  <div id="auth-modal-backdrop" class="auth-backdrop hidden"></div>
+  <div id="auth-modal" class="auth-modal hidden">
+    <div class="auth-modal-handle"></div>
+    <div class="auth-modal-inner">
+
+      <div class="auth-modal-top">
+        <div>
+          <p class="auth-eyebrow">Free to start · no card required</p>
+          <h2 class="auth-modal-title">Sign up to <em>generate</em></h2>
+          <p class="auth-modal-sub">3 free images included with every new account</p>
+        </div>
+        <button id="auth-modal-close" class="auth-modal-close" aria-label="Close">✕</button>
+      </div>
 
       <div class="auth-tabs">
-        <button class="auth-tab active" data-tab="login">Sign In</button>
-        <button class="auth-tab" data-tab="signup">Create Account</button>
+        <button class="auth-tab" data-tab="signup">Create account</button>
+        <button class="auth-tab active" data-tab="login">Sign in</button>
       </div>
 
       <div class="auth-form">
-        <input type="email"    id="auth-email"    class="auth-input" placeholder="Email address" autocomplete="email">
-        <input type="password" id="auth-password" class="auth-input" placeholder="Password" autocomplete="current-password">
+        <input type="email"    id="auth-email"    class="auth-input" placeholder="Email address"           autocomplete="email">
+        <input type="password" id="auth-password" class="auth-input" placeholder="Password (min. 6 chars)" autocomplete="current-password">
         <p id="auth-error" class="auth-error"></p>
         <button id="auth-submit" class="auth-submit-btn">Sign In</button>
       </div>
+
     </div>
   </div>
 
-  <!-- ── EMAIL VERIFICATION SCREEN (shown after signup if email confirmation required) ── -->
-  <div id="verify-screen" class="auth-screen hidden">
-    <div class="auth-inner">
+  <!-- ── EMAIL VERIFY SCREEN (full screen — shown after signup) ────────── -->
+  <div id="verify-screen" class="fullscreen-overlay hidden">
+    <div class="overlay-inner">
       <img src="pinstyle_logo.png" alt="PinStyle AI" class="auth-logo">
-      <div style="font-size:28px;margin-bottom:12px;">✉️</div>
-      <h2 class="auth-title">Check your <em>email</em></h2>
-      <p class="auth-subtitle" style="margin-bottom:8px;">
+      <div class="verify-envelope">✉</div>
+      <h2 class="overlay-title">Check your <em>email</em></h2>
+      <p class="overlay-sub">
         We sent a confirmation link to<br>
-        <strong id="verify-email-display" style="color:var(--ink);"></strong>
+        <strong id="verify-email-display"></strong>
       </p>
-      <p class="auth-subtitle" style="margin-bottom:24px;">
-        Click the link in that email to activate your account, then sign in below.
-      </p>
-      <button id="verify-signin-btn" class="auth-submit-btn">I've confirmed — Sign In →</button>
-      <button id="verify-back-btn" style="margin-top:12px;background:none;border:none;font-size:12px;color:var(--ink-muted);cursor:pointer;text-decoration:underline;">
-        Use a different email
-      </button>
+      <p class="overlay-hint">Click the link in that email to activate your account, then sign in below.</p>
+      <button id="verify-signin-btn" class="auth-submit-btn" style="margin-top:4px;">I've confirmed — Sign In →</button>
+      <button id="verify-back-btn" class="link-btn">Use a different email</button>
     </div>
   </div>
 
-  <!-- ── PLAN SELECTION SCREEN (shown after new account creation) ─── -->
+  <!-- ── PLAN SELECTION SCREEN (full screen — shown after new signup) ──── -->
   <div id="plan-screen" class="plan-screen hidden">
     <div class="plan-inner">
       <img src="pinstyle_logo.png" alt="PinStyle AI" class="auth-logo">
       <h2 class="plan-select-title">Choose your <em>plan</em></h2>
-      <p class="plan-select-sub">You can upgrade or change anytime</p>
+      <p class="plan-select-sub">Start free · upgrade or cancel anytime</p>
 
       <div class="plan-cards" id="plan-cards">
 
-        <!-- Free -->
         <div class="ps-card">
           <p class="ps-name">Free</p>
           <p class="ps-price">$0</p>
-          <p class="ps-detail">3 generations to try it out</p>
-          <button class="ps-btn ps-btn-outline" id="choose-free-btn">Start free</button>
+          <p class="ps-detail">3 images to<br>try it out</p>
+          <button class="ps-btn ps-btn-outline" id="choose-free-btn">Start with 3 →</button>
         </div>
 
-        <!-- Pro -->
         <div class="ps-card ps-card-featured">
           <div class="ps-badge">Popular</div>
           <p class="ps-name">Pro</p>
           <p class="ps-price">$12<span class="ps-mo">/mo</span></p>
-          <p class="ps-detail">120 generations / month</p>
+          <p class="ps-detail">120 images<br>per month</p>
           <button class="ps-btn ps-btn-gold" id="choose-pro-btn">Get Pro →</button>
         </div>
 
-        <!-- Unlimited -->
         <div class="ps-card">
           <p class="ps-name">Unlimited</p>
           <p class="ps-price">$35<span class="ps-mo">/mo</span></p>
-          <p class="ps-detail">No limits, ever</p>
+          <p class="ps-detail">No limits,<br>ever</p>
           <button class="ps-btn ps-btn-red" id="choose-unlimited-btn">Go Unlimited →</button>
         </div>
 
       </div>
 
-      <!-- Waiting state (after clicking a paid plan) -->
+      <!-- Waiting state after clicking paid plan -->
       <div id="plan-waiting" class="plan-waiting hidden">
         <div class="plan-waiting-icon">↗</div>
-        <p class="plan-waiting-title">Checkout opened in a new tab</p>
-        <p class="plan-waiting-sub">Complete your payment, then come back here and click below.</p>
+        <p class="plan-waiting-title">Checkout opened</p>
+        <p class="plan-waiting-sub">Complete your payment in the new tab, then click below.</p>
         <button class="ps-btn ps-btn-gold" id="plan-done-btn">I've upgraded — continue →</button>
         <button class="plan-waiting-skip" id="plan-skip-btn">Start free instead</button>
       </div>
@@ -97,18 +99,38 @@
     </div>
   </div>
 
-  <!-- ── MAIN UI ───────────────────────────────────────────────────── -->
+  <!-- ── UPGRADE MOMENT (full overlay shown when limit is hit) ─────────── -->
+  <div id="upgrade-moment" class="upgrade-moment hidden">
+    <div class="upgrade-moment-inner">
+      <div class="upgrade-star">✦</div>
+      <h2 class="upgrade-title" id="upgrade-title">You're on a roll.</h2>
+      <p class="upgrade-sub" id="upgrade-sub">Your 3 free generations are up. Keep creating with Pro.</p>
+      <a href="" id="upgrade-primary-btn" target="_blank" rel="noopener" class="upgrade-cta-btn">Get Pro → $12/month</a>
+      <a href="" id="upgrade-secondary-btn" target="_blank" rel="noopener" class="upgrade-secondary-link">Or go Unlimited → $35/month</a>
+      <button id="upgrade-dismiss" class="upgrade-dismiss-btn">See my results instead</button>
+    </div>
+  </div>
+
+  <!-- ── MAIN UI ─────────────────────────────────────────────────────────── -->
   <header>
     <div class="header-top">
-      <img src="pinstyle_logo.png" alt="PinStyle AI" style="height:28px;width:auto;filter:brightness(0.9);">
-      <span class="header-badge">Beta</span>
+      <img src="pinstyle_logo.png" alt="PinStyle AI" style="height:26px;width:auto;">
+      <div class="header-right">
+        <!-- Shown when logged in -->
+        <div id="header-account" class="header-account hidden">
+          <span id="header-email" class="header-email"></span>
+          <button id="logout-btn" class="logout-btn">Sign out</button>
+        </div>
+        <!-- Shown when guest -->
+        <button id="header-signin-btn" class="header-signin-btn hidden">Sign in</button>
+      </div>
     </div>
     <p class="header-tagline">Select images. <span class="gold">Generate their style.</span></p>
   </header>
 
   <main>
 
-    <!-- ── IMAGE PICKER ──────────────────────────────────────── -->
+    <!-- Image picker -->
     <section>
       <div class="scan-row">
         <div>
@@ -122,7 +144,7 @@
 
     <hr class="divider">
 
-    <!-- ── SUBJECT INPUT ─────────────────────────────────────── -->
+    <!-- Subject prompt -->
     <section>
       <label class="input-label" for="subject-input">
         What do you want to <em>create?</em>
@@ -134,20 +156,18 @@
       ></textarea>
     </section>
 
-    <!-- ── GENERATE ──────────────────────────────────────────── -->
-    <button id="generate-btn" disabled>
-      Generate Images
-    </button>
+    <!-- Generate button -->
+    <button id="generate-btn" disabled>Generate Images</button>
 
-    <!-- ── TRIAL BADGE ───────────────────────────────────────── -->
+    <!-- Generation counter strip (hidden for guests, shown when logged in) -->
     <div id="trial-badge" class="trial-badge hidden"></div>
 
-    <!-- ── RESULTS ───────────────────────────────────────────── -->
+    <!-- Results -->
     <section id="results" class="hidden"></section>
 
   </main>
 
-  <!-- ── HISTORY PANEL ───────────────────────────────────────── -->
+  <!-- History panel -->
   <div id="history-panel" class="history-panel hidden">
     <div class="history-header">
       <span>Generation History</span>
@@ -158,10 +178,7 @@
 
   <footer>
     <button id="history-btn" class="history-toggle">🕓 History</button>
-    <div style="display:flex;align-items:center;gap:12px">
-      <a href="https://pinstyle.co" target="_blank" rel="noopener" style="font-size:10px;color:var(--ink-muted);text-decoration:none;">pinstyle.co</a>
-      <button id="logout-btn" class="logout-btn">Sign out</button>
-    </div>
+    <a href="https://pinstyle.co" target="_blank" rel="noopener" style="font-size:10px;color:var(--ink-muted);text-decoration:none;">pinstyle.co</a>
   </footer>
 
   <!-- Image preview overlay -->

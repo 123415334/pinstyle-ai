@@ -1,13 +1,12 @@
 'use strict';
 
 const API_URL  = 'https://pinstyle.co/api/analyze';
-const MIN_SIZE = 200; // px — filter out nav icons / UI chrome
+const MIN_SIZE = 200;
 
-// ── Supabase config (replace with your project values) ───────────────────────
-// Find these in your Supabase dashboard → Project Settings → API
 const SUPABASE_URL      = 'https://sbdowcielgtcfholfyry.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiZG93Y2llbGd0Y2Zob2xmeXJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2NjkwNzMsImV4cCI6MjA5MDI0NTA3M30.3dUuwXB8kcAbKvEWWMpvyrXhcdLx1x8x4wKxp3UY4Kk';
 const FREE_TRIAL_LIMIT  = 3;
+const PRO_MONTHLY_LIMIT = 120;
 
 const selectedUrls = new Set();
 
@@ -17,9 +16,9 @@ let _authEmail        = null;
 let _generationsUsed  = 0;
 let _monthlyUsed      = 0;
 let _monthlyResetAt   = null;
-let _plan             = 'free'; // 'free' | 'pro' | 'unlimited'
+let _plan             = 'free';
 
-// ── DOM refs ─────────────────────────────────────────────────────────────────
+// ── DOM refs ──────────────────────────────────────────────────────────────────
 const imageGrid    = document.getElementById('image-grid');
 const statusEl     = document.getElementById('status');
 const refreshBtn   = document.getElementById('refresh-btn');
@@ -27,17 +26,30 @@ const generateBtn  = document.getElementById('generate-btn');
 const subjectInput = document.getElementById('subject-input');
 const resultsEl    = document.getElementById('results');
 const trialBadge   = document.getElementById('trial-badge');
-const authScreen   = document.getElementById('auth-screen');
+const authModal    = document.getElementById('auth-modal');
+const authBackdrop = document.getElementById('auth-modal-backdrop');
 const verifyScreen = document.getElementById('verify-screen');
 const planScreen   = document.getElementById('plan-screen');
+const upgradeMoment = document.getElementById('upgrade-moment');
 
-// ── Init ─────────────────────────────────────────────────────────────────────
+// ── Init ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   refreshBtn.addEventListener('click', loadImages);
   generateBtn.addEventListener('click', generate);
   subjectInput.addEventListener('input', updateGenerateBtn);
 
-  // Auth form wiring
+  // Header sign-in button (shown in guest mode)
+  document.getElementById('header-signin-btn').addEventListener('click', () => {
+    switchAuthTab('login');
+    showAuthModal();
+  });
+
+  // Logout
+  document.getElementById('logout-btn').addEventListener('click', logout);
+
+  // Auth modal controls
+  document.getElementById('auth-modal-close').addEventListener('click', hideAuthModal);
+  authBackdrop.addEventListener('click', hideAuthModal);
   document.querySelectorAll('.auth-tab').forEach(tab => {
     tab.addEventListener('click', () => switchAuthTab(tab.dataset.tab));
   });
@@ -48,21 +60,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('auth-password').addEventListener('keydown', e => {
     if (e.key === 'Enter') handleAuthSubmit();
   });
-  document.getElementById('logout-btn').addEventListener('click', logout);
 
-  // Email verification screen wiring
+  // Email verify screen
   document.getElementById('verify-signin-btn').addEventListener('click', () => {
     verifyScreen.classList.add('hidden');
-    authScreen.classList.remove('hidden');
     switchAuthTab('login');
+    showAuthModal();
   });
   document.getElementById('verify-back-btn').addEventListener('click', () => {
     verifyScreen.classList.add('hidden');
-    authScreen.classList.remove('hidden');
     switchAuthTab('signup');
+    showAuthModal();
   });
 
-  // Plan selection wiring
+  // Plan selection
   document.getElementById('choose-free-btn').addEventListener('click', () => {
     hidePlanScreen();
     showMainUI();
@@ -76,9 +87,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     await fetchPlan();
     if (_plan === 'free') {
       btn.disabled = false;
-      btn.textContent = 'I\'ve upgraded — continue →';
+      btn.textContent = "I've upgraded — continue →";
       document.getElementById('plan-waiting').insertAdjacentHTML('beforeend',
-        '<p style="font-size:11px;color:var(--red);margin-top:-4px;">Plan not updated yet — complete checkout first, or start free below.</p>'
+        '<p style="font-size:11px;color:var(--red);margin-top:-4px;">Plan not updated yet — complete checkout first.</p>'
       );
     } else {
       hidePlanScreen();
@@ -90,20 +101,70 @@ document.addEventListener('DOMContentLoaded', async () => {
     showMainUI();
   });
 
-  // Check for existing session
+  // Upgrade moment dismiss
+  document.getElementById('upgrade-dismiss').addEventListener('click', hideUpgradeMoment);
+
+  // Boot
   await initAuth();
 });
 
-// ── Email verification screen ────────────────────────────────────────────────
+// ── Auth modal ────────────────────────────────────────────────────────────────
+
+function showAuthModal() {
+  authBackdrop.classList.remove('hidden');
+  authModal.classList.remove('hidden');
+}
+
+function hideAuthModal() {
+  authBackdrop.classList.add('hidden');
+  authModal.classList.add('hidden');
+  document.getElementById('auth-error').textContent = '';
+}
+
+// ── Upgrade moment ────────────────────────────────────────────────────────────
+
+function showUpgradeMoment(type) {
+  const titleEl      = document.getElementById('upgrade-title');
+  const subEl        = document.getElementById('upgrade-sub');
+  const primaryBtn   = document.getElementById('upgrade-primary-btn');
+  const secondaryBtn = document.getElementById('upgrade-secondary-btn');
+  const email        = _authEmail ? `?email=${encodeURIComponent(_authEmail)}` : '';
+
+  titleEl.textContent = "You're on a roll.";
+
+  if (type === 'pro_limit') {
+    subEl.textContent          = "You've hit your 120 monthly generations. Keep creating with Unlimited — no limits, ever.";
+    primaryBtn.textContent     = 'Go Unlimited → $35/month';
+    primaryBtn.href            = `https://pinstyle.co/upgrade${email}&current=pro`;
+    secondaryBtn.style.display = 'none';
+  } else {
+    subEl.textContent          = "Your 3 free generations are up. Keep going with Pro — 120 images/month for $12.";
+    primaryBtn.textContent     = 'Get Pro → $12/month';
+    primaryBtn.href            = `https://pinstyle.co/upgrade${email}`;
+    secondaryBtn.textContent   = 'Or go Unlimited → $35/month';
+    secondaryBtn.href          = `https://pinstyle.co/upgrade${email}`;
+    secondaryBtn.style.display = '';
+  }
+
+  upgradeMoment.classList.remove('hidden');
+}
+
+function hideUpgradeMoment() {
+  upgradeMoment.classList.add('hidden');
+}
+
+// ── Verify screen ─────────────────────────────────────────────────────────────
+
 function showVerifyScreen(email) {
-  authScreen.classList.add('hidden');
+  hideAuthModal();
   document.getElementById('verify-email-display').textContent = email;
   verifyScreen.classList.remove('hidden');
 }
 
-// ── Plan selection screen ────────────────────────────────────────────────────
+// ── Plan selection screen ─────────────────────────────────────────────────────
+
 function showPlanScreen() {
-  authScreen.classList.add('hidden');
+  hideAuthModal();
   planScreen.classList.remove('hidden');
 }
 
@@ -114,17 +175,16 @@ function hidePlanScreen() {
 function openUpgradeFlow(plan) {
   const upgradeUrl = `https://pinstyle.co/upgrade?email=${encodeURIComponent(_authEmail)}&plan=${plan}`;
   chrome.tabs.create({ url: upgradeUrl });
-  // Switch plan screen to waiting state
   document.getElementById('plan-cards').classList.add('hidden');
   document.getElementById('plan-waiting').classList.remove('hidden');
 }
 
-// ── Auth ──────────────────────────────────────────────────────────────────────
+// ── Auth init ─────────────────────────────────────────────────────────────────
 
 async function initAuth() {
   const stored = await chrome.storage.local.get(['ps_token', 'ps_refresh', 'ps_email', 'ps_used', 'ps_plan', 'ps_monthly', 'ps_reset']);
+
   if (stored.ps_token) {
-    // Check if the stored access token is still valid
     const ok = await validateToken(stored.ps_token);
     if (ok) {
       _authToken       = stored.ps_token;
@@ -133,13 +193,12 @@ async function initAuth() {
       _monthlyUsed     = stored.ps_monthly || 0;
       _monthlyResetAt  = stored.ps_reset   || null;
       _plan            = stored.ps_plan    || 'free';
-      // Always fetch latest plan from Supabase in case they upgraded
       await fetchPlan();
       showMainUI();
       return;
     }
 
-    // Access token expired — try to silently refresh using the refresh token
+    // Try refresh token
     if (stored.ps_refresh) {
       const refreshed = await refreshAccessToken(stored.ps_refresh);
       if (refreshed) {
@@ -159,13 +218,37 @@ async function initAuth() {
       }
     }
 
-    // Both tokens invalid — clear everything and show login
+    // Tokens invalid — clear and boot as guest
     await chrome.storage.local.remove(['ps_token', 'ps_refresh', 'ps_email', 'ps_used', 'ps_plan', 'ps_monthly', 'ps_reset']);
   }
-  showAuthScreen();
+
+  // Guest mode — show UI immediately, no auth wall
+  showGuestUI();
 }
 
-// Silently renew the session using a stored refresh token
+function showGuestUI() {
+  // Show header sign-in button
+  document.getElementById('header-account').classList.add('hidden');
+  document.getElementById('header-signin-btn').classList.remove('hidden');
+  // Hide counter (no account yet)
+  trialBadge.classList.add('hidden');
+  // Load images right away so they can explore
+  loadImages();
+}
+
+function showMainUI() {
+  hideAuthModal();
+  hidePlanScreen();
+  // Show account area in header
+  document.getElementById('header-signin-btn').classList.add('hidden');
+  document.getElementById('header-account').classList.remove('hidden');
+  document.getElementById('header-email').textContent = _authEmail;
+  updateTrialBadge();
+  loadImages();
+}
+
+// ── Refresh token ─────────────────────────────────────────────────────────────
+
 async function refreshAccessToken(refreshToken) {
   try {
     const resp = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
@@ -179,7 +262,8 @@ async function refreshAccessToken(refreshToken) {
   } catch { return null; }
 }
 
-// Fetch current plan + usage from Supabase and update local state
+// ── Fetch plan from Supabase ──────────────────────────────────────────────────
+
 async function fetchPlan() {
   if (!_authToken) return;
   try {
@@ -213,74 +297,78 @@ async function validateToken(token) {
   } catch { return false; }
 }
 
-function showAuthScreen() {
-  authScreen.classList.remove('hidden');
-}
-
-function showMainUI() {
-  authScreen.classList.add('hidden');
-  updateTrialBadge();
-  loadImages();
-}
-
-const PRO_MONTHLY_LIMIT = 120;
+// ── Trial / counter badge ─────────────────────────────────────────────────────
 
 function updateTrialBadge() {
-  const upgradeBase = `https://pinstyle.co/upgrade${_authEmail ? '?email=' + encodeURIComponent(_authEmail) : ''}`;
-  const btnHtml = `<button id="already-upgraded-btn" style="font-size:10px;color:var(--ink-muted);background:none;border:1px solid var(--border);border-radius:10px;padding:2px 7px;cursor:pointer;margin-left:4px;">Already upgraded?</button>`;
-
-  // ── Unlimited plan ──
-  if (_plan === 'unlimited') {
-    trialBadge.className = 'trial-badge';
-    trialBadge.innerHTML = `✦ <strong>Unlimited</strong> — no monthly limit`;
-    generateBtn.disabled = false;
-    generateBtn.title    = '';
+  // Guest mode: no badge
+  if (!_authToken) {
+    trialBadge.classList.add('hidden');
     return;
   }
 
-  // ── Pro plan ──
+  const upgradeBase = `https://pinstyle.co/upgrade${_authEmail ? '?email=' + encodeURIComponent(_authEmail) : ''}`;
+  trialBadge.classList.remove('hidden');
+
+  // ── Unlimited ──
+  if (_plan === 'unlimited') {
+    trialBadge.className = 'trial-badge';
+    trialBadge.innerHTML = `<span class="counter-star">✦</span> Unlimited plan · no monthly limit`;
+    generateBtn.disabled = subjectInput.value.trim().length === 0 || selectedUrls.size === 0;
+    return;
+  }
+
+  // ── Pro ──
   if (_plan === 'pro') {
-    const remaining = PRO_MONTHLY_LIMIT - _monthlyUsed;
+    const used      = _monthlyUsed;
+    const remaining = PRO_MONTHLY_LIMIT - used;
+    const pct       = Math.min(100, Math.round((used / PRO_MONTHLY_LIMIT) * 100));
+
     if (remaining <= 0) {
-      trialBadge.className = 'trial-badge exhausted';
+      trialBadge.className = 'trial-badge counter-exhausted';
+      const unlimitedUrl = upgradeBase + (_authEmail ? '&current=pro' : '?current=pro');
+      trialBadge.innerHTML = `Monthly limit reached &middot; <a href="${unlimitedUrl}" target="_blank" rel="noopener" class="counter-upgrade-link">Go Unlimited →</a>`;
+      generateBtn.disabled = true;
+    } else {
       const resetDate = _monthlyResetAt
         ? new Date(_monthlyResetAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
         : 'next month';
-      const unlimitedUrl = upgradeBase + (_authEmail ? '&current=pro' : '?current=pro');
-      trialBadge.innerHTML = `Monthly limit reached — <a href="${unlimitedUrl}" target="_blank" rel="noopener" style="color:var(--red);font-weight:500;text-decoration:underline;cursor:pointer;">upgrade to Unlimited</a> or resets ${resetDate} ${btnHtml}`;
-      document.getElementById('already-upgraded-btn')?.addEventListener('click', refreshPlanStatus);
-      generateBtn.disabled = true;
-      generateBtn.title    = 'Monthly limit reached. Upgrade to Unlimited for no limits.';
-    } else {
       trialBadge.className = 'trial-badge';
-      trialBadge.innerHTML = `<strong>${_monthlyUsed}</strong> / ${PRO_MONTHLY_LIMIT} generations this month`;
-      generateBtn.title    = '';
+      trialBadge.innerHTML = `
+        <div class="counter-row">
+          <span class="counter-label"><strong style="color:var(--ink)">${remaining}</strong> of ${PRO_MONTHLY_LIMIT} left this month &middot; resets ${resetDate}</span>
+        </div>
+        <div class="counter-bar" style="margin-top:6px">
+          <div class="counter-fill" style="width:${pct}%"></div>
+        </div>`;
     }
     return;
   }
 
-  // ── Free plan ──
-  const remaining = FREE_TRIAL_LIMIT - _generationsUsed;
+  // ── Free ──
+  const used      = _generationsUsed;
+  const remaining = FREE_TRIAL_LIMIT - used;
+
   if (remaining <= 0) {
-    trialBadge.className = 'trial-badge exhausted';
-    trialBadge.innerHTML = `Trial complete — <a href="${upgradeBase}" target="_blank" rel="noopener" style="color:var(--red);font-weight:500;text-decoration:underline;cursor:pointer;">upgrade to Pro</a> to keep generating ${btnHtml}`;
-    document.getElementById('already-upgraded-btn')?.addEventListener('click', refreshPlanStatus);
+    trialBadge.className = 'trial-badge counter-exhausted';
+    trialBadge.innerHTML = `3 free generations used &middot; <a href="${upgradeBase}" target="_blank" rel="noopener" class="counter-upgrade-link">Upgrade to keep creating →</a>`;
     generateBtn.disabled = true;
-    generateBtn.title    = 'Upgrade to Pro to generate more images';
-  } else {
-    trialBadge.className = 'trial-badge';
-    trialBadge.innerHTML = `<strong>${remaining}</strong> free generation${remaining !== 1 ? 's' : ''} remaining`;
+    return;
   }
+
+  // Dot indicators: ● ● ○
+  const dots = Array.from({ length: FREE_TRIAL_LIMIT }, (_, i) =>
+    `<span class="counter-dot ${i < used ? 'used' : 'open'}"></span>`
+  ).join('');
+
+  trialBadge.className = 'trial-badge';
+  trialBadge.innerHTML = `
+    <div class="counter-row">
+      <span class="counter-dots">${dots}</span>
+      <span class="counter-label">${remaining} free generation${remaining !== 1 ? 's' : ''} left</span>
+    </div>`;
 }
 
-// Called by the "Already upgraded?" button — re-checks Supabase
-async function refreshPlanStatus() {
-  const btn = document.getElementById('already-upgraded-btn');
-  if (btn) { btn.textContent = 'Checking…'; btn.disabled = true; }
-  await fetchPlan();
-  updateTrialBadge();
-  updateGenerateBtn();
-}
+// ── Logout ────────────────────────────────────────────────────────────────────
 
 async function logout() {
   try {
@@ -289,33 +377,54 @@ async function logout() {
       headers: { 'Authorization': `Bearer ${_authToken}`, 'apikey': SUPABASE_ANON_KEY },
     });
   } catch { /* best-effort */ }
-  _authToken = _authEmail = null;
+
+  _authToken = null;
+  _authEmail = null;
   _generationsUsed = 0;
-  _monthlyUsed = 0;
-  _monthlyResetAt = null;
+  _monthlyUsed     = 0;
+  _monthlyResetAt  = null;
   _plan = 'free';
   await chrome.storage.local.remove(['ps_token', 'ps_refresh', 'ps_email', 'ps_used', 'ps_plan', 'ps_monthly', 'ps_reset']);
-  showAuthScreen();
+
+  // Return to guest mode
+  document.getElementById('header-account').classList.add('hidden');
+  document.getElementById('header-signin-btn').classList.remove('hidden');
+  trialBadge.classList.add('hidden');
+  updateGenerateBtn();
 }
 
 // ── Auth form ─────────────────────────────────────────────────────────────────
 
-let _authMode = 'login'; // 'login' | 'signup'
+let _authMode = 'signup'; // 'login' | 'signup'
 
 function switchAuthTab(tab) {
   _authMode = tab;
   document.querySelectorAll('.auth-tab').forEach(el => {
     el.classList.toggle('active', el.dataset.tab === tab);
   });
-  document.getElementById('auth-submit').textContent =
-    tab === 'login' ? 'Sign In' : 'Create Account';
+
+  const submitBtn = document.getElementById('auth-submit');
+  if (tab === 'login') {
+    submitBtn.textContent = 'Sign In';
+    // Update modal title for login context
+    const titleEl = document.querySelector('.auth-modal-title');
+    const subEl   = document.querySelector('.auth-modal-sub');
+    if (titleEl) titleEl.innerHTML = 'Welcome <em>back</em>';
+    if (subEl)   subEl.textContent = 'Sign in to continue generating.';
+  } else {
+    submitBtn.textContent = 'Create Account';
+    const titleEl = document.querySelector('.auth-modal-title');
+    const subEl   = document.querySelector('.auth-modal-sub');
+    if (titleEl) titleEl.innerHTML = 'Sign up to <em>generate</em>';
+    if (subEl)   subEl.textContent = '3 free images included with every new account';
+  }
   document.getElementById('auth-error').textContent = '';
 }
 
 async function handleAuthSubmit() {
-  const email    = document.getElementById('auth-email').value.trim();
-  const password = document.getElementById('auth-password').value;
-  const errorEl  = document.getElementById('auth-error');
+  const email     = document.getElementById('auth-email').value.trim();
+  const password  = document.getElementById('auth-password').value;
+  const errorEl   = document.getElementById('auth-error');
   const submitBtn = document.getElementById('auth-submit');
 
   errorEl.textContent = '';
@@ -340,9 +449,8 @@ async function handleAuthSubmit() {
       data = await supabaseSignup(email, password);
     }
 
-    // If Supabase requires email confirmation, there's no session yet
+    // Email verification pending — show verify screen
     if (!data.access_token) {
-      // Email verification is enabled — show the "check your email" screen
       showVerifyScreen(email);
       return;
     }
@@ -364,11 +472,10 @@ async function handleAuthSubmit() {
       ps_reset:   null,
     });
 
-    // Fetch real plan + usage from Supabase before showing UI
     await fetchPlan();
 
-    // After signup → show plan selection so user can choose their tier
-    // After login → go straight to main UI
+    // New signup → plan selection screen
+    // Login → straight to main UI
     if (_authMode === 'signup') {
       showPlanScreen();
     } else {
@@ -390,7 +497,7 @@ async function supabaseLogin(email, password) {
     body: JSON.stringify({ email, password }),
   });
   const data = await resp.json();
-  if (!resp.ok) throw new Error(data.error_description || data.msg || 'Login failed');
+  if (!resp.ok) throw new Error(data.error_description || data.msg || 'Login failed. Check your email and password.');
   return data;
 }
 
@@ -401,16 +508,14 @@ async function supabaseSignup(email, password) {
     body: JSON.stringify({ email, password }),
   });
   const data = await resp.json();
-  if (!resp.ok) throw new Error(data.error_description || data.msg || 'Sign up failed');
-  // Supabase returns the session directly on signup if email confirmation is off
-  // If no access_token, email verification is pending — show the verify screen
-  if (!data.access_token) {
-    return { __verifyPending: true };
-  }
+  if (!resp.ok) throw new Error(data.error_description || data.msg || 'Sign up failed. Please try again.');
+  // No access_token means email confirmation is required
+  if (!data.access_token) return { __verifyPending: true };
   return data;
 }
 
-// ── Scan current tab for images ───────────────────────────────────────────────
+// ── Image scanning ────────────────────────────────────────────────────────────
+
 async function loadImages() {
   imageGrid.innerHTML = '';
   setStatus('Scanning page…');
@@ -428,7 +533,6 @@ async function loadImages() {
 
   const isPinterest = tab.url && tab.url.includes('pinterest.com');
 
-  // Auto-scroll to load more images before scanning (non-Pinterest only)
   if (!isPinterest) {
     try {
       await chrome.scripting.executeScript({
@@ -464,7 +568,6 @@ async function loadImages() {
     });
   } catch (err) {
     setStatus('Cannot scan this page (try a regular http/https page).');
-    console.warn('[PinStyle] executeScript failed:', err);
     return;
   }
 
@@ -472,39 +575,27 @@ async function loadImages() {
 
   if (images.length === 0) {
     imageGrid.innerHTML = isPinterest
-      ? `<div class="empty-state">
-           <strong>No pins found yet</strong>
-           Scroll down the board so pins load, then tap Rescan.
-         </div>`
-      : `<div class="empty-state">
-           <strong>No large images found</strong>
-           Try scrolling so images load, then tap Rescan.
-         </div>`;
+      ? `<div class="empty-state"><strong>No pins found yet</strong>Scroll down the board so pins load, then tap Rescan.</div>`
+      : `<div class="empty-state"><strong>No large images found</strong>Try scrolling so images load, then tap Rescan.</div>`;
     setStatus('');
     return;
   }
 
   const src = isPinterest ? 'Pinterest data' : 'page';
   setStatus(`${images.length} image${images.length !== 1 ? 's' : ''} from ${src} — tap to select`);
-
-  if (isPinterest) {
-    setHint('Scroll down to load more pins, then tap ↻ Rescan');
-  }
+  if (isPinterest) setHint('Scroll down to load more pins, then tap ↻ Rescan');
 
   images.forEach(img => {
-    const item = document.createElement('div');
+    const item  = document.createElement('div');
     item.className = 'img-item';
-
     const thumb = document.createElement('img');
-    thumb.src = img.src;
+    thumb.src     = img.src;
     thumb.loading = 'lazy';
-    thumb.alt = img.alt || '';
+    thumb.alt     = img.alt || '';
     thumb.onerror = () => { item.style.display = 'none'; };
-
-    const check = document.createElement('div');
-    check.className = 'img-check';
+    const check   = document.createElement('div');
+    check.className  = 'img-check';
     check.textContent = '✓';
-
     item.appendChild(thumb);
     item.appendChild(check);
     item.addEventListener('click', () => toggleSelect(item, img.src));
@@ -578,11 +669,9 @@ function collectImages(minSize) {
     document.querySelectorAll('img').forEach(img => {
       const src = img.currentSrc || img.src;
       if (!src || !src.includes('i.pinimg.com')) return;
-
       const w = img.naturalWidth  || img.offsetWidth;
       const h = img.naturalHeight || img.offsetHeight;
       if (w < minSize || h < minSize) return;
-
       const upgraded = src.replace(/\/\d+x\//, '/736x/');
       add(upgraded, Math.max(w, 736), Math.max(h, 736), img.alt || '');
     });
@@ -610,11 +699,9 @@ function collectImages(minSize) {
   document.querySelectorAll('img').forEach(img => {
     const src = img.currentSrc || img.src;
     if (!src || src.startsWith('data:')) return;
-
     const w = img.naturalWidth  || img.offsetWidth;
     const h = img.naturalHeight || img.offsetHeight;
     if (w < minSize || h < minSize) return;
-
     add(src, w, h, img.alt || '');
   });
 
@@ -635,7 +722,7 @@ function collectImages(minSize) {
   return results;
 }
 
-// ── Select / deselect ────────────────────────────────────────────────────────
+// ── Select / deselect ─────────────────────────────────────────────────────────
 function toggleSelect(item, src) {
   if (selectedUrls.has(src)) {
     selectedUrls.delete(src);
@@ -648,35 +735,47 @@ function toggleSelect(item, src) {
 }
 
 function updateGenerateBtn() {
-  const trialExhausted   = _plan === 'free'      && _generationsUsed >= FREE_TRIAL_LIMIT;
-  const monthlyExhausted = _plan === 'pro'        && _monthlyUsed     >= PRO_MONTHLY_LIMIT;
-  generateBtn.disabled =
-    trialExhausted ||
-    monthlyExhausted ||
-    selectedUrls.size === 0 ||
-    subjectInput.value.trim().length === 0;
+  const hasImages  = selectedUrls.size > 0;
+  const hasSubject = subjectInput.value.trim().length > 0;
+
+  // Guest: enable when they have images + subject (auth intercepts on click)
+  if (!_authToken) {
+    generateBtn.disabled = !(hasImages && hasSubject);
+    return;
+  }
+
+  // Logged in: also check plan limits
+  const trialExhausted   = _plan === 'free' && _generationsUsed >= FREE_TRIAL_LIMIT;
+  const monthlyExhausted = _plan === 'pro'  && _monthlyUsed     >= PRO_MONTHLY_LIMIT;
+  generateBtn.disabled = trialExhausted || monthlyExhausted || !hasImages || !hasSubject;
 }
 
-// ── Generate ─────────────────────────────────────────────────────────────────
+// ── Generate ──────────────────────────────────────────────────────────────────
 async function generate() {
   const subject = subjectInput.value.trim();
   if (!subject || selectedUrls.size === 0) return;
 
-  // Guard: if any limit is exhausted, show badge and bail
-  const upgradeBase = `https://pinstyle.co/upgrade${_authEmail ? '?email=' + encodeURIComponent(_authEmail) : ''}`;
-  if (_plan === 'free' && _generationsUsed >= FREE_TRIAL_LIMIT) {
-    updateTrialBadge();
-    return;
-  }
-  if (_plan === 'pro' && _monthlyUsed >= PRO_MONTHLY_LIMIT) {
-    updateTrialBadge();
+  // Guest → intercept with auth modal
+  if (!_authToken) {
+    switchAuthTab('signup');
+    showAuthModal();
     return;
   }
 
-  generateBtn.disabled = true;
+  // Limit guards
+  if (_plan === 'free' && _generationsUsed >= FREE_TRIAL_LIMIT) {
+    showUpgradeMoment('trial');
+    return;
+  }
+  if (_plan === 'pro' && _monthlyUsed >= PRO_MONTHLY_LIMIT) {
+    showUpgradeMoment('pro_limit');
+    return;
+  }
+
+  generateBtn.disabled    = true;
   generateBtn.textContent = 'Generating…';
-  resultsEl.className = '';
-  resultsEl.innerHTML = `
+  resultsEl.className     = '';
+  resultsEl.innerHTML     = `
     <div class="loading-msg">
       <div class="spinner"></div><br>
       Analyzing style and generating images…<br>
@@ -702,63 +801,38 @@ async function generate() {
     const data = await resp.json().catch(() => ({}));
 
     if (resp.status === 401) {
-      // Session expired — force re-login
+      // Session expired
       _authToken = null;
       await chrome.storage.local.remove(['ps_token', 'ps_email', 'ps_used']);
-      showAuthScreen();
+      document.getElementById('header-account').classList.add('hidden');
+      document.getElementById('header-signin-btn').classList.remove('hidden');
+      trialBadge.classList.add('hidden');
+      switchAuthTab('login');
+      showAuthModal();
       return;
     }
 
     if (resp.status === 402) {
-      // Limit exhausted (free trial or pro monthly)
       const errData = data || {};
       if (errData.error === 'pro_limit_reached') {
         _monthlyUsed = PRO_MONTHLY_LIMIT;
         await chrome.storage.local.set({ ps_monthly: PRO_MONTHLY_LIMIT });
         updateTrialBadge();
-        const unlimitedUrl = `https://pinstyle.co/upgrade?email=${encodeURIComponent(_authEmail)}&current=pro`;
-        resultsEl.className = '';
-        resultsEl.innerHTML = `
-          <div class="result-block" style="text-align:center;padding:24px">
-            <p style="font-size:13px;color:var(--ink);margin-bottom:12px">
-              You've reached your 120 generation monthly limit.
-            </p>
-            <a href="${unlimitedUrl}" target="_blank" rel="noopener"
-               style="display:inline-block;background:var(--red);color:#fff;font-size:13px;font-weight:500;
-                      padding:10px 24px;border-radius:var(--radius);text-decoration:none;
-                      box-shadow:0 4px 16px rgba(224,61,47,0.3)">
-              Upgrade to Unlimited →
-            </a>
-          </div>`;
+        showUpgradeMoment('pro_limit');
       } else {
         _generationsUsed = FREE_TRIAL_LIMIT;
         await chrome.storage.local.set({ ps_used: FREE_TRIAL_LIMIT });
         updateTrialBadge();
-        const upgradeUrl = `https://pinstyle.co/upgrade${_authEmail ? '?email=' + encodeURIComponent(_authEmail) : ''}`;
-        resultsEl.className = '';
-        resultsEl.innerHTML = `
-          <div class="result-block" style="text-align:center;padding:24px">
-            <p style="font-size:13px;color:var(--ink);margin-bottom:12px">
-              You've used all ${FREE_TRIAL_LIMIT} free generations.
-            </p>
-            <a href="${upgradeUrl}" target="_blank" rel="noopener"
-               style="display:inline-block;background:var(--red);color:#fff;font-size:13px;font-weight:500;
-                      padding:10px 24px;border-radius:var(--radius);text-decoration:none;
-                      box-shadow:0 4px 16px rgba(224,61,47,0.3)">
-              Upgrade to Pro →
-            </a>
-          </div>`;
+        showUpgradeMoment('trial');
       }
+      resultsEl.className = 'hidden';
       return;
     }
 
-    if (!resp.ok) {
-      throw new Error(data.error || `API returned ${resp.status}`);
-    }
+    if (!resp.ok) throw new Error(data.error || `API returned ${resp.status}`);
 
     renderResults(data);
 
-    // Update usage count from API response
     if (data.usage) {
       _generationsUsed = data.usage.used;
       if (data.usage.monthly_used !== undefined) _monthlyUsed = data.usage.monthly_used;
@@ -766,7 +840,6 @@ async function generate() {
       updateTrialBadge();
     }
 
-    // Save images to history (fetch blobs while URLs are still valid)
     if (data.images && data.images.length > 0) {
       saveToHistory(data.images).catch(e => console.warn('[PinStyle] history save failed:', e));
     }
@@ -836,12 +909,9 @@ function renderResults(data) {
 
   resultsEl.innerHTML = html;
 
-  // Download as PNG buttons
   resultsEl.querySelectorAll('.download-btn').forEach(btn => {
     btn.addEventListener('click', () => downloadAsPng(btn.dataset.url, btn.dataset.filename));
   });
-
-  // Copy prompt button
   resultsEl.querySelectorAll('.btn-copy').forEach(btn => {
     btn.addEventListener('click', () => {
       navigator.clipboard.writeText(btn.dataset.prompt || '').then(() => {
@@ -855,17 +925,17 @@ function renderResults(data) {
 // ── Download as PNG ───────────────────────────────────────────────────────────
 async function downloadAsPng(url, filename) {
   try {
-    const resp = await fetch(url);
-    const blob = await resp.blob();
+    const resp   = await fetch(url);
+    const blob   = await resp.blob();
     const objUrl = URL.createObjectURL(blob);
-    const img = new Image();
-    img.onload = () => {
+    const img    = new Image();
+    img.onload   = () => {
       const canvas = document.createElement('canvas');
       canvas.width  = img.naturalWidth;
       canvas.height = img.naturalHeight;
       canvas.getContext('2d').drawImage(img, 0, 0);
       canvas.toBlob(pngBlob => {
-        const a = document.createElement('a');
+        const a   = document.createElement('a');
         a.href     = URL.createObjectURL(pngBlob);
         a.download = filename;
         a.click();
@@ -879,9 +949,7 @@ async function downloadAsPng(url, filename) {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function setStatus(msg) {
-  statusEl.textContent = msg;
-}
+function setStatus(msg) { statusEl.textContent = msg; }
 
 function setHint(msg) {
   let hint = document.getElementById('scan-hint');
@@ -902,13 +970,10 @@ function escAttr(str) {
 }
 
 // ── History Archive (IndexedDB) ───────────────────────────────────────────────
-// Images are fetched and stored as binary blobs so they persist indefinitely
-// even after the original API URLs expire. Capped at MAX_HISTORY sessions.
-
 const DB_NAME     = 'pinstyle_db';
 const DB_VERSION  = 1;
 const STORE_NAME  = 'history';
-const MAX_HISTORY = 100; // maximum number of generation sessions to keep
+const MAX_HISTORY = 100;
 
 function openDB() {
   return new Promise((resolve, reject) => {
@@ -916,7 +981,6 @@ function openDB() {
     req.onupgradeneeded = e => {
       const db = e.target.result;
       if (!db.objectStoreNames.contains(STORE_NAME)) {
-        // autoIncrement key: lower = older, higher = newer
         db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
       }
     };
@@ -926,7 +990,6 @@ function openDB() {
 }
 
 async function saveToHistory(imageUrls) {
-  // Download all images as ArrayBuffers while the (temporary) URLs are still valid
   const buffers = await Promise.all(imageUrls.map(async url => {
     try {
       const resp = await fetch(url);
@@ -940,7 +1003,6 @@ async function saveToHistory(imageUrls) {
 
   const db = await openDB();
 
-  // Add new entry
   await new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readwrite');
     tx.oncomplete = resolve;
@@ -948,20 +1010,17 @@ async function saveToHistory(imageUrls) {
     tx.objectStore(STORE_NAME).add({ timestamp: Date.now(), buffers: validBuffers });
   });
 
-  // Trim oldest entries to stay within MAX_HISTORY
   await new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const tx    = db.transaction(STORE_NAME, 'readwrite');
     tx.oncomplete = resolve;
     tx.onerror    = () => reject(tx.error);
-    const store = tx.objectStore(STORE_NAME);
-
+    const store   = tx.objectStore(STORE_NAME);
     const countReq = store.count();
     countReq.onsuccess = () => {
       const count = countReq.result;
       if (count <= MAX_HISTORY) return;
-
       let toDelete = count - MAX_HISTORY;
-      const cursorReq = store.openCursor(); // ascending = oldest first
+      const cursorReq = store.openCursor();
       cursorReq.onsuccess = e => {
         const cursor = e.target.result;
         if (cursor && toDelete > 0) {
@@ -980,27 +1039,23 @@ async function loadHistory() {
     const tx    = db.transaction(STORE_NAME, 'readonly');
     const store = tx.objectStore(STORE_NAME);
     const req   = store.getAll();
-    req.onsuccess = () => resolve(req.result.reverse()); // newest first
+    req.onsuccess = () => resolve(req.result.reverse());
     req.onerror   = () => reject(req.error);
   });
 }
 
-// Object URLs created for history images (revoked when panel closes)
 let _historyObjectUrls = [];
 
 async function renderHistory() {
   const listEl = document.getElementById('history-list');
-
-  // Revoke any previous object URLs to free memory
   _historyObjectUrls.forEach(u => URL.revokeObjectURL(u));
   _historyObjectUrls = [];
-
   listEl.innerHTML = '<p class="history-empty" style="padding:16px;text-align:center;color:var(--ink-muted)">Loading…</p>';
 
   let history;
   try {
     history = await loadHistory();
-  } catch (e) {
+  } catch {
     listEl.innerHTML = '<p class="history-empty">Could not load history.</p>';
     return;
   }
@@ -1010,9 +1065,7 @@ async function renderHistory() {
     return;
   }
 
-  // Build a flat grid of every generated image, newest session first
   listEl.innerHTML = '';
-
   const grid = document.createElement('div');
   grid.style.cssText = 'display:grid;grid-template-columns:repeat(2,1fr);gap:6px;padding:10px';
 
@@ -1049,10 +1102,8 @@ document.addEventListener('DOMContentLoaded', () => {
     historyPanel.classList.toggle('hidden');
     if (!historyPanel.classList.contains('hidden')) renderHistory();
   });
-
   historyClose.addEventListener('click', () => {
     historyPanel.classList.add('hidden');
-    // Free object URLs when panel is closed
     _historyObjectUrls.forEach(u => URL.revokeObjectURL(u));
     _historyObjectUrls = [];
   });
@@ -1061,7 +1112,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // ── Image Preview ─────────────────────────────────────────────────────────────
 function showPreview(url) {
   const overlay = document.getElementById('preview-overlay');
-  const img = document.getElementById('preview-img');
+  const img     = document.getElementById('preview-img');
   if (!overlay || !img) return;
   img.src = url;
   overlay.style.display = 'flex';
