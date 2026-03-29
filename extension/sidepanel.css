@@ -1084,6 +1084,55 @@ footer a:hover { color: var(--ink); }
   line-height: 1.6;
 }
 
+/* ── Auth form enhancements ──────────────────────────────────────────────── */
+
+.auth-password-wrap {
+  position: relative;
+  width: 100%;
+}
+.auth-password-wrap .auth-input {
+  width: 100%;
+  padding-right: 40px;
+}
+.auth-pw-toggle {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--ink-muted);
+  display: flex;
+  align-items: center;
+  transition: color 0.15s;
+}
+.auth-pw-toggle:hover { color: var(--ink); }
+
+.auth-pw-hint {
+  font-size: 11px;
+  color: var(--ink-muted);
+  margin-top: -4px;
+  margin-bottom: 2px;
+}
+.auth-pw-hint.hidden { display: none; }
+
+.auth-forgot {
+  font-size: 11px;
+  color: var(--ink-muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-align: right;
+  display: block;
+  margin-top: -4px;
+  margin-bottom: 2px;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.auth-forgot:hover { color: var(--gold); }
+.auth-forgot.hidden { display: none; }
+
 /* ── Anonymous preview CTA ───────────────────────────────────────────────── */
 
 .anon-cta {

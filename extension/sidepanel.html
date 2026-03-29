@@ -24,15 +24,23 @@
       </div>
 
       <div class="auth-tabs">
-        <button class="auth-tab" data-tab="signup">Create account</button>
-        <button class="auth-tab active" data-tab="login">Sign in</button>
+        <button class="auth-tab active" data-tab="signup">Create account</button>
+        <button class="auth-tab" data-tab="login">Sign in</button>
       </div>
 
       <div class="auth-form">
-        <input type="email"    id="auth-email"    class="auth-input" placeholder="Email address"           autocomplete="email">
-        <input type="password" id="auth-password" class="auth-input" placeholder="Password (min. 6 chars)" autocomplete="current-password">
+        <input type="email"    id="auth-email"    class="auth-input" placeholder="Email address" autocomplete="email" spellcheck="false">
+        <div class="auth-password-wrap">
+          <input type="password" id="auth-password" class="auth-input" placeholder="Password" autocomplete="current-password">
+          <button type="button" id="auth-pw-toggle" class="auth-pw-toggle" aria-label="Show password">
+            <svg id="pw-eye-show" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg id="pw-eye-hide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          </button>
+        </div>
+        <p id="auth-pw-hint" class="auth-pw-hint hidden">At least 6 characters</p>
+        <a href="#" id="auth-forgot" class="auth-forgot hidden">Forgot password?</a>
         <p id="auth-error" class="auth-error"></p>
-        <button id="auth-submit" class="auth-submit-btn">Sign In</button>
+        <button id="auth-submit" class="auth-submit-btn">Create Account</button>
       </div>
 
     </div>
@@ -53,7 +61,9 @@
         <div class="spinner" style="width:13px;height:13px;border-width:1.5px;margin:0;flex-shrink:0;"></div>
         <span id="verify-status-text">Waiting for confirmation…</span>
       </div>
-      <button id="verify-back-btn" class="link-btn" style="margin-top:16px;">Use a different email</button>
+      <button id="verify-resend-btn" class="link-btn hidden" style="margin-top:16px;">Resend confirmation email</button>
+      <p id="verify-resend-msg" class="auth-pw-hint hidden" style="text-align:center;margin-top:6px;"></p>
+      <button id="verify-back-btn" class="link-btn" style="margin-top:8px;">Use a different email</button>
     </div>
   </div>
 
@@ -188,9 +198,13 @@
   </footer>
 
   <!-- Image preview overlay -->
-  <div id="preview-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:999;align-items:center;justify-content:center;cursor:pointer;" onclick="this.style.display='none'">
-    <img id="preview-img" style="max-width:90%;max-height:90%;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,0.8);">
-    <div style="position:absolute;top:16px;right:20px;color:rgba(255,255,255,0.5);font-size:24px;cursor:pointer;" onclick="document.getElementById('preview-overlay').style.display='none'">✕</div>
+  <div id="preview-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:999;align-items:center;justify-content:center;flex-direction:column;gap:14px;">
+    <img id="preview-img" style="max-width:90%;max-height:78%;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,0.8);cursor:pointer;" onclick="document.getElementById('preview-overlay').style.display='none'">
+    <div style="display:flex;gap:12px;align-items:center;">
+      <a id="preview-download" download="pinstyle.jpg" style="background:rgba(255,255,255,0.12);color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;padding:8px 18px;border-radius:100px;text-decoration:none;border:1px solid rgba(255,255,255,0.15);transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.12)'">↓ Save image</a>
+      <span style="color:rgba(255,255,255,0.35);font-size:11px;font-family:'DM Sans',sans-serif;">or click image to close</span>
+    </div>
+    <div style="position:absolute;top:16px;right:20px;color:rgba(255,255,255,0.4);font-size:22px;cursor:pointer;line-height:1;" onclick="document.getElementById('preview-overlay').style.display='none'">✕</div>
   </div>
 
   <script src="sidepanel.js"></script>

@@ -62,6 +62,52 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (e.key === 'Enter') handleAuthSubmit();
   });
 
+  // Show/hide password toggle
+  document.getElementById('auth-pw-toggle').addEventListener('click', () => {
+    const pwField  = document.getElementById('auth-password');
+    const eyeShow  = document.getElementById('pw-eye-show');
+    const eyeHide  = document.getElementById('pw-eye-hide');
+    const isHidden = pwField.type === 'password';
+    pwField.type       = isHidden ? 'text' : 'password';
+    eyeShow.style.display = isHidden ? 'none'  : '';
+    eyeHide.style.display = isHidden ? ''      : 'none';
+  });
+
+  // Forgot password
+  document.getElementById('auth-forgot').addEventListener('click', async (e) => {
+    e.preventDefault();
+    const email   = document.getElementById('auth-email').value.trim();
+    const errorEl = document.getElementById('auth-error');
+    if (!email) {
+      errorEl.textContent = 'Enter your email address above first.';
+      return;
+    }
+    try {
+      await supabaseResetPassword(email);
+      errorEl.style.color = 'var(--gold)';
+      errorEl.textContent = `Password reset link sent to ${email}`;
+    } catch (err) {
+      errorEl.style.color = '';
+      errorEl.textContent = err.message;
+    }
+  });
+
+  // Resend confirmation from verify screen
+  document.getElementById('verify-resend-btn').addEventListener('click', async () => {
+    const resendBtn = document.getElementById('verify-resend-btn');
+    const resendMsg = document.getElementById('verify-resend-msg');
+    resendBtn.disabled   = true;
+    resendBtn.textContent = 'Sending…';
+    await supabaseResendConfirmation(_verifyEmail);
+    resendBtn.textContent = 'Sent!';
+    resendMsg.textContent = 'Check your inbox (and spam folder).';
+    resendMsg.classList.remove('hidden');
+    setTimeout(() => {
+      resendBtn.disabled    = false;
+      resendBtn.textContent = 'Resend confirmation email';
+    }, 30000); // allow resend again after 30s
+  });
+
   // Email verify screen — "Use a different email" dismisses and restarts signup
   document.getElementById('verify-back-btn').addEventListener('click', () => {
     stopVerifyPolling();
@@ -210,12 +256,30 @@ function showVerifyScreen(email, password) {
 
 function startVerifyPolling() {
   stopVerifyPolling();
+
+  // Show "Resend" button after 30 seconds
+  const resendBtn = document.getElementById('verify-resend-btn');
+  if (resendBtn) {
+    setTimeout(() => {
+      if (_verifyEmail) resendBtn.classList.remove('hidden');
+    }, 30000);
+  }
+
+  // After 3 minutes with no confirmation, show a timeout message
+  const timeoutId = setTimeout(() => {
+    if (_verifyEmail) {
+      document.getElementById('verify-status-text').textContent = 'Link expired or not received.';
+      if (resendBtn) resendBtn.classList.remove('hidden');
+    }
+  }, 180000);
+
   // Poll every 4 seconds — try signing in; succeeds once email is confirmed
   _verifyTimer = setInterval(async () => {
-    if (!_verifyEmail || !_verifyPassword) return;
+    if (!_verifyEmail || !_verifyPassword) { clearTimeout(timeoutId); return; }
     try {
       const data = await supabaseLogin(_verifyEmail, _verifyPassword);
       if (data?.access_token) {
+        clearTimeout(timeoutId);
         stopVerifyPolling();
         document.getElementById('verify-status-text').textContent = 'Confirmed! Signing you in…';
 
@@ -495,13 +559,32 @@ async function logout() {
     });
   } catch { /* best-effort */ }
 
-  _authToken = null;
-  _authEmail = null;
+  _authToken       = null;
+  _authEmail       = null;
   _generationsUsed = 0;
   _monthlyUsed     = 0;
   _monthlyResetAt  = null;
-  _plan = 'free';
+  _plan            = 'free';
   await chrome.storage.local.remove(['ps_token', 'ps_refresh', 'ps_email', 'ps_used', 'ps_plan', 'ps_monthly', 'ps_reset']);
+
+  // ── Clean slate — don't leak current user's data to the next person ──────
+  // Clear results
+  resultsEl.innerHTML = '';
+  resultsEl.className = 'hidden';
+  // Clear subject input
+  subjectInput.value = '';
+  // Close & reset history panel
+  const historyPanel = document.getElementById('history-panel');
+  if (historyPanel) {
+    historyPanel.classList.add('hidden');
+    document.getElementById('history-list').innerHTML = '';
+    _historyObjectUrls.forEach(u => URL.revokeObjectURL(u));
+    _historyObjectUrls = [];
+  }
+  // Hide upgrade moment if showing
+  hideUpgradeMoment();
+  // Remove any anon CTA
+  document.getElementById('anon-cta')?.remove();
 
   // Return to guest mode
   document.getElementById('header-account').classList.add('hidden');
@@ -520,16 +603,25 @@ function switchAuthTab(tab) {
     el.classList.toggle('active', el.dataset.tab === tab);
   });
 
-  const submitBtn = document.getElementById('auth-submit');
+  const submitBtn  = document.getElementById('auth-submit');
+  const forgotLink = document.getElementById('auth-forgot');
+  const pwHint     = document.getElementById('auth-pw-hint');
+  const pwField    = document.getElementById('auth-password');
+
   if (tab === 'login') {
     submitBtn.textContent = 'Sign In';
-    // Update modal title for login context
+    if (forgotLink) forgotLink.classList.remove('hidden');
+    if (pwHint)     pwHint.classList.add('hidden');
+    if (pwField)    pwField.setAttribute('autocomplete', 'current-password');
     const titleEl = document.querySelector('.auth-modal-title');
     const subEl   = document.querySelector('.auth-modal-sub');
     if (titleEl) titleEl.innerHTML = 'Welcome <em>back</em>';
     if (subEl)   subEl.textContent = 'Sign in to continue generating.';
   } else {
     submitBtn.textContent = 'Create Account';
+    if (forgotLink) forgotLink.classList.add('hidden');
+    if (pwHint)     pwHint.classList.remove('hidden');
+    if (pwField)    pwField.setAttribute('autocomplete', 'new-password');
     const titleEl = document.querySelector('.auth-modal-title');
     const subEl   = document.querySelector('.auth-modal-sub');
     if (titleEl) titleEl.innerHTML = 'Sign up to <em>generate</em>';
@@ -539,15 +631,26 @@ function switchAuthTab(tab) {
 }
 
 async function handleAuthSubmit() {
-  const email     = document.getElementById('auth-email').value.trim();
+  const email     = document.getElementById('auth-email').value.trim().toLowerCase();
   const password  = document.getElementById('auth-password').value;
   const errorEl   = document.getElementById('auth-error');
   const submitBtn = document.getElementById('auth-submit');
 
-  errorEl.textContent = '';
+  errorEl.textContent  = '';
+  errorEl.style.color  = ''; // reset any custom colour from forgot-password
 
-  if (!email || !password) {
-    errorEl.textContent = 'Please enter your email and password.';
+  // Email format validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!email) {
+    errorEl.textContent = 'Please enter your email address.';
+    return;
+  }
+  if (!emailRegex.test(email)) {
+    errorEl.textContent = 'Please enter a valid email address.';
+    return;
+  }
+  if (!password) {
+    errorEl.textContent = 'Please enter a password.';
     return;
   }
   if (password.length < 6) {
@@ -600,7 +703,30 @@ async function handleAuthSubmit() {
     }
 
   } catch (err) {
-    errorEl.textContent = err.message || 'Something went wrong. Please try again.';
+    const msg = err.message || '';
+    const lower = msg.toLowerCase();
+
+    if (_authMode === 'signup' && (lower.includes('already registered') || lower.includes('already exists'))) {
+      // Duplicate email caught as an error
+      errorEl.innerHTML = 'An account with that email already exists. <button class="link-btn" id="switch-to-login-btn">Sign in instead →</button>';
+      document.getElementById('switch-to-login-btn')?.addEventListener('click', () => {
+        switchAuthTab('login');
+        errorEl.textContent = '';
+      });
+    } else if (_authMode === 'login' && lower.includes('email not confirmed')) {
+      // They signed up but never confirmed — offer to resend
+      const emailVal = document.getElementById('auth-email').value.trim();
+      errorEl.innerHTML = 'Please confirm your email first. <button class="link-btn" id="resend-from-login-btn">Resend confirmation →</button>';
+      document.getElementById('resend-from-login-btn')?.addEventListener('click', async () => {
+        errorEl.textContent = 'Sending…';
+        await supabaseResendConfirmation(emailVal);
+        showVerifyScreen(emailVal, password);
+      });
+    } else if (_authMode === 'login' && (lower.includes('invalid login') || lower.includes('invalid credentials') || lower.includes('wrong password'))) {
+      errorEl.textContent = 'Incorrect email or password. Please try again.';
+    } else {
+      errorEl.textContent = msg || 'Something went wrong. Please try again.';
+    }
   } finally {
     submitBtn.disabled    = false;
     submitBtn.textContent = _authMode === 'login' ? 'Sign In' : 'Create Account';
@@ -626,9 +752,36 @@ async function supabaseSignup(email, password) {
   });
   const data = await resp.json();
   if (!resp.ok) throw new Error(data.error_description || data.msg || 'Sign up failed. Please try again.');
+  // Supabase returns 200 with empty identities[] when the email is already registered
+  // (security measure — doesn't reveal whether account exists via error code)
+  if (data.identities && data.identities.length === 0) {
+    throw new Error('User already registered');
+  }
   // No access_token means email confirmation is required
   if (!data.access_token) return { __verifyPending: true };
   return data;
+}
+
+async function supabaseResendConfirmation(email) {
+  try {
+    await fetch(`${SUPABASE_URL}/auth/v1/resend`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+      body: JSON.stringify({ type: 'signup', email }),
+    });
+  } catch { /* best-effort */ }
+}
+
+async function supabaseResetPassword(email) {
+  const resp = await fetch(`${SUPABASE_URL}/auth/v1/recover`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+    body: JSON.stringify({ email, gotrue_meta_security: {} }),
+  });
+  if (!resp.ok) {
+    const data = await resp.json().catch(() => ({}));
+    throw new Error(data.error_description || data.msg || 'Could not send reset email.');
+  }
 }
 
 // ── Image scanning ────────────────────────────────────────────────────────────
@@ -977,7 +1130,12 @@ async function generate() {
     }
 
   } catch (err) {
-    resultsEl.innerHTML = `<p class="error-msg">⚠ ${err.message}</p>`;
+    const msg = err.message || '';
+    const friendly = msg.includes('fetch') || msg.includes('network') || msg.includes('Failed')
+      ? 'Connection error — check your internet and try again.'
+      : msg || 'Something went wrong. Please try again.';
+    resultsEl.innerHTML = `<p class="error-msg">⚠ ${friendly}</p>`;
+    resultsEl.className = '';
   } finally {
     generateBtn.textContent = 'Generate Images';
     updateGenerateBtn();
@@ -1122,6 +1280,7 @@ function openDB() {
 }
 
 async function saveToHistory(imageUrls) {
+  if (!_authEmail) return; // never save for guests
   const buffers = await Promise.all(imageUrls.map(async url => {
     try {
       const resp = await fetch(url);
@@ -1139,7 +1298,8 @@ async function saveToHistory(imageUrls) {
     const tx = db.transaction(STORE_NAME, 'readwrite');
     tx.oncomplete = resolve;
     tx.onerror    = () => reject(tx.error);
-    tx.objectStore(STORE_NAME).add({ timestamp: Date.now(), buffers: validBuffers });
+    // Tag each entry with the user's email so history is user-specific
+    tx.objectStore(STORE_NAME).add({ timestamp: Date.now(), email: _authEmail, buffers: validBuffers });
   });
 
   await new Promise((resolve, reject) => {
@@ -1171,8 +1331,15 @@ async function loadHistory() {
     const tx    = db.transaction(STORE_NAME, 'readonly');
     const store = tx.objectStore(STORE_NAME);
     const req   = store.getAll();
-    req.onsuccess = () => resolve(req.result.reverse());
-    req.onerror   = () => reject(req.error);
+    req.onsuccess = () => {
+      const all = req.result;
+      // Filter to only this user's entries; entries without email are legacy (pre-fix)
+      const mine = _authEmail
+        ? all.filter(e => !e.email || e.email === _authEmail)
+        : [];
+      resolve(mine.reverse());
+    };
+    req.onerror = () => reject(req.error);
   });
 }
 
@@ -1231,6 +1398,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const historyClose = document.getElementById('history-close');
 
   historyBtn.addEventListener('click', () => {
+    if (!_authToken) {
+      // Guest — nudge them to sign in rather than showing someone else's history
+      historyPanel.classList.remove('hidden');
+      document.getElementById('history-list').innerHTML =
+        '<p class="history-empty">Sign in to see your generation history.</p>';
+      return;
+    }
     historyPanel.classList.toggle('hidden');
     if (!historyPanel.classList.contains('hidden')) renderHistory();
   });
@@ -1243,9 +1417,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ── Image Preview ─────────────────────────────────────────────────────────────
 function showPreview(url) {
-  const overlay = document.getElementById('preview-overlay');
-  const img     = document.getElementById('preview-img');
+  const overlay   = document.getElementById('preview-overlay');
+  const img       = document.getElementById('preview-img');
+  const dlLink    = document.getElementById('preview-download');
   if (!overlay || !img) return;
-  img.src = url;
+  img.src              = url;
+  if (dlLink) dlLink.href = url;
   overlay.style.display = 'flex';
 }

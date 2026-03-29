@@ -220,7 +220,7 @@ Rules:
           "Authorization": "Bearer " + process.env.REPLICATE_API_KEY,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ input: { prompt, ...refInput, aspect_ratio: "1:1", output_format: "webp", output_quality: 90, safety_tolerance: 2 } }),
+        body: JSON.stringify({ input: { prompt, ...refInput, aspect_ratio: "1:1", output_format: "webp", output_quality: 90, safety_tolerance: 5 } }),
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
