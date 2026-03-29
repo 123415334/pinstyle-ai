@@ -342,8 +342,24 @@ function showMainUI() {
   document.getElementById('header-signin-btn').classList.add('hidden');
   document.getElementById('header-account').classList.remove('hidden');
   document.getElementById('header-email').textContent = _authEmail;
+  updateHeaderPlanBadge();
   updateTrialBadge();
   loadImages();
+}
+
+function updateHeaderPlanBadge() {
+  const badge = document.getElementById('header-plan-badge');
+  if (!badge) return;
+  if (_plan === 'pro') {
+    badge.textContent  = 'Pro';
+    badge.className    = 'header-plan-badge plan-pro';
+  } else if (_plan === 'unlimited') {
+    badge.textContent  = 'Unlimited';
+    badge.className    = 'header-plan-badge plan-unlimited';
+  } else {
+    badge.textContent  = 'Free';
+    badge.className    = 'header-plan-badge plan-free';
+  }
 }
 
 // ── Refresh token ─────────────────────────────────────────────────────────────
@@ -383,6 +399,8 @@ async function fetchPlan() {
         ps_monthly: _monthlyUsed,
         ps_reset:   _monthlyResetAt,
       });
+      // Keep header badge in sync whenever plan data refreshes
+      updateHeaderPlanBadge();
     }
   } catch { /* best-effort */ }
 }
