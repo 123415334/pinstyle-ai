@@ -11,7 +11,7 @@
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 // Tell Vercel NOT to parse the body — Stripe needs the raw bytes for signature verification
-export const config = { api: { bodyParser: false } };
+module.exports.config = { api: { bodyParser: false } };
 
 // Read the raw request body as a Buffer
 function getRawBody(req) {
