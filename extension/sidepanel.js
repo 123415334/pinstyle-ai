@@ -17,6 +17,7 @@ let _generationsUsed  = 0;
 let _monthlyUsed      = 0;
 let _monthlyResetAt   = null;
 let _plan             = 'free';
+let _anonUsed         = false;  // has the guest used their one free preview generation?
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 const imageGrid    = document.getElementById('image-grid');
@@ -117,6 +118,14 @@ function hideAuthModal() {
   document.getElementById('auth-error').textContent = '';
 }
 
+// Override the modal headline + sub-text (e.g. after anon generation)
+function setAuthModalCopy(titleHTML, subText) {
+  const titleEl = document.querySelector('.auth-modal-title');
+  const subEl   = document.querySelector('.auth-modal-sub');
+  if (titleEl) titleEl.innerHTML = titleHTML;
+  if (subEl)   subEl.textContent = subText;
+}
+
 // ── Upgrade moment ────────────────────────────────────────────────────────────
 
 function showUpgradeMoment(type) {
@@ -147,6 +156,38 @@ function showUpgradeMoment(type) {
 
 function hideUpgradeMoment() {
   upgradeMoment.classList.add('hidden');
+}
+
+// ── Anonymous CTA — injected below results after the preview generation ───────
+
+function injectAnonCTA() {
+  // Remove any existing CTA first
+  document.getElementById('anon-cta')?.remove();
+
+  const cta = document.createElement('div');
+  cta.id        = 'anon-cta';
+  cta.className = 'anon-cta';
+  cta.innerHTML = `
+    <p class="anon-cta-eyebrow">✦ Like what you see?</p>
+    <p class="anon-cta-text">Create a free account to get 3 more generations and save your results.</p>
+    <button class="anon-cta-btn" id="anon-cta-signup">Create free account →</button>
+    <button class="anon-cta-skip" id="anon-cta-login">Already have an account? Sign in</button>
+  `;
+  resultsEl.appendChild(cta);
+
+  document.getElementById('anon-cta-signup').addEventListener('click', () => {
+    switchAuthTab('signup');
+    setAuthModalCopy(
+      'Save this &amp; keep <em>creating</em>',
+      '3 free images with every new account — no card required.',
+    );
+    showAuthModal();
+  });
+
+  document.getElementById('anon-cta-login').addEventListener('click', () => {
+    switchAuthTab('login');
+    showAuthModal();
+  });
 }
 
 // ── Verify screen — auto-polls until email is confirmed ───────────────────────
@@ -275,6 +316,8 @@ async function initAuth() {
   }
 
   // Guest mode — show UI immediately, no auth wall
+  const anonData = await chrome.storage.local.get(['ps_anon_used']);
+  _anonUsed = !!anonData.ps_anon_used;
   showGuestUI();
 }
 
@@ -807,11 +850,19 @@ async function generate() {
   const subject = subjectInput.value.trim();
   if (!subject || selectedUrls.size === 0) return;
 
-  // Guest → intercept with auth modal
+  // Guest → allow first generation as anonymous preview; gate the second one
   if (!_authToken) {
-    switchAuthTab('signup');
-    showAuthModal();
-    return;
+    if (_anonUsed) {
+      // They've seen the magic — now invite them to create an account
+      switchAuthTab('signup');
+      setAuthModalCopy(
+        'Keep <em>creating</em>',
+        'Create a free account to keep going — 3 more generations included.',
+      );
+      showAuthModal();
+      return;
+    }
+    // First time: fall through and generate (API accepts no-token as anon preview)
   }
 
   // Limit guards
@@ -885,15 +936,22 @@ async function generate() {
 
     renderResults(data);
 
-    if (data.usage) {
-      _generationsUsed = data.usage.used;
-      if (data.usage.monthly_used !== undefined) _monthlyUsed = data.usage.monthly_used;
-      await chrome.storage.local.set({ ps_used: _generationsUsed, ps_monthly: _monthlyUsed });
-      updateTrialBadge();
-    }
+    if (!_authToken) {
+      // Anonymous preview just completed — mark it used and invite sign-up
+      _anonUsed = true;
+      await chrome.storage.local.set({ ps_anon_used: true });
+      injectAnonCTA();
+    } else {
+      if (data.usage) {
+        _generationsUsed = data.usage.used;
+        if (data.usage.monthly_used !== undefined) _monthlyUsed = data.usage.monthly_used;
+        await chrome.storage.local.set({ ps_used: _generationsUsed, ps_monthly: _monthlyUsed });
+        updateTrialBadge();
+      }
 
-    if (data.images && data.images.length > 0) {
-      saveToHistory(data.images).catch(e => console.warn('[PinStyle] history save failed:', e));
+      if (data.images && data.images.length > 0) {
+        saveToHistory(data.images).catch(e => console.warn('[PinStyle] history save failed:', e));
+      }
     }
 
   } catch (err) {

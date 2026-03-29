@@ -88,49 +88,61 @@ module.exports = async function handler(req, res) {
 
   // ── Auth check ──────────────────────────────────────────────────────────────
   const authHeader = req.headers['authorization'] || '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  const rawToken   = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  // Treat missing or literal "null" token as anonymous preview mode
+  const isAnon = !rawToken || rawToken === 'null';
+  const token  = isAnon ? null : rawToken;
 
-  if (!token) {
-    return res.status(401).json({ error: 'auth_required', message: 'Please sign in to use PinStyle AI.' });
-  }
-
-  const user = await validateToken(token);
-  if (!user) {
-    return res.status(401).json({ error: 'auth_invalid', message: 'Your session has expired. Please sign in again.' });
-  }
-
-  // ── Usage / trial check ─────────────────────────────────────────────────────
-  const profile         = await getUsage(user.id);
-  const generationsUsed = profile?.generations_used   ?? 0;
-  const monthlyUsed     = profile?.monthly_generations ?? 0;
-  const monthlyResetAt  = profile?.monthly_reset_at   ?? null;
-  const plan            = profile?.plan               ?? 'free';
-
-  // Free trial exhausted
-  if (plan === 'free' && generationsUsed >= FREE_TRIAL_LIMIT) {
-    return res.status(402).json({
-      error:   'trial_exhausted',
-      message: `You've used all ${FREE_TRIAL_LIMIT} free generations. Upgrade to Pro to keep creating.`,
-      used:    generationsUsed,
-      limit:   FREE_TRIAL_LIMIT,
-    });
-  }
-
-  // Pro monthly limit — check if period has reset first
-  if (plan === 'pro') {
-    const periodExpired = !monthlyResetAt || new Date(monthlyResetAt) <= new Date();
-    const effectiveMonthly = periodExpired ? 0 : monthlyUsed;
-    if (effectiveMonthly >= PRO_MONTHLY_LIMIT) {
-      return res.status(402).json({
-        error:       'pro_limit_reached',
-        message:     `You've reached your ${PRO_MONTHLY_LIMIT} generation monthly limit. Upgrade to Unlimited for no caps.`,
-        monthly_used: effectiveMonthly,
-        limit:        PRO_MONTHLY_LIMIT,
-        resets_at:    monthlyResetAt,
-      });
+  let user = null;
+  if (!isAnon) {
+    user = await validateToken(token);
+    if (!user) {
+      return res.status(401).json({ error: 'auth_invalid', message: 'Your session has expired. Please sign in again.' });
     }
   }
-  // Unlimited plan — no checks needed
+
+  // ── Usage / trial check (skip for anonymous preview) ────────────────────────
+  let profile, generationsUsed, monthlyUsed, monthlyResetAt, plan;
+  if (isAnon) {
+    // Anonymous preview — one free generation, no account needed
+    profile          = null;
+    generationsUsed  = 0;
+    monthlyUsed      = 0;
+    monthlyResetAt   = null;
+    plan             = 'anon';
+  } else {
+    profile         = await getUsage(user.id);
+    generationsUsed = profile?.generations_used   ?? 0;
+    monthlyUsed     = profile?.monthly_generations ?? 0;
+    monthlyResetAt  = profile?.monthly_reset_at   ?? null;
+    plan            = profile?.plan               ?? 'free';
+
+    // Free trial exhausted
+    if (plan === 'free' && generationsUsed >= FREE_TRIAL_LIMIT) {
+      return res.status(402).json({
+        error:   'trial_exhausted',
+        message: `You've used all ${FREE_TRIAL_LIMIT} free generations. Upgrade to Pro to keep creating.`,
+        used:    generationsUsed,
+        limit:   FREE_TRIAL_LIMIT,
+      });
+    }
+
+    // Pro monthly limit — check if period has reset first
+    if (plan === 'pro') {
+      const periodExpired    = !monthlyResetAt || new Date(monthlyResetAt) <= new Date();
+      const effectiveMonthly = periodExpired ? 0 : monthlyUsed;
+      if (effectiveMonthly >= PRO_MONTHLY_LIMIT) {
+        return res.status(402).json({
+          error:        'pro_limit_reached',
+          message:      `You've reached your ${PRO_MONTHLY_LIMIT} generation monthly limit. Upgrade to Unlimited for no caps.`,
+          monthly_used: effectiveMonthly,
+          limit:        PRO_MONTHLY_LIMIT,
+          resets_at:    monthlyResetAt,
+        });
+      }
+    }
+    // Unlimited plan — no checks needed
+  }
 
   // ── Generation ──────────────────────────────────────────────────────────────
   const { imageUrls, subject } = req.body;
@@ -226,8 +238,10 @@ Rules:
       Array.isArray(output2) ? output2[0] : output2,
     ].filter(Boolean);
 
-    // ── Increment usage after successful generation ──────────────────────────
-    await incrementUsage(user.id);
+    // ── Increment usage after successful generation (skip for anon) ─────────
+    if (!isAnon) {
+      await incrementUsage(user.id);
+    }
     const newUsed        = generationsUsed + 1;
     const newMonthlyUsed = monthlyUsed + 1;
 
@@ -235,15 +249,18 @@ Rules:
       images,
       prompt: fullPrompt,
       styleDescriptors,
-      usage: {
-        used:         newUsed,
-        monthly_used: plan === 'pro' ? newMonthlyUsed : null,
-        limit:        plan === 'free' ? FREE_TRIAL_LIMIT : plan === 'pro' ? PRO_MONTHLY_LIMIT : null,
-        remaining:    plan === 'free' ? FREE_TRIAL_LIMIT - newUsed
-                    : plan === 'pro'  ? PRO_MONTHLY_LIMIT - newMonthlyUsed
-                    : null,
-        plan,
-      },
+      // No usage data for anonymous previews — client tracks locally
+      ...(isAnon ? {} : {
+        usage: {
+          used:         newUsed,
+          monthly_used: plan === 'pro' ? newMonthlyUsed : null,
+          limit:        plan === 'free' ? FREE_TRIAL_LIMIT : plan === 'pro' ? PRO_MONTHLY_LIMIT : null,
+          remaining:    plan === 'free' ? FREE_TRIAL_LIMIT - newUsed
+                      : plan === 'pro'  ? PRO_MONTHLY_LIMIT - newMonthlyUsed
+                      : null,
+          plan,
+        },
+      }),
     });
 
   } catch (err) {

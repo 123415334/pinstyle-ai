@@ -16,10 +16,8 @@
       --red:       #e03d2f;
       --bg:        #0e0c0a;
       --bg2:       #141210;
-      --bg3:       #1a1714;
       --border:    rgba(240, 235, 227, 0.08);
       --gold:      #c9a96e;
-      --radius:    14px;
     }
 
     body {
@@ -33,30 +31,15 @@
       align-items: center;
       justify-content: center;
       -webkit-font-smoothing: antialiased;
-      overflow-x: hidden;
     }
 
-    /* Grain overlay */
-    body::before {
-      content: '';
-      position: fixed;
-      inset: 0;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
-      pointer-events: none;
-      z-index: 1000;
-      opacity: 0.4;
-    }
-
-    /* Subtle radial glow behind card */
     body::after {
       content: '';
       position: fixed;
-      top: 50%;
-      left: 50%;
+      top: 50%; left: 50%;
       transform: translate(-50%, -60%);
-      width: 600px;
-      height: 600px;
-      background: radial-gradient(circle, rgba(201,169,110,0.07) 0%, transparent 70%);
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(201,169,110,0.06) 0%, transparent 70%);
       pointer-events: none;
     }
 
@@ -73,130 +56,139 @@
     .logo {
       font-family: 'DM Sans', sans-serif;
       font-weight: 500;
-      font-size: 16px;
+      font-size: 15px;
       color: var(--ink);
       text-decoration: none;
       letter-spacing: -0.3px;
     }
+    .logo span { color: var(--red); }
 
-    .logo span {
-      color: var(--red);
-    }
-
-    /* Card */
     .card {
       position: relative;
       z-index: 2;
       background: var(--bg2);
       border: 1px solid var(--border);
       border-radius: 24px;
-      padding: 56px 64px;
-      max-width: 520px;
+      padding: 52px 60px;
+      max-width: 480px;
       width: 90%;
       text-align: center;
     }
 
     .check-ring {
-      width: 72px;
-      height: 72px;
+      width: 68px; height: 68px;
       border-radius: 50%;
       background: rgba(201,169,110,0.1);
       border: 1.5px solid rgba(201,169,110,0.3);
       display: flex;
       align-items: center;
       justify-content: center;
-      margin: 0 auto 32px;
-    }
-
-    .check-ring svg {
-      width: 32px;
-      height: 32px;
+      margin: 0 auto 28px;
     }
 
     .eyebrow {
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 500;
       letter-spacing: 2px;
       text-transform: uppercase;
       color: var(--gold);
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
 
     h1 {
       font-family: 'Cormorant Garamond', serif;
-      font-size: 42px;
+      font-size: 38px;
       font-weight: 400;
       line-height: 1.1;
       color: var(--ink);
-      margin-bottom: 16px;
+      margin-bottom: 14px;
       letter-spacing: -0.5px;
     }
+    h1 em { font-style: italic; color: var(--gold); }
 
-    h1 em {
-      font-style: italic;
-      color: var(--gold);
-    }
-
-    p {
-      font-size: 15px;
+    .sub {
+      font-size: 14px;
       color: var(--ink-muted);
       line-height: 1.65;
-      margin-bottom: 40px;
+      margin-bottom: 36px;
     }
 
-    .cta {
-      display: inline-flex;
+    /* Step instruction */
+    .step-box {
+      background: rgba(240,235,227,0.04);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px 20px;
+      margin-bottom: 20px;
+      display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 14px;
+      text-align: left;
+    }
+    .step-icon {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      background: rgba(201,169,110,0.1);
+      border: 1px solid rgba(201,169,110,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    .step-text {
+      font-size: 13px;
+      color: var(--ink);
+      line-height: 1.5;
+    }
+    .step-text span {
+      display: block;
+      font-size: 11px;
+      color: var(--ink-muted);
+      margin-top: 2px;
+    }
+
+    .close-btn {
+      display: block;
+      width: 100%;
       background: var(--red);
       color: #fff;
       font-family: 'DM Sans', sans-serif;
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 500;
-      text-decoration: none;
-      padding: 15px 32px;
+      border: none;
       border-radius: 100px;
+      padding: 14px 28px;
+      cursor: pointer;
       transition: opacity 0.2s, transform 0.2s;
-      margin-bottom: 20px;
+      margin-bottom: 16px;
+      letter-spacing: 0.01em;
+      box-shadow: 0 4px 20px rgba(224,61,47,0.25);
     }
-
-    .cta:hover {
-      opacity: 0.88;
-      transform: translateY(-1px);
-    }
-
-    .cta svg {
-      width: 16px;
-      height: 16px;
-    }
+    .close-btn:hover { opacity: 0.88; transform: translateY(-1px); }
 
     .hint {
-      font-size: 12px;
+      font-size: 11px;
       color: var(--ink-muted);
-      opacity: 0.6;
-      margin-bottom: 0;
+      opacity: 0.55;
+      line-height: 1.6;
     }
 
     .divider {
-      width: 40px;
-      height: 1px;
+      width: 36px; height: 1px;
       background: var(--border);
-      margin: 32px auto;
+      margin: 28px auto;
     }
 
     .plan-link {
-      font-size: 13px;
+      font-size: 12px;
       color: var(--ink-muted);
       text-decoration: none;
-      border-bottom: 1px solid rgba(240,235,227,0.15);
+      border-bottom: 1px solid rgba(240,235,227,0.12);
       padding-bottom: 1px;
       transition: color 0.2s, border-color 0.2s;
     }
-
-    .plan-link:hover {
-      color: var(--gold);
-      border-color: var(--gold);
-    }
+    .plan-link:hover { color: var(--gold); border-color: var(--gold); }
   </style>
 </head>
 <body>
@@ -206,42 +198,34 @@
   </nav>
 
   <div class="card">
+
     <div class="check-ring">
-      <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M7 16.5L13 22.5L25 10" stroke="#c9a96e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+        <path d="M6 14.5L11.5 20L22 9" stroke="#c9a96e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
     </div>
 
     <div class="eyebrow">Email confirmed</div>
+    <h1>You're in,<br><em>let's create.</em></h1>
+    <p class="sub">Your account is active. Here's how to get started:</p>
 
-    <h1>You're all set,<br><em>let's create.</em></h1>
+    <div class="step-box">
+      <div class="step-icon">↩</div>
+      <div class="step-text">
+        Switch back to your Chrome window
+        <span>The PinStyle panel is already signing you in automatically.</span>
+      </div>
+    </div>
 
-    <p>Your PinStyle account is active. Open the extension in Chrome to start generating images from any visual you find online.</p>
+    <button class="close-btn" onclick="window.close()">Close this tab</button>
 
-    <a href="https://chromewebstore.google.com/detail/pinstyle-ai" class="cta" id="open-cta">
-      <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M8 2L8 10M8 10L5 7M8 10L11 7" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M3 13H13" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
-      </svg>
-      Open PinStyle in Chrome
-    </a>
-
-    <p class="hint">Look for the PinStyle icon in your Chrome toolbar → click it to get started.</p>
+    <p class="hint">If this tab doesn't close, just switch back to Chrome manually — PinStyle is ready for you there.</p>
 
     <div class="divider"></div>
 
-    <a href="/upgrade.html" class="plan-link">View plans &amp; pricing →</a>
-  </div>
+    <a href="/upgrade" class="plan-link">View plans &amp; pricing →</a>
 
-  <script>
-    // If the user already has the extension, try to show a more relevant CTA
-    // (We can't detect extension presence from a web page, but we can check
-    // if they came from a #type=signup hash Supabase sometimes appends)
-    const hash = window.location.hash;
-    if (hash.includes('type=signup') || hash.includes('type=recovery')) {
-      // Already on the right page, nothing extra needed
-    }
-  </script>
+  </div>
 
 </body>
 </html>

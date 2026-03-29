@@ -1050,3 +1050,62 @@ footer a:hover { color: var(--ink); }
   margin-top: 40px;
   line-height: 1.6;
 }
+
+/* ── Anonymous preview CTA ───────────────────────────────────────────────── */
+
+.anon-cta {
+  margin-top: 20px;
+  background: rgba(201,169,110,0.06);
+  border: 1px solid rgba(201,169,110,0.2);
+  border-radius: 16px;
+  padding: 20px 18px;
+  text-align: center;
+}
+
+.anon-cta-eyebrow {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 8px;
+}
+
+.anon-cta-text {
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.55;
+  margin-bottom: 14px;
+}
+
+.anon-cta-btn {
+  display: block;
+  width: 100%;
+  background: var(--red);
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  border: none;
+  border-radius: 100px;
+  padding: 12px 20px;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.2s;
+  letter-spacing: 0.01em;
+  box-shadow: 0 4px 16px rgba(224,61,47,0.22);
+  margin-bottom: 10px;
+}
+.anon-cta-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+
+.anon-cta-skip {
+  background: none;
+  border: none;
+  font-size: 11px;
+  color: var(--ink-muted);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.15s;
+  font-family: 'DM Sans', sans-serif;
+}
+.anon-cta-skip:hover { color: var(--gold); }
