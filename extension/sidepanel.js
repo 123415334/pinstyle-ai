@@ -1263,7 +1263,7 @@ function escAttr(str) {
 const DB_NAME     = 'pinstyle_db';
 const DB_VERSION  = 1;
 const STORE_NAME  = 'history';
-const MAX_HISTORY = 100;
+const MAX_HISTORY = 500;
 
 function openDB() {
   return new Promise((resolve, reject) => {
@@ -1302,25 +1302,21 @@ async function saveToHistory(imageUrls) {
     tx.objectStore(STORE_NAME).add({ timestamp: Date.now(), email: _authEmail, buffers: validBuffers });
   });
 
+  // Prune oldest entries for THIS user only — never touch other users' history
   await new Promise((resolve, reject) => {
     const tx    = db.transaction(STORE_NAME, 'readwrite');
     tx.oncomplete = resolve;
     tx.onerror    = () => reject(tx.error);
-    const store   = tx.objectStore(STORE_NAME);
-    const countReq = store.count();
-    countReq.onsuccess = () => {
-      const count = countReq.result;
-      if (count <= MAX_HISTORY) return;
-      let toDelete = count - MAX_HISTORY;
-      const cursorReq = store.openCursor();
-      cursorReq.onsuccess = e => {
-        const cursor = e.target.result;
-        if (cursor && toDelete > 0) {
-          cursor.delete();
-          toDelete--;
-          cursor.continue();
-        }
-      };
+    const store  = tx.objectStore(STORE_NAME);
+    const allReq = store.getAll();
+    allReq.onsuccess = () => {
+      const userEntries = allReq.result
+        .filter(e => !e.email || e.email === _authEmail)
+        .sort((a, b) => a.timestamp - b.timestamp); // oldest first
+      const excess = userEntries.length - MAX_HISTORY;
+      if (excess <= 0) return;
+      // Delete the oldest `excess` entries for this user
+      userEntries.slice(0, excess).forEach(entry => store.delete(entry.id));
     };
   });
 }
