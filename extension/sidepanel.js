@@ -65,6 +65,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Email verify screen — "Use a different email" dismisses and restarts signup
   document.getElementById('verify-back-btn').addEventListener('click', () => {
     stopVerifyPolling();
+    _verifyEmail    = null;  // safe to clear now — user is starting over
+    _verifyPassword = null;
     verifyScreen.classList.add('hidden');
     switchAuthTab('signup');
     showAuthModal();
@@ -250,8 +252,10 @@ function stopVerifyPolling() {
     clearInterval(_verifyTimer);
     _verifyTimer = null;
   }
-  _verifyEmail    = null;
-  _verifyPassword = null;
+  // _verifyEmail / _verifyPassword are NOT cleared here — startVerifyPolling()
+  // calls this before starting a new interval, so clearing them here would
+  // wipe credentials before the interval ever fires.
+  // They're cleared explicitly on success or when user picks a different email.
 }
 
 // ── Plan selection screen ─────────────────────────────────────────────────────
