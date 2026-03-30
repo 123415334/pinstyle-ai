@@ -68,18 +68,30 @@ async function fetchImageData(url) {
   }
 }
 
-// ── Replicate: FLUX 1.1 Pro (text-to-image, no image conditioning) ────────────
-// Why text-only: image conditioning models (Redux, Kontext) absorb the CONTENT
-// of reference images as well as the style — causing content bleed (e.g. a
-// person from a reference appearing in the output instead of the requested
-// subject). Claude extracts the style as text; FLUX generates from that.
-// FLUX 1.1 Pro is excellent at graphic, 3D, chrome, and illustrative styles
-// from text prompts and has no content-bleed problem.
+// ── Replicate: Recraft V3 ─────────────────────────────────────────────────────
+// Why Recraft V3: purpose-built for graphic design aesthetics with explicit
+// style categories (grain, graphic_art, 2d_art_poster, etc.). Unlike FLUX,
+// which defaults to photorealism, Recraft's style parameter locks the render
+// engine into a specific visual production mode — grain gives the heavy noise
+// texture, graphic_art gives bold illustrative output, etc.
+// Claude picks the best matching category from the images; Recraft executes it.
 
-async function startFluxPrediction(prompt, { retries = 3, backoffMs = 12000 } = {}) {
+async function startRecraftPrediction(prompt, style, { retries = 3, backoffMs = 12000 } = {}) {
+  // Validated Recraft V3 style categories — fall back to safe default if unknown
+  const validStyles = new Set([
+    'digital_illustration', 'digital_illustration/grain', 'digital_illustration/graphic_art',
+    'digital_illustration/2d_art_poster', 'digital_illustration/2d_art_poster_2',
+    'digital_illustration/hand_drawn', 'digital_illustration/engraving_color',
+    'digital_illustration/pixel_art', 'digital_illustration/antiquity',
+    'vector_illustration', 'vector_illustration/bold_stroke', 'vector_illustration/pop_art',
+    'vector_illustration/vivid_shapes', 'vector_illustration/neon_lines',
+    'realistic_image',
+  ]);
+  const safeStyle = validStyles.has(style) ? style : 'digital_illustration/graphic_art';
+
   for (let attempt = 0; attempt <= retries; attempt++) {
     const resp = await fetch(
-      'https://api.replicate.com/v1/models/black-forest-labs/flux-1.1-pro/predictions',
+      'https://api.replicate.com/v1/models/recraft-ai/recraft-v3/predictions',
       {
         method: 'POST',
         headers: {
@@ -89,11 +101,8 @@ async function startFluxPrediction(prompt, { retries = 3, backoffMs = 12000 } = 
         body: JSON.stringify({
           input: {
             prompt,
-            aspect_ratio:       '1:1',
-            output_format:      'webp',
-            output_quality:     90,
-            safety_tolerance:   5,
-            prompt_upsampling:  false, // we craft the prompt ourselves
+            style:  safeStyle,
+            size:   '1024x1024',
           },
         }),
       }
@@ -211,14 +220,17 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // ── Step 2: Claude extracts the visual style as a generation prompt ───
-    // Claude's ONE job: look at all selected images and describe their shared
-    // visual production style in terms a text-to-image model understands.
-    // It outputs a ready-to-use style block — not a description of the images'
-    // subjects, but precisely how they were made: render technique, surface
-    // quality, color treatment, texture, lighting, aesthetic movement.
-    // This style block slots directly into the FLUX prompt.
-    let styleBlock = '';
+    // ── Step 2: Claude extracts style keywords + picks Recraft style category ─
+    // Claude sees all selected images and outputs two things:
+    //   STYLE: comma-separated keywords describing the visual production style
+    //   RECRAFT: the single best-matching Recraft V3 style category
+    //
+    // The RECRAFT category is the key upgrade — it routes generation to a
+    // purpose-built style engine (grain, graphic art, poster, etc.) rather than
+    // relying purely on text prompts to fight FLUX's photorealism bias.
+    let styleBlock    = '';
+    let recraftStyle  = 'digital_illustration/graphic_art'; // safe default
+
     try {
       const claudeResp = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -229,23 +241,28 @@ module.exports = async function handler(req, res) {
         },
         body: JSON.stringify({
           model:      'claude-sonnet-4-6',
-          max_tokens: 200,
-          system: `You are an expert image generation prompt engineer specializing in graphic design and digital art aesthetics. Your only job: analyze reference images and output style descriptors that a text-to-image model can use to reproduce their exact visual production style — NOT their subjects.
+          max_tokens: 350,
+          system: `You are an expert image generation prompt engineer specializing in graphic design and digital art. Analyze the reference images and output EXACTLY two lines — nothing else.
 
-## CRITICAL: IDENTIFY THE MEDIUM FIRST
-Before anything else, determine: is this a photograph of reality, or was it made digitally/by hand?
-- Graphic design, digital illustration, 3D render, motion graphics, poster art → NOT a photograph → MUST include "not photorealistic" and "stylized digital render" or equivalent
-- Only describe as "photography" if the image is literally a photo of a real scene
+Line 1 — STYLE: a comma-separated list of 10-16 specific style descriptors covering:
+- Rendering technique: be precise ("3D CGI render", "flat vector", "risograph print", "digital collage"). If NOT a photo, say "not photorealistic"
+- Surface & material: "chrome metallic", "holographic iridescent", "matte clay", "glossy inflated"
+- Texture & grain: be specific — "heavy noise grain overlay", "smooth gradient", "halftone dots", "clean vector"
+- Color treatment: name actual colors — "cyan and magenta duotone", "hot pink on electric yellow", "deep black gradient fade"
+- Background: "flat vivid orange background", "solid black", "white void", "high-contrast flat bg"
+- Aesthetic: "Y2K chrome", "neo-brutalist poster", "retrofuturist", "90s rave graphic", "Swiss design grid"
 
-## LOOK SPECIFICALLY FOR THESE VISUAL SIGNATURES:
-- **Grain/noise**: Heavy noise grain overlay? Film grain? Risograph-style grain? — name it explicitly: "heavy noise grain overlay", "risograph texture", "analog grain"
-- **Gradient behavior**: Does color transition through black/dark? Duotone? Rainbow spectrum? Name the exact colors: "cyan-to-black gradient", "magenta-to-deep-black fade", "hot pink and electric yellow"
-- **Surface quality**: Chrome? Holographic? Matte? Inflated/puffy? Liquid? Clay? Metallic?
-- **Background**: Is it a flat single color? What color? "flat vivid orange background", "solid black bg", "white void"
-- **Typography or graphic elements**: Bold display type? Poster layout? Grid?
-- **Aesthetic era**: Y2K? 90s rave? Neo-brutalist? Retrofuturist? Swiss design?
+Line 2 — RECRAFT: choose EXACTLY ONE from this list that best matches the images:
+- digital_illustration/grain  → grainy/noisy texture, risograph feel, gradient fading to black, analog print aesthetic
+- digital_illustration/graphic_art  → bold graphic design, poster art, strong shapes, editorial illustration
+- digital_illustration/2d_art_poster  → flat poster design, bold type, vivid color fields
+- digital_illustration/hand_drawn  → hand-crafted, sketchy, organic mark-making
+- vector_illustration/bold_stroke  → clean bold vector shapes, strong outlines
+- digital_illustration  → general digital illustration (use only if none above fits)
 
-Output a single comma-separated list of 10-16 specific style descriptors. No sentences. No explanation. No subject matter. ONLY the descriptors.`,
+Output format (EXACTLY):
+STYLE: [descriptors]
+RECRAFT: [one category from the list above]`,
           messages: [{
             role:    'user',
             content: [
@@ -255,7 +272,7 @@ Output a single comma-separated list of 10-16 specific style descriptors. No sen
               })),
               {
                 type: 'text',
-                text: 'Analyze the visual production style of these reference images. Focus on grain/texture, color treatment, render technique, and surface quality. Output ONLY comma-separated style descriptors — no sentences, no subjects.',
+                text: 'Analyze these reference images. Output the two lines: STYLE and RECRAFT.',
               },
             ],
           }],
@@ -263,33 +280,45 @@ Output a single comma-separated list of 10-16 specific style descriptors. No sen
       });
 
       if (claudeResp.ok) {
-        const d = await claudeResp.json();
-        styleBlock = d.content?.[0]?.text?.trim() || '';
+        const d    = await claudeResp.json();
+        const text = d.content?.[0]?.text?.trim() || '';
+
+        const styleMatch   = text.match(/^STYLE:\s*(.+)$/m);
+        const recraftMatch = text.match(/^RECRAFT:\s*(.+)$/m);
+
+        if (styleMatch)   styleBlock   = styleMatch[1].trim();
+        if (recraftMatch) recraftStyle = recraftMatch[1].trim();
+
+        console.log('[tack] style:', styleBlock);
+        console.log('[tack] recraft category:', recraftStyle);
       }
     } catch (err) {
       console.warn('[tack] Claude style analysis failed (non-fatal):', err.message);
-      // Fall back to a sensible generic style — still better than no style
-      styleBlock = '3D CGI render, holographic iridescent surface, bold saturated neon gradient, chrome metallic finish, graphic design poster style, not photorealistic, Y2K digital aesthetic';
     }
 
+    // Fallbacks if Claude didn't produce output
+    if (!styleBlock)   styleBlock   = '3D CGI render, heavy noise grain overlay, bold saturated gradient, holographic iridescent surface, flat vivid background, graphic design poster, not photorealistic';
+    if (!recraftStyle) recraftStyle = 'digital_illustration/graphic_art';
+
     // ── Step 3: Build two generation prompts ─────────────────────────────
-    // Structure: [STYLE] + [SUBJECT] + [render anchor]
-    // Style leads so FLUX locks in the aesthetic before reading the subject.
-    // "not photorealistic" at the end reinforces the graphic/illustrative bias.
+    // Structure: [STYLE KEYWORDS] + [SUBJECT]
+    // Recraft's `style` parameter handles the render mode — the text prompt
+    // reinforces the aesthetic and guides the subject.
     // Two prompts vary composition so outputs feel like distinct creative options.
-    const renderAnchor = 'bold stylized render, not photorealistic, graphic design quality';
+    const prompt1 = `${styleBlock}. ${subject.trim()}.`;
+    const prompt2 = `${styleBlock}. ${subject.trim()}, different angle and composition.`;
 
-    const prompt1 = `${styleBlock}. ${subject.trim()}. ${renderAnchor}.`;
-    const prompt2 = `${styleBlock}. ${subject.trim()}, different angle and composition. ${renderAnchor}.`;
+    console.log('[tack] prompt1:', prompt1);
+    console.log('[tack] prompt2:', prompt2);
 
-    // ── Step 4: Launch both predictions with a short stagger ─────────────
+    // ── Step 4: Launch both Recraft predictions with a short stagger ──────
     // Stagger 3s between starts to respect Replicate's burst limit.
     // Both run in parallel on Replicate's end once started.
     let id1, id2;
     try {
-      id1 = await startFluxPrediction(prompt1);
+      id1 = await startRecraftPrediction(prompt1, recraftStyle);
       await new Promise(r => setTimeout(r, 3000));
-      id2 = await startFluxPrediction(prompt2);
+      id2 = await startRecraftPrediction(prompt2, recraftStyle);
     } catch (err) {
       console.error('[tack] prediction start failed:', err.message);
       throw new Error(`Could not start generation: ${err.message}`);
