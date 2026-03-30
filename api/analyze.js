@@ -144,31 +144,44 @@ async function buildComposite(imageDataList) {
 
 // ── Replicate helpers ─────────────────────────────────────────────────────────
 
-async function startKontextPrediction(prompt, imageRef) {
+async function startKontextPrediction(prompt, imageRef, { retries = 3, backoffMs = 12000 } = {}) {
   // imageRef is either a data URI (base64) or a public URL (fallback)
-  const resp = await fetch(
-    'https://api.replicate.com/v1/models/black-forest-labs/flux-kontext-pro/predictions',
-    {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.REPLICATE_API_KEY}`,
-        'Content-Type':  'application/json',
-      },
-      body: JSON.stringify({
-        input: {
-          prompt,
-          image:          imageRef,
-          aspect_ratio:   '1:1',
-          output_format:  'webp',
-          output_quality: 90,
-          safety_tolerance: 5,
+  // Retries with exponential backoff on 429 throttle responses.
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const resp = await fetch(
+      'https://api.replicate.com/v1/models/black-forest-labs/flux-kontext-pro/predictions',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.REPLICATE_API_KEY}`,
+          'Content-Type':  'application/json',
         },
-      }),
+        body: JSON.stringify({
+          input: {
+            prompt,
+            image:            imageRef,
+            aspect_ratio:     '1:1',
+            output_format:    'webp',
+            output_quality:   90,
+            safety_tolerance: 5,
+          },
+        }),
+      }
+    );
+
+    // Throttled — wait then retry
+    if (resp.status === 429) {
+      if (attempt === retries) throw new Error('Replicate rate limit reached — please try again in a moment.');
+      const wait = backoffMs * (attempt + 1);
+      console.warn(`[tack] throttled, retrying in ${wait}ms (attempt ${attempt + 1}/${retries})`);
+      await new Promise(r => setTimeout(r, wait));
+      continue;
     }
-  );
-  const data = await resp.json();
-  if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
-  return data.id;
+
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
+    return data.id;
+  }
 }
 
 async function waitForResult(predictionId) {
@@ -329,15 +342,17 @@ module.exports = async function handler(req, res) {
     const prompt1 = `${subject.trim()}. ${baseInstruction}${styleHint}`;
     const prompt2 = `${subject.trim()}, different angle and composition. ${baseInstruction}${styleHint}`;
 
-    // ── Step 5: Launch both predictions simultaneously ────────────────────
+    // ── Step 5: Launch both predictions with a short stagger ─────────────
+    // Replicate enforces a burst limit of 1 simultaneous API call.
+    // We start prediction 1, wait 3s, then start prediction 2.
+    // Both run in parallel on Replicate's servers — the stagger is just
+    // for the launch calls, not the actual generation time.
     let id1, id2;
     try {
-      [id1, id2] = await Promise.all([
-        startKontextPrediction(prompt1, imageRef),
-        startKontextPrediction(prompt2, imageRef),
-      ]);
+      id1 = await startKontextPrediction(prompt1, imageRef);
+      await new Promise(r => setTimeout(r, 3000)); // stagger to respect burst limit
+      id2 = await startKontextPrediction(prompt2, imageRef);
     } catch (err) {
-      // If prediction launch fails, surface a clear message
       console.error('[tack] prediction start failed:', err.message);
       throw new Error(`Could not start generation: ${err.message}`);
     }
