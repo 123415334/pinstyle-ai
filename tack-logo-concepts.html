@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TACK — Logo Concepts</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,200;0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,700;0,9..40,900;1,9..40,400&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #F2F0EB;
+    font-family: 'Space Grotesk', sans-serif;
+    padding: 60px 40px;
+    min-height: 100vh;
+  }
+
+  .header {
+    margin-bottom: 64px;
+  }
+
+  .header h1 {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #999;
+    margin-bottom: 8px;
+  }
+
+  .header p {
+    font-size: 13px;
+    color: #888;
+    font-weight: 300;
+    max-width: 480px;
+    line-height: 1.6;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px;
+  }
+
+  .tile {
+    background: white;
+    padding: 60px 40px 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 380px;
+    position: relative;
+  }
+
+  .tile.dark {
+    background: #0F0F0F;
+  }
+
+  .tile.mid {
+    background: #1A1A1A;
+  }
+
+  .logo-area {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .tile-label {
+    width: 100%;
+    padding-top: 32px;
+    border-top: 1px solid rgba(0,0,0,0.08);
+    margin-top: 40px;
+  }
+
+  .tile.dark .tile-label,
+  .tile.mid .tile-label {
+    border-top-color: rgba(255,255,255,0.08);
+  }
+
+  .tile-label h3 {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #1a1a1a;
+    margin-bottom: 4px;
+  }
+
+  .tile.dark .tile-label h3,
+  .tile.mid .tile-label h3 {
+    color: rgba(255,255,255,0.9);
+  }
+
+  .tile-label p {
+    font-size: 12px;
+    color: #999;
+    font-weight: 300;
+    line-height: 1.5;
+  }
+
+  .tile.dark .tile-label p,
+  .tile.mid .tile-label p {
+    color: rgba(255,255,255,0.4);
+  }
+
+  /* ── CONCEPT A: Weight Contrast Grid ─────────────────── */
+  .concept-a .box {
+    width: 120px;
+    height: 120px;
+    background: #0F0F0F;
+    border-radius: 22px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    padding: 18px;
+    gap: 4px;
+  }
+
+  .concept-a .letter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Space Grotesk', sans-serif;
+    color: white;
+    font-size: 32px;
+    line-height: 1;
+  }
+
+  .concept-a .t { font-weight: 700; font-size: 34px; }
+  .concept-a .a { font-weight: 300; font-size: 28px; }
+  .concept-a .c { font-weight: 300; font-size: 28px; }
+  .concept-a .k { font-weight: 700; font-size: 34px; }
+
+  /* ── CONCEPT B: The Tilt ────────────────────────────── */
+  .concept-b .box {
+    width: 120px;
+    height: 120px;
+    background: #0F0F0F;
+    border-radius: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .concept-b .inner {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    width: 84px;
+    height: 84px;
+    transform: rotate(-4deg);
+    gap: 4px;
+  }
+
+  .concept-b .letter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    color: white;
+    font-size: 30px;
+    line-height: 1;
+  }
+
+  /* ── CONCEPT C: Pure Wordmark ───────────────────────── */
+  .concept-c .wordmark {
+    display: flex;
+    align-items: flex-start;
+    position: relative;
+  }
+
+  .concept-c .word {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 64px;
+    letter-spacing: -0.03em;
+    color: #0F0F0F;
+    line-height: 1;
+  }
+
+  .concept-c .dot {
+    width: 8px;
+    height: 8px;
+    background: #0F0F0F;
+    border-radius: 50%;
+    margin-top: 6px;
+    margin-left: 3px;
+    flex-shrink: 0;
+  }
+
+  /* ── CONCEPT D: Stagger ─────────────────────────────── */
+  .concept-d .box {
+    width: 120px;
+    height: 120px;
+    background: #0F0F0F;
+    border-radius: 22px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0 18px;
+    gap: 2px;
+  }
+
+  .concept-d .row {
+    display: flex;
+    gap: 6px;
+  }
+
+  .concept-d .row:first-child {
+    padding-left: 14px;
+  }
+
+  .concept-d .row:last-child {
+    padding-right: 14px;
+    justify-content: flex-end;
+  }
+
+  .concept-d .letter {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    color: white;
+    font-size: 36px;
+    line-height: 1;
+  }
+
+  /* ── CONCEPT E: T Monogram ──────────────────────────── */
+  .concept-e .box {
+    width: 120px;
+    height: 120px;
+    background: #0F0F0F;
+    border-radius: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .concept-e svg {
+    width: 60px;
+    height: 60px;
+  }
+
+  /* ── CONCEPT F: Outlined / Inverted ─────────────────── */
+  .concept-f .box {
+    width: 120px;
+    height: 120px;
+    background: transparent;
+    border: 2.5px solid #0F0F0F;
+    border-radius: 22px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    padding: 14px;
+    gap: 0px;
+  }
+
+  .concept-f .letter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    color: #0F0F0F;
+    font-size: 36px;
+    line-height: 1;
+  }
+
+  /* ── Wordmark on dark ───────────────────────────────── */
+  .concept-c-dark .word {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 64px;
+    letter-spacing: -0.03em;
+    color: white;
+    line-height: 1;
+  }
+  .concept-c-dark .dot {
+    background: white;
+  }
+
+  /* ── CONCEPT G: Mixed case wordmark ────────────────── */
+  .concept-g .word {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 200;
+    font-size: 58px;
+    letter-spacing: 0.12em;
+    color: #0F0F0F;
+    text-transform: uppercase;
+    line-height: 1;
+  }
+
+  /* ── CONCEPT H: Condensed stacked ──────────────────── */
+  .concept-h .box {
+    width: 120px;
+    height: 120px;
+    background: #0F0F0F;
+    border-radius: 22px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    overflow: hidden;
+  }
+
+  .concept-h .cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .concept-h .cell:nth-child(1) { background: #0F0F0F; }
+  .concept-h .cell:nth-child(2) { background: #FFFFFF; }
+  .concept-h .cell:nth-child(3) { background: #FFFFFF; }
+  .concept-h .cell:nth-child(4) { background: #0F0F0F; }
+
+  .concept-h .letter {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 38px;
+    line-height: 1;
+  }
+
+  .concept-h .cell:nth-child(1) .letter { color: white; }
+  .concept-h .cell:nth-child(2) .letter { color: #0F0F0F; }
+  .concept-h .cell:nth-child(3) .letter { color: #0F0F0F; }
+  .concept-h .cell:nth-child(4) .letter { color: white; }
+
+  /* Large tile for original */
+  .tile.original {
+    background: #E8E5DF;
+    grid-column: span 1;
+  }
+
+  .original-logo {
+    width: 120px;
+    height: 120px;
+    background: black;
+    border-radius: 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    padding: 18px;
+    gap: 4px;
+  }
+
+  .original-logo .letter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    color: white;
+    font-size: 32px;
+    line-height: 1;
+  }
+
+  .section-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #aaa;
+    margin-bottom: 24px;
+    margin-top: 0;
+  }
+
+  .section-divider {
+    grid-column: span 3;
+    padding: 48px 0 16px;
+  }
+
+  .footnote {
+    grid-column: span 3;
+    padding-top: 48px;
+    font-size: 12px;
+    color: #aaa;
+    font-weight: 300;
+    line-height: 1.7;
+    max-width: 600px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>TACK — Logo Exploration</h1>
+  <p>Five directions. Each explores a different dimension of the brand — from typographic tension to grid inversion. No pins, no thumbtacks. Just intention.</p>
+</div>
+
+<div class="grid">
+
+  <!-- ORIGINAL -->
+  <div class="tile original">
+    <div class="logo-area">
+      <div class="original-logo">
+        <div class="letter">T</div>
+        <div class="letter">A</div>
+        <div class="letter">C</div>
+        <div class="letter">K</div>
+      </div>
+    </div>
+    <div class="tile-label">
+      <h3>Original</h3>
+      <p>Starting point. The grid concept is strong — the execution needs refinement.</p>
+    </div>
+  </div>
+
+  <!-- CONCEPT A: Weight Contrast -->
+  <div class="tile concept-a">
+    <div class="logo-area">
+      <div class="box">
+        <div class="letter t">T</div>
+        <div class="letter a">A</div>
+        <div class="letter c">C</div>
+        <div class="letter k">K</div>
+      </div>
+    </div>
+    <div class="tile-label">
+      <h3>A — Weight Contrast</h3>
+      <p>Diagonal tension. T and K are bold, A and C are light — a checkerboard rhythm through weight alone.</p>
+    </div>
+  </div>
+
+  <!-- CONCEPT B: The Tilt -->
+  <div class="tile concept-b">
+    <div class="logo-area">
+      <div class="box">
+        <div class="inner">
+          <div class="letter">T</div>
+          <div class="letter">A</div>
+          <div class="letter">C</div>
+          <div class="letter">K</div>
+        </div>
+      </div>
+    </div>
+    <div class="tile-label">
+      <h3>B — The Tilt</h3>
+      <p>The container stays square. The letters tilt 4°. Deliberately imperfect — as if pinned by hand.</p>
+    </div>
+  </div>
+
+  <!-- CONCEPT C: Pure Wordmark -->
+  <div class="tile">
+    <div class="logo-area">
+      <div class="concept-c">
+        <div class="wordmark">
+          <span class="word">TACK</span>
+          <span class="dot"></span>
+        </div>
+      </div>
+    </div>
+    <div class="tile-label">
+      <h3>C — The Wordmark</h3>
+      <p>No container. The brand stands on type alone. A single dot — a period, a pin point — completes it without explaining it.</p>
+    </div>
+  </div>
+
+  <!-- CONCEPT D: Stagger -->
+  <div class="tile dark concept-d">
+    <div class="logo-area">
+      <div class="box">
+        <div class="row">
+          <span class="letter">T</span>
+          <span class="letter">A</span>
+        </div>
+        <div class="row">
+          <span class="letter">C</span>
+          <span class="letter">K</span>
+        </div>
+      </div>
+    </div>
+    <div class="tile-label">
+      <h3>D — The Stagger</h3>
+      <p>TA shifts right, CK shifts left. Two rows offset like notes on a corkboard — asymmetric, alive.</p>
+    </div>
+  </div>
+
+  <!-- CONCEPT E: T Monogram -->
+  <div class="tile dark concept-e">
+    <div class="logo-area">
+      <div class="box">
+        <svg viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- T crossbar with deliberate asymmetric extension on right -->
+          <rect x="4" y="8" width="44" height="10" rx="2" fill="white"/>
+          <!-- vertical stem -->
+          <rect x="21" y="8" width="10" height="44" rx="2" fill="white"/>
+          <!-- tiny corner mark — subtle tack reference -->
+          <rect x="44" y="4" width="5" height="5" rx="1.5" fill="white" opacity="0.5"/>
+        </svg>
+      </div>
+    </div>
+    <div class="tile-label">
+      <h3>E — The T Mark</h3>
+      <p>Strip everything back to a monogram. The crossbar extends asymmetrically. A quiet corner mark does the rest.</p>
+    </div>
+  </div>
+
+  <!-- CONCEPT F: Checkerboard Inversion -->
+  <div class="tile">
+    <div class="logo-area">
+      <div class="concept-h">
+        <div class="box">
+          <div class="cell"><span class="letter">T</span></div>
+          <div class="cell"><span class="letter">A</span></div>
+          <div class="cell"><span class="letter">C</span></div>
+          <div class="cell"><span class="letter">K</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="tile-label">
+      <h3>F — Checkerboard</h3>
+      <p>Each quadrant inverts. Black on white, white on black. The grid becomes a visual system, not just a container.</p>
+    </div>
+  </div>
+
+  <!-- CONCEPT G: Ultra-light wordmark -->
+  <div class="tile">
+    <div class="logo-area">
+      <div class="concept-g">
+        <span class="word">TACK</span>
+      </div>
+    </div>
+    <div class="tile-label">
+      <h3>G — Ultra Light</h3>
+      <p>Wide tracking, featherweight. Counterintuitive for a punchy name — which is exactly why it works. Fashion-editorial energy.</p>
+    </div>
+  </div>
+
+  <!-- CONCEPT H: Outlined -->
+  <div class="tile">
+    <div class="logo-area">
+      <div class="concept-f">
+        <div class="box">
+          <div class="letter">T</div>
+          <div class="letter">A</div>
+          <div class="letter">C</div>
+          <div class="letter">K</div>
+        </div>
+      </div>
+    </div>
+    <div class="tile-label">
+      <h3>H — Outlined</h3>
+      <p>The container becomes a stroke, not a fill. Lighter, more modern — works beautifully reversed on any color.</p>
+    </div>
+  </div>
+
+  <div class="footnote">
+    <strong style="color:#666; font-weight:500;">Notes for development:</strong> Concepts A, B, and F share the same grid DNA as the original and would feel like an evolution rather than a pivot. Concept C (wordmark) and G (ultra-light) are the highest-risk, highest-reward — they rely entirely on type but scale to any size. The T monogram (E) is worth developing as a secondary mark / favicon regardless of which direction wins.
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -1,4 +1,4 @@
-/* ── PinStyle AI Side Panel ─────────────────────────────────────────────── */
+/* ── tack Side Panel ─────────────────────────────────────────────── */
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap');
 
 :root {
@@ -9,7 +9,8 @@
   --ink-muted:   #8a8070;
   --red:         #e03d2f;
   --red-soft:    rgba(224,61,47,0.12);
-  --gold:        #c9a96e;
+  --accent:      #013FF4;
+  --accent-light: #8FBEF7;
   --border:      rgba(240,235,227,0.08);
   --border-soft: rgba(240,235,227,0.05);
   --radius:      10px;
@@ -95,7 +96,7 @@ header {
 }
 .header-plan-badge.plan-pro {
   background: rgba(201,169,110,0.15);
-  color: var(--gold);
+  color: var(--accent-light);
   border: 1px solid rgba(201,169,110,0.3);
 }
 .header-plan-badge.plan-unlimited {
@@ -143,7 +144,7 @@ header {
   letter-spacing: -0.01em;
   line-height: 1.2;
 }
-.header-tagline .gold { color: #c9a96e; }
+.header-tagline .accent { color: var(--accent-light); }
 
 /* ── MAIN CONTENT ───────────────────────────────────────────────────────── */
 main { padding: 14px; display: flex; flex-direction: column; gap: 16px; }
@@ -239,7 +240,7 @@ main { padding: 14px; display: flex; flex-direction: column; gap: 16px; }
   letter-spacing: -0.01em;
   text-align: center;
 }
-.input-label em { color: var(--gold); font-style: italic; }
+.input-label em { color: var(--accent-light); font-style: italic; }
 
 textarea#subject-input {
   width: 100%;
@@ -332,7 +333,7 @@ textarea#subject-input:focus {
 }
 .counter-fill {
   height: 100%;
-  background: var(--gold);
+  background: var(--accent-light);
   border-radius: 2px;
   transition: width 0.4s ease;
 }
@@ -351,7 +352,7 @@ textarea#subject-input:focus {
 .counter-upgrade-link:hover { opacity: 0.8; }
 
 /* Unlimited */
-.counter-star { color: var(--gold); margin-right: 4px; }
+.counter-star { color: var(--accent-light); margin-right: 4px; }
 
 /* ── AUTH MODAL (slide-up bottom sheet) ─────────────────────────────────── */
 .auth-backdrop {
@@ -408,7 +409,7 @@ textarea#subject-input:focus {
   font-weight: 500;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--gold);
+  color: var(--accent-light);
   margin-bottom: 6px;
 }
 
@@ -421,7 +422,7 @@ textarea#subject-input:focus {
   line-height: 1.1;
   margin-bottom: 4px;
 }
-.auth-modal-title em { color: var(--gold); font-style: italic; }
+.auth-modal-title em { color: var(--accent-light); font-style: italic; }
 
 .auth-modal-sub {
   font-size: 11px;
@@ -564,7 +565,7 @@ textarea#subject-input:focus {
   letter-spacing: -0.02em;
   margin-bottom: 10px;
 }
-.overlay-title em { color: var(--gold); font-style: italic; }
+.overlay-title em { color: var(--accent-light); font-style: italic; }
 
 .overlay-sub {
   font-size: 12px;
@@ -639,7 +640,7 @@ textarea#subject-input:focus {
   margin-bottom: 6px;
   text-align: center;
 }
-.plan-select-title em { color: var(--gold); font-style: italic; }
+.plan-select-title em { color: var(--accent-light); font-style: italic; }
 
 .plan-select-sub {
   font-size: 11px;
@@ -678,8 +679,8 @@ textarea#subject-input:focus {
   top: -9px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--gold);
-  color: #0e0c0a;
+  background: var(--accent);
+  color: #ffffff;
   font-size: 8px;
   font-weight: 600;
   letter-spacing: 0.1em;
@@ -696,7 +697,7 @@ textarea#subject-input:focus {
   color: var(--ink-muted);
   margin-bottom: 2px;
 }
-.ps-card-featured .ps-name { color: var(--gold); }
+.ps-card-featured .ps-name { color: #ffffff; }
 
 .ps-price {
   font-family: "Cormorant Garamond", Georgia, serif;
@@ -736,7 +737,7 @@ textarea#subject-input:focus {
 
 .ps-btn-outline { background: transparent; border: 1px solid var(--border); color: var(--ink-muted); }
 .ps-btn-outline:hover { border-color: rgba(240,235,227,0.2); color: var(--ink); }
-.ps-btn-gold { background: var(--gold); color: #0e0c0a; box-shadow: 0 4px 14px rgba(201,169,110,0.25); }
+.ps-btn-accent { background: var(--accent); color: #ffffff; box-shadow: 0 4px 14px rgba(1,63,244,0.30); }
 .ps-btn-red  { background: var(--red);  color: #fff;    box-shadow: 0 4px 14px rgba(224,61,47,0.22); }
 
 /* Plan waiting state */
@@ -760,7 +761,7 @@ textarea#subject-input:focus {
   align-items: center;
   justify-content: center;
   font-size: 20px;
-  color: var(--gold);
+  color: var(--accent-light);
 }
 .plan-waiting-title {
   font-family: "Cormorant Garamond", Georgia, serif;
@@ -808,7 +809,7 @@ textarea#subject-input:focus {
 
 .upgrade-star {
   font-size: 28px;
-  color: var(--gold);
+  color: var(--accent-light);
   margin-bottom: 18px;
   animation: pulse 2s ease-in-out infinite;
 }
@@ -864,7 +865,7 @@ textarea#subject-input:focus {
   margin-bottom: 14px;
   transition: color 0.15s;
 }
-.upgrade-secondary-link:hover { color: var(--gold); }
+.upgrade-secondary-link:hover { color: var(--accent-light); }
 
 .upgrade-dismiss-btn {
   font-family: "DM Sans", sans-serif;
@@ -1130,7 +1131,7 @@ footer a:hover { color: var(--ink); }
   cursor: pointer;
   transition: color 0.15s;
 }
-.auth-forgot:hover { color: var(--gold); }
+.auth-forgot:hover { color: var(--accent-light); }
 .auth-forgot.hidden { display: none; }
 
 /* ── Anonymous preview CTA ───────────────────────────────────────────────── */
@@ -1149,7 +1150,7 @@ footer a:hover { color: var(--ink); }
   font-weight: 500;
   letter-spacing: 2px;
   text-transform: uppercase;
-  color: var(--gold);
+  color: var(--accent-light);
   margin-bottom: 8px;
 }
 
@@ -1190,4 +1191,4 @@ footer a:hover { color: var(--ink); }
   transition: color 0.15s;
   font-family: 'DM Sans', sans-serif;
 }
-.anon-cta-skip:hover { color: var(--gold); }
+.anon-cta-skip:hover { color: var(--accent-light); }

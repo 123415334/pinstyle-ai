@@ -1,4 +1,4 @@
--- ── PinStyle AI — Migration v2: Monthly generation tracking + Unlimited plan ──
+-- ── tack — Migration v2: Monthly generation tracking + Unlimited plan ──
 -- Run this in Supabase SQL Editor (Dashboard → SQL Editor → New query)
 
 -- 1. Add monthly tracking columns to user_profiles

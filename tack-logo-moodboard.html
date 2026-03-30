@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TACK — Moodboard Concepts</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;900&family=DM+Serif+Display:ital@0;1&family=Space+Mono:wght@400;700&family=Playfair+Display:ital,wght@0,400;0,900;1,400&display=swap" rel="stylesheet">
+
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #ECEAE4;
+    padding: 60px 52px;
+    min-height: 100vh;
+  }
+
+  .header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    border-bottom: 1px solid #CCCAC3;
+    padding-bottom: 18px;
+    margin-bottom: 3px;
+  }
+
+  .header h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #aaa;
+  }
+
+  .header span {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 10px;
+    color: #ccc;
+    letter-spacing: 0.08em;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 3px;
+  }
+
+  .tile {
+    background: #F6F4EF;
+    padding: 56px 36px 38px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 420px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .tile.onblack { background: #111; }
+  .tile.onwhite { background: #FAFAF8; }
+  .tile.ongray  { background: #E4E1D9; }
+  .tile.ondeep  { background: #1C1C1A; }
+  .tile.onwarm  { background: #F2EEE6; }
+
+  .badge {
+    position: absolute;
+    top: 18px;
+    left: 22px;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: #C8C5BD;
+    letter-spacing: 0.12em;
+  }
+  .tile.onblack .badge,
+  .tile.ondeep  .badge { color: #444; }
+
+  .logo-area {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .lbl {
+    width: 100%;
+    padding-top: 26px;
+    margin-top: 32px;
+    border-top: 1px solid rgba(0,0,0,0.07);
+  }
+  .tile.onblack .lbl,
+  .tile.ondeep .lbl { border-top-color: rgba(255,255,255,0.07); }
+
+  .lbl h3 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #444;
+    margin-bottom: 5px;
+  }
+  .tile.onblack .lbl h3,
+  .tile.ondeep .lbl h3 { color: #666; }
+
+  .lbl p {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11.5px;
+    font-weight: 300;
+    color: #999;
+    line-height: 1.6;
+  }
+  .tile.onblack .lbl p,
+  .tile.ondeep .lbl p { color: #555; }
+
+
+  /* ══════════════════════════════════════════════════════
+     A — SWATCH FAN
+     Four cards fanned from a shared pivot, each with one letter
+  ══════════════════════════════════════════════════════ */
+  .swatch-fan {
+    position: relative;
+    width: 260px;
+    height: 170px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+  }
+
+  .swatch {
+    position: absolute;
+    bottom: 0;
+    width: 58px;
+    height: 150px;
+    border-radius: 4px 4px 3px 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform-origin: bottom center;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 34px;
+    line-height: 1;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+  }
+
+  .swatch.s1 { background: #F5F2EB; color: #1a1a1a; transform: rotate(-18deg) translateX(-2px); }
+  .swatch.s2 { background: #B8B4AB; color: #1a1a1a; transform: rotate(-6deg); }
+  .swatch.s3 { background: #5A5854; color: #f5f2eb; transform: rotate(6deg); }
+  .swatch.s4 { background: #111110; color: #f5f2eb; transform: rotate(18deg) translateX(2px); }
+
+
+  /* ══════════════════════════════════════════════════════
+     B — POLAROIDS
+     Four white-bordered cards, overlapping and rotated
+  ══════════════════════════════════════════════════════ */
+  .polaroid-wrap {
+    position: relative;
+    width: 280px;
+    height: 180px;
+  }
+
+  .polaroid {
+    position: absolute;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.13);
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 36px;
+    color: #111;
+    /* Extra padding bottom = polaroid white strip */
+    padding: 12px 12px 32px 12px;
+    width: 80px;
+    height: 100px;
+  }
+
+  .polaroid.p1 { left: 10px;  top: 30px; transform: rotate(-9deg); z-index: 1; }
+  .polaroid.p2 { left: 68px;  top: 12px; transform: rotate(-2deg); z-index: 2; }
+  .polaroid.p3 { left: 128px; top: 20px; transform: rotate(5deg);  z-index: 3; }
+  .polaroid.p4 { left: 190px; top: 8px;  transform: rotate(11deg); z-index: 4; }
+
+
+  /* ══════════════════════════════════════════════════════
+     C — TYPE COLLAGE
+     Each letter in a totally different typographic voice
+  ══════════════════════════════════════════════════════ */
+  .collage {
+    display: flex;
+    align-items: baseline;
+    gap: 1px;
+    position: relative;
+  }
+
+  .col-T {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 900;
+    font-size: 88px;
+    color: #111;
+    line-height: 1;
+    letter-spacing: -4px;
+    transform: translateY(4px);
+  }
+
+  .col-A {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-weight: 400;
+    font-size: 72px;
+    color: #111;
+    line-height: 1;
+    transform: translateY(-4px);
+  }
+
+  .col-C {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 300;
+    font-size: 78px;
+    color: #111;
+    line-height: 1;
+    -webkit-text-stroke: 0.5px #111;
+    transform: translateY(6px);
+  }
+
+  .col-K {
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    font-size: 64px;
+    color: #111;
+    line-height: 1;
+    transform: translateY(-2px);
+    letter-spacing: -4px;
+  }
+
+
+  /* ══════════════════════════════════════════════════════
+     D — PAINT CHIPS
+     Vertical color strips, each with a letter — like a
+     brand palette card from an agency presentation
+  ══════════════════════════════════════════════════════ */
+  .chips {
+    display: flex;
+    gap: 6px;
+    align-items: stretch;
+    height: 180px;
+  }
+
+  .chip {
+    width: 52px;
+    border-radius: 3px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding-bottom: 10px;
+    align-items: center;
+    box-shadow: 0 1px 8px rgba(0,0,0,0.09);
+  }
+
+  .chip .chip-letter {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 26px;
+    line-height: 1;
+  }
+
+  .chip-1 { background: #F5F2EB; }
+  .chip-1 .chip-letter { color: #c0bdb5; }
+
+  .chip-2 { background: #D4D0C8; }
+  .chip-2 .chip-letter { color: #a8a59e; }
+
+  .chip-3 { background: #6B6864; }
+  .chip-3 .chip-letter { color: #4a4845; }
+
+  .chip-4 { background: #111110; }
+  .chip-4 .chip-letter { color: #333330; }
+
+  /* chip height variation — like real paint fan */
+  .chip-1 { height: 130px; align-self: flex-end; }
+  .chip-2 { height: 160px; align-self: flex-end; }
+  .chip-3 { height: 145px; align-self: flex-end; }
+  .chip-4 { height: 175px; align-self: flex-end; }
+
+
+  /* ══════════════════════════════════════════════════════
+     E — THE REFERENCE CROP
+     Clean wordmark with a white "card" placed over it,
+     as if a designer laid a reference on top
+  ══════════════════════════════════════════════════════ */
+  .crop-wrap {
+    position: relative;
+    display: inline-block;
+  }
+
+  .crop-word {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 900;
+    font-size: 90px;
+    letter-spacing: -4px;
+    color: #111;
+    line-height: 1;
+    display: block;
+  }
+
+  .crop-card {
+    position: absolute;
+    bottom: -8px;
+    right: -10px;
+    width: 88px;
+    height: 68px;
+    background: white;
+    box-shadow: -2px -2px 16px rgba(0,0,0,0.1);
+    transform: rotate(4deg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .crop-card-inner {
+    width: 70%;
+    height: 70%;
+    background: #ECEAE4;
+    border-radius: 1px;
+  }
+
+
+  /* ══════════════════════════════════════════════════════
+     F — THE ARRANGEMENT
+     Letters as curated objects on a surface —
+     different sizes, positions, one rotated
+  ══════════════════════════════════════════════════════ */
+  .arrangement {
+    position: relative;
+    width: 240px;
+    height: 180px;
+  }
+
+  .arr-letter {
+    position: absolute;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 900;
+    color: white;
+    line-height: 1;
+    letter-spacing: -2px;
+  }
+
+  /* T — large, anchored top-left */
+  .arr-T {
+    font-size: 130px;
+    top: -16px;
+    left: 0;
+    opacity: 1;
+  }
+
+  /* A — medium, right side, rotated */
+  .arr-A {
+    font-size: 58px;
+    top: 6px;
+    right: 8px;
+    transform: rotate(90deg);
+    transform-origin: top right;
+    opacity: 0.5;
+  }
+
+  /* C — small, bottom-left */
+  .arr-C {
+    font-size: 38px;
+    bottom: 0;
+    left: 8px;
+    opacity: 0.3;
+    font-weight: 300;
+    -webkit-text-stroke: 1px white;
+    color: transparent;
+  }
+
+  /* K — medium, bottom-right */
+  .arr-K {
+    font-size: 72px;
+    bottom: -10px;
+    right: 0;
+    opacity: 0.85;
+  }
+
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>TACK — Round 03 / Moodboard</h1>
+  <span>six directions · maximum distinction</span>
+</div>
+
+<div class="grid">
+
+  <!-- ═══ A: SWATCH FAN ════════════════════════════════ -->
+  <div class="tile onwarm">
+    <span class="badge">A</span>
+    <div class="logo-area">
+      <div class="swatch-fan">
+        <div class="swatch s1">T</div>
+        <div class="swatch s2">A</div>
+        <div class="swatch s3">C</div>
+        <div class="swatch s4">K</div>
+      </div>
+    </div>
+    <div class="lbl">
+      <h3>Swatch Fan</h3>
+      <p>Four chips, one letter each. Fanned from a shared pivot like a designer's colour selection. The logo is a tool, not a badge.</p>
+    </div>
+  </div>
+
+  <!-- ═══ B: POLAROIDS ═════════════════════════════════ -->
+  <div class="tile onwhite">
+    <span class="badge">B</span>
+    <div class="logo-area">
+      <div class="polaroid-wrap">
+        <div class="polaroid p1">T</div>
+        <div class="polaroid p2">A</div>
+        <div class="polaroid p3">C</div>
+        <div class="polaroid p4">K</div>
+      </div>
+    </div>
+    <div class="lbl">
+      <h3>Polaroid Fan</h3>
+      <p>Four prints, casually overlapping. Each letter is a reference — gathered, arranged, considered. The logo looks like the work itself.</p>
+    </div>
+  </div>
+
+  <!-- ═══ C: TYPE COLLAGE ══════════════════════════════ -->
+  <div class="tile ongray">
+    <span class="badge">C</span>
+    <div class="logo-area">
+      <div class="collage">
+        <span class="col-T">T</span>
+        <span class="col-A">A</span>
+        <span class="col-C">C</span>
+        <span class="col-K">K</span>
+      </div>
+    </div>
+    <div class="lbl">
+      <h3>Type Collage</h3>
+      <p>Each letter speaks a different typographic language — black, italic, hairline, mono. One name, four references. A moodboard in four characters.</p>
+    </div>
+  </div>
+
+  <!-- ═══ D: PAINT CHIPS ═══════════════════════════════ -->
+  <div class="tile onwhite">
+    <span class="badge">D</span>
+    <div class="logo-area">
+      <div class="chips">
+        <div class="chip chip-1"><span class="chip-letter">T</span></div>
+        <div class="chip chip-2"><span class="chip-letter">A</span></div>
+        <div class="chip chip-3"><span class="chip-letter">C</span></div>
+        <div class="chip chip-4"><span class="chip-letter">K</span></div>
+      </div>
+    </div>
+    <div class="lbl">
+      <h3>Palette Card</h3>
+      <p>The logo as a colour system. Strips of tone graduating light to dark — the way an agency presents a brand palette. Letters are part of the material.</p>
+    </div>
+  </div>
+
+  <!-- ═══ E: THE REFERENCE CROP ════════════════════════ -->
+  <div class="tile onwarm">
+    <span class="badge">E</span>
+    <div class="logo-area">
+      <div class="crop-wrap">
+        <span class="crop-word">TACK</span>
+        <div class="crop-card">
+          <div class="crop-card-inner"></div>
+        </div>
+      </div>
+    </div>
+    <div class="lbl">
+      <h3>The Reference</h3>
+      <p>A clean wordmark — but a card has been placed on top, slightly rotated, as if the creative director just pinned a reference over it. The logo mid-process.</p>
+    </div>
+  </div>
+
+  <!-- ═══ F: THE ARRANGEMENT ═══════════════════════════ -->
+  <div class="tile ondeep">
+    <span class="badge">F</span>
+    <div class="logo-area">
+      <div class="arrangement">
+        <span class="arr-letter arr-T">T</span>
+        <span class="arr-letter arr-A">A</span>
+        <span class="arr-letter arr-C">C</span>
+        <span class="arr-letter arr-K">K</span>
+      </div>
+    </div>
+    <div class="lbl">
+      <h3>The Arrangement</h3>
+      <p>Letters as objects on a surface — dominant, recessive, rotated, outlined. The same creative logic as laying reference images across a board.</p>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

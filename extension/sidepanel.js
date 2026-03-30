@@ -1,6 +1,6 @@
 'use strict';
 
-const API_URL  = 'https://pinstyle.co/api/analyze';
+const API_URL  = 'https://tack.co/api/analyze'; // TODO: update DNS at Vercel when tack.co is acquired
 const MIN_SIZE = 200;
 
 const SUPABASE_URL      = 'https://sbdowcielgtcfholfyry.supabase.co';
@@ -188,14 +188,14 @@ function showUpgradeMoment(type) {
   if (type === 'pro_limit') {
     subEl.textContent          = "You've hit your 120 monthly generations. Keep creating with Unlimited — no limits, ever.";
     primaryBtn.textContent     = 'Go Unlimited → $35/month';
-    primaryBtn.href            = `https://pinstyle.co/upgrade${email}&current=pro`;
+    primaryBtn.href            = `https://tack.co/upgrade${email}&current=pro`;
     secondaryBtn.style.display = 'none';
   } else {
     subEl.textContent          = "Your 3 free generations are up. Keep going with Pro — 120 images/month for $12.";
     primaryBtn.textContent     = 'Get Pro → $12/month';
-    primaryBtn.href            = `https://pinstyle.co/upgrade${email}`;
+    primaryBtn.href            = `https://tack.co/upgrade${email}`;
     secondaryBtn.textContent   = 'Or go Unlimited → $35/month';
-    secondaryBtn.href          = `https://pinstyle.co/upgrade${email}`;
+    secondaryBtn.href          = `https://tack.co/upgrade${email}`;
     secondaryBtn.style.display = '';
   }
 
@@ -334,7 +334,7 @@ function hidePlanScreen() {
 }
 
 function openUpgradeFlow(plan) {
-  const upgradeUrl = `https://pinstyle.co/upgrade?email=${encodeURIComponent(_authEmail)}&plan=${plan}`;
+  const upgradeUrl = `https://tack.co/upgrade?email=${encodeURIComponent(_authEmail)}&plan=${plan}`;
   chrome.tabs.create({ url: upgradeUrl });
   document.getElementById('plan-cards').classList.add('hidden');
   document.getElementById('plan-waiting').classList.remove('hidden');
@@ -487,7 +487,7 @@ function updateTrialBadge() {
     return;
   }
 
-  const upgradeBase = `https://pinstyle.co/upgrade${_authEmail ? '?email=' + encodeURIComponent(_authEmail) : ''}`;
+  const upgradeBase = `https://tack.co/upgrade${_authEmail ? '?email=' + encodeURIComponent(_authEmail) : ''}`;
   trialBadge.classList.remove('hidden');
 
   // ── Unlimited ──
@@ -745,7 +745,7 @@ async function supabaseLogin(email, password) {
 }
 
 async function supabaseSignup(email, password) {
-  const resp = await fetch(`${SUPABASE_URL}/auth/v1/signup?redirect_to=https://pinstyle.co/confirmed`, {
+  const resp = await fetch(`${SUPABASE_URL}/auth/v1/signup?redirect_to=https://tack.co/confirmed`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
     body: JSON.stringify({ email, password }),
@@ -1125,7 +1125,7 @@ async function generate() {
       }
 
       if (data.images && data.images.length > 0) {
-        saveToHistory(data.images).catch(e => console.warn('[PinStyle] history save failed:', e));
+        saveToHistory(data.images).catch(e => console.warn('[tack] history save failed:', e));
       }
     }
 
@@ -1183,7 +1183,7 @@ function renderResults(data) {
             <div class="gen-img-wrap" onclick="showPreview('${escAttr(url)}')">
               <img src="${escAttr(url)}" alt="Generated image" loading="lazy">
               <div class="img-actions" onclick="event.stopPropagation()">
-                <button class="download-btn" data-url="${escAttr(url)}" data-filename="pinstyle-${i+1}.png">
+                <button class="download-btn" data-url="${escAttr(url)}" data-filename="tack-${i+1}.png">
                   ↓ Download
                 </button>
               </div>
@@ -1234,7 +1234,7 @@ async function downloadAsPng(url, filename) {
     };
     img.src = objUrl;
   } catch (err) {
-    console.error('[PinStyle] download error:', err);
+    console.error('[tack] download error:', err);
   }
 }
 
@@ -1260,7 +1260,7 @@ function escAttr(str) {
 }
 
 // ── History Archive (IndexedDB) ───────────────────────────────────────────────
-const DB_NAME     = 'pinstyle_db';
+const DB_NAME     = 'tack_db';
 const DB_VERSION  = 1;
 const STORE_NAME  = 'history';
 const MAX_HISTORY = 500;

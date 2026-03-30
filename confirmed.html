@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Email Confirmed — PinStyle AI</title>
+  <title>Email Confirmed — tack</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
@@ -17,7 +17,8 @@
       --bg:        #0e0c0a;
       --bg2:       #141210;
       --border:    rgba(240, 235, 227, 0.08);
-      --gold:      #c9a96e;
+      --accent:      #013FF4;
+      --accent-light: #8FBEF7;
     }
 
     body {
@@ -91,7 +92,7 @@
       font-weight: 500;
       letter-spacing: 2px;
       text-transform: uppercase;
-      color: var(--gold);
+      color: var(--accent-light);
       margin-bottom: 14px;
     }
 
@@ -104,7 +105,7 @@
       margin-bottom: 14px;
       letter-spacing: -0.5px;
     }
-    h1 em { font-style: italic; color: var(--gold); }
+    h1 em { font-style: italic; color: var(--accent-light); }
 
     .sub {
       font-size: 14px;
@@ -188,7 +189,7 @@
       padding-bottom: 1px;
       transition: color 0.2s, border-color 0.2s;
     }
-    .plan-link:hover { color: var(--gold); border-color: var(--gold); }
+    .plan-link:hover { color: var(--accent-light); border-color: var(--accent-light); }
   </style>
 </head>
 <body>
@@ -201,7 +202,7 @@
 
     <div class="check-ring">
       <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-        <path d="M6 14.5L11.5 20L22 9" stroke="#c9a96e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M6 14.5L11.5 20L22 9" stroke="#8FBEF7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
     </div>
 
@@ -213,13 +214,13 @@
       <div class="step-icon">↩</div>
       <div class="step-text">
         Switch back to your Chrome window
-        <span>The PinStyle panel is already signing you in automatically.</span>
+        <span>The tack panel is already signing you in automatically.</span>
       </div>
     </div>
 
     <button class="close-btn" onclick="window.close()">Close this tab</button>
 
-    <p class="hint">If this tab doesn't close, just switch back to Chrome manually — PinStyle is ready for you there.</p>
+    <p class="hint">If this tab doesn't close, just switch back to Chrome manually — tack is ready for you there.</p>
 
     <div class="divider"></div>
 

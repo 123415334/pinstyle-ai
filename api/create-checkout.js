@@ -37,8 +37,8 @@ module.exports = async function handler(req, res) {
       line_items: [{ price: priceId, quantity: 1 }],
 
       // After payment: redirect back to the upgrade page with success state
-      success_url: `https://pinstyle.co/upgrade?success=true&plan=${plan}&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url:  'https://pinstyle.co/upgrade',
+      success_url: `https://tack.co/upgrade?success=true&plan=${plan}&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url:  'https://tack.co/upgrade',
 
       // Pass email + plan in metadata so the webhook can upgrade the right user
       metadata: { email: email || '', plan },

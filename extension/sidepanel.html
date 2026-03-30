@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PinStyle AI</title>
+  <title>tack</title>
   <link rel="stylesheet" href="sidepanel.css">
 </head>
 <body>
@@ -49,7 +49,7 @@
   <!-- ── EMAIL VERIFY SCREEN (full screen — shown after signup) ────────── -->
   <div id="verify-screen" class="fullscreen-overlay hidden">
     <div class="overlay-inner">
-      <img src="pinstyle_logo.png" alt="PinStyle AI" class="auth-logo">
+      <img src="tack_logo.png" alt="tack" class="auth-logo">
       <div class="verify-envelope">✉</div>
       <h2 class="overlay-title">Check your <em>email</em></h2>
       <p class="overlay-sub">
@@ -70,7 +70,7 @@
   <!-- ── PLAN SELECTION SCREEN (full screen — shown after new signup) ──── -->
   <div id="plan-screen" class="plan-screen hidden">
     <div class="plan-inner">
-      <img src="pinstyle_logo.png" alt="PinStyle AI" class="auth-logo">
+      <img src="tack_logo.png" alt="tack" class="auth-logo">
       <h2 class="plan-select-title">Choose your <em>plan</em></h2>
       <p class="plan-select-sub">Start free · upgrade or cancel anytime</p>
 
@@ -88,7 +88,7 @@
           <p class="ps-name">Pro</p>
           <p class="ps-price">$12<span class="ps-mo">/mo</span></p>
           <p class="ps-detail">120 images<br>per month</p>
-          <button class="ps-btn ps-btn-gold" id="choose-pro-btn">Get Pro →</button>
+          <button class="ps-btn ps-btn-accent" id="choose-pro-btn">Get Pro →</button>
         </div>
 
         <div class="ps-card">
@@ -105,7 +105,7 @@
         <div class="plan-waiting-icon">↗</div>
         <p class="plan-waiting-title">Checkout opened</p>
         <p class="plan-waiting-sub">Complete your payment in the new tab, then click below.</p>
-        <button class="ps-btn ps-btn-gold" id="plan-done-btn">I've upgraded — continue →</button>
+        <button class="ps-btn ps-btn-accent" id="plan-done-btn">I've upgraded — continue →</button>
         <button class="plan-waiting-skip" id="plan-skip-btn">Start free instead</button>
       </div>
 
@@ -127,7 +127,7 @@
   <!-- ── MAIN UI ─────────────────────────────────────────────────────────── -->
   <header>
     <div class="header-top">
-      <img src="pinstyle_logo.png" alt="PinStyle AI" style="height:26px;width:auto;">
+      <img src="tack_logo.png" alt="tack" style="height:26px;width:auto;">
       <div class="header-right">
         <!-- Shown when logged in -->
         <div id="header-account" class="header-account hidden">
@@ -141,7 +141,7 @@
         <button id="header-signin-btn" class="header-signin-btn hidden">Sign in</button>
       </div>
     </div>
-    <p class="header-tagline">Select images. <span class="gold">Generate their style.</span></p>
+    <p class="header-tagline">Select images. <span class="accent">Generate their style.</span></p>
   </header>
 
   <main>
@@ -194,14 +194,14 @@
 
   <footer>
     <button id="history-btn" class="history-toggle">🕓 History</button>
-    <a href="https://pinstyle.co" target="_blank" rel="noopener" style="font-size:10px;color:var(--ink-muted);text-decoration:none;">pinstyle.co</a>
+    <a href="https://tack.co" target="_blank" rel="noopener" style="font-size:10px;color:var(--ink-muted);text-decoration:none;">tack.co</a>
   </footer>
 
   <!-- Image preview overlay -->
   <div id="preview-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:999;align-items:center;justify-content:center;flex-direction:column;gap:14px;">
     <img id="preview-img" style="max-width:90%;max-height:78%;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,0.8);cursor:pointer;" onclick="document.getElementById('preview-overlay').style.display='none'">
     <div style="display:flex;gap:12px;align-items:center;">
-      <a id="preview-download" download="pinstyle.jpg" style="background:rgba(255,255,255,0.12);color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;padding:8px 18px;border-radius:100px;text-decoration:none;border:1px solid rgba(255,255,255,0.15);transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.12)'">↓ Save image</a>
+      <a id="preview-download" download="tack.jpg" style="background:rgba(255,255,255,0.12);color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;padding:8px 18px;border-radius:100px;text-decoration:none;border:1px solid rgba(255,255,255,0.15);transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.12)'">↓ Save image</a>
       <span style="color:rgba(255,255,255,0.35);font-size:11px;font-family:'DM Sans',sans-serif;">or click image to close</span>
     </div>
     <div style="position:absolute;top:16px;right:20px;color:rgba(255,255,255,0.4);font-size:22px;cursor:pointer;line-height:1;" onclick="document.getElementById('preview-overlay').style.display='none'">✕</div>

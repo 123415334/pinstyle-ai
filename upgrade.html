@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Plans & Pricing — PinStyle AI</title>
-  <meta name="description" content="Choose a PinStyle AI plan. Start free, then upgrade to Pro or Unlimited for more generations.">
+  <title>Plans & Pricing — tack</title>
+  <meta name="description" content="Choose a tack plan. Start free, then upgrade to Pro or Unlimited for more generations.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
@@ -20,7 +20,8 @@
       --bg2:       #141210;
       --bg3:       #1a1714;
       --border:    rgba(240, 235, 227, 0.08);
-      --gold:      #c9a96e;
+      --accent:      #013FF4;
+      --accent-light: #8FBEF7;
       --radius:    14px;
     }
 
@@ -89,7 +90,7 @@
       color: var(--ink);
       letter-spacing: 0.01em;
     }
-    .nav-wordmark em { color: var(--gold); font-style: italic; }
+    .nav-wordmark em { color: var(--accent-light); font-style: italic; }
 
     .nav-back {
       font-size: 12px;
@@ -147,7 +148,7 @@
       opacity: 0;
       animation: fadeUp 0.7s ease 0.25s forwards;
     }
-    h1 em { color: var(--gold); font-style: italic; }
+    h1 em { color: var(--accent-light); font-style: italic; }
 
     .subtitle {
       font-size: 15px;
@@ -210,7 +211,7 @@
       color: var(--ink-muted);
       margin-bottom: 20px;
     }
-    .plan-pro .plan-label       { color: var(--gold); }
+    .plan-pro .plan-label       { color: var(--accent-light); }
     .plan-unlimited .plan-label { color: var(--ink-muted); }
 
     .plan-price {
@@ -282,7 +283,7 @@
     .check svg { width: 8px; height: 8px; }
     .check svg path { stroke: var(--red); }
     .plan-pro .check svg path,
-    .plan-unlimited .check svg path { stroke: var(--gold); }
+    .plan-unlimited .check svg path { stroke: var(--accent-light); }
 
     /* Cross icon */
     .cross {
@@ -307,8 +308,8 @@
       top: -13px;
       left: 50%;
       transform: translateX(-50%);
-      background: var(--gold);
-      color: #0e0c0a;
+      background: var(--accent);
+      color: #ffffff;
       font-size: 10px;
       font-weight: 500;
       letter-spacing: 0.12em;
@@ -338,12 +339,12 @@
     .upgrade-btn:hover       { opacity: 0.9; transform: translateY(-2px); }
     .upgrade-btn:disabled    { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-    .btn-gold {
-      background: var(--gold);
-      color: #0e0c0a;
-      box-shadow: 0 6px 28px rgba(201,169,110,0.28);
+    .btn-accent {
+      background: var(--accent);
+      color: #ffffff;
+      box-shadow: 0 6px 28px rgba(1,63,244,0.28);
     }
-    .btn-gold:hover { box-shadow: 0 10px 36px rgba(201,169,110,0.38); }
+    .btn-accent:hover { box-shadow: 0 10px 36px rgba(1,63,244,0.30); }
 
     .btn-red {
       background: var(--red);
@@ -435,7 +436,7 @@
       letter-spacing: -0.02em;
       line-height: 1.1;
     }
-    .success-page h2 em { color: var(--gold); font-style: italic; }
+    .success-page h2 em { color: var(--accent-light); font-style: italic; }
 
     .success-page p {
       font-size: 15px;
@@ -581,7 +582,7 @@
             <span>Early access to new features</span>
           </li>
         </ul>
-        <button class="upgrade-btn btn-gold" id="pro-btn">
+        <button class="upgrade-btn btn-accent" id="pro-btn">
           Upgrade to Pro →
         </button>
       </div>
@@ -640,7 +641,7 @@
       <div class="success-icon">✦</div>
       <h2 id="success-heading">Welcome to <em>Pro.</em></h2>
       <p id="success-body">
-        Your account has been upgraded. Head back to the PinStyle extension and start generating — click "Already upgraded?" to refresh your plan status.
+        Your account has been upgraded. Head back to the tack extension and start generating — click "Already upgraded?" to refresh your plan status.
       </p>
       <a href="#" class="back-to-ext" onclick="window.close(); return false;">
         Close this tab &amp; keep creating
@@ -652,10 +653,10 @@
   </div>
 
   <footer>
-    <span>© 2026 PinStyle AI</span>
+    <span>© 2026 tack</span>
     <div style="display:flex;gap:24px">
       <a href="/privacy">Privacy Policy</a>
-      <a href="mailto:hello@pinstyle.co">Contact</a>
+      <a href="mailto:hello@tack.co">Contact</a>
     </div>
   </footer>
 

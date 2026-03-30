@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TACK — Organic Concepts</title>
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Space+Mono:wght@400;700&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Space+Grotesk:wght@300;700;900&display=swap" rel="stylesheet">
+
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #EDEAE2;
+    padding: 64px 56px;
+    min-height: 100vh;
+  }
+
+  .header {
+    margin-bottom: 72px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    border-bottom: 1px solid #C8C4BC;
+    padding-bottom: 20px;
+  }
+
+  .header-left {
+    font-family: 'Special Elite', monospace;
+    font-size: 11px;
+    color: #999;
+    letter-spacing: 0.06em;
+  }
+
+  .header-right {
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    color: #bbb;
+    font-style: italic;
+  }
+
+  /* Loose editorial layout — not a rigid grid */
+  .canvas {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 3px;
+  }
+
+  .tile {
+    background: #F5F2EB;
+    padding: 64px 48px 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 360px;
+    position: relative;
+  }
+
+  .tile.paper { background: #F8F5EE; }
+  .tile.dark  { background: #111110; }
+  .tile.cream { background: #EDE8DC; }
+  .tile.white { background: #FAFAF8; }
+
+  .tile-num {
+    position: absolute;
+    top: 18px;
+    left: 22px;
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    color: #C0BCB4;
+    letter-spacing: 0.1em;
+  }
+
+  .tile.dark .tile-num { color: #444; }
+
+  .logo-area {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .tile-label {
+    width: 100%;
+    padding-top: 28px;
+    margin-top: 36px;
+    border-top: 1px solid rgba(0,0,0,0.07);
+  }
+
+  .tile.dark .tile-label { border-top-color: rgba(255,255,255,0.07); }
+
+  .tile-label h3 {
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #555;
+    margin-bottom: 5px;
+  }
+
+  .tile.dark .tile-label h3 { color: #666; }
+
+  .tile-label p {
+    font-family: 'Courier Prime', monospace;
+    font-size: 11.5px;
+    color: #999;
+    line-height: 1.6;
+    font-style: italic;
+  }
+
+  .tile.dark .tile-label p { color: #555; }
+
+  /* ─── CONCEPT A: TYPEWRITER ──────────────────────────────── */
+  .typewriter-word {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+  }
+
+  .typewriter-word span {
+    font-family: 'Special Elite', monospace;
+    font-size: 92px;
+    line-height: 1;
+    color: #1a1a18;
+    display: inline-block;
+  }
+
+  /* Each letter struck at slightly different pressure and offset */
+  .typewriter-word .l-t { transform: translateY(0px);   opacity: 1.0;  letter-spacing: 0; }
+  .typewriter-word .l-a { transform: translateY(-3px);  opacity: 0.82; }
+  .typewriter-word .l-c { transform: translateY(2px);   opacity: 0.91; }
+  .typewriter-word .l-k { transform: translateY(-1px);  opacity: 0.75; }
+
+  /* ─── CONCEPT B: HAND CIRCLED ────────────────────────────── */
+  .circled-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .circled-text {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 64px;
+    letter-spacing: -0.02em;
+    color: #1a1a18;
+    position: relative;
+    z-index: 2;
+    line-height: 1;
+  }
+
+  .circle-svg {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 200px;
+    height: 110px;
+    overflow: visible;
+  }
+
+  /* ─── CONCEPT C: MISREGISTERED ───────────────────────────── */
+  .misreg-wrap {
+    position: relative;
+    display: inline-block;
+  }
+
+  .misreg-back {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 900;
+    font-size: 82px;
+    letter-spacing: -0.03em;
+    color: #1a1a18;
+    opacity: 0.12;
+    position: absolute;
+    top: -4px;
+    left: 5px;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .misreg-front {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 900;
+    font-size: 82px;
+    letter-spacing: -0.03em;
+    color: #1a1a18;
+    position: relative;
+    z-index: 2;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  /* ─── CONCEPT D: STAMP ───────────────────────────────────── */
+  .stamp-svg {
+    width: 200px;
+    height: 200px;
+  }
+
+  /* ─── CONCEPT E: SCRATCH UNDERLINE ──────────────────────── */
+  .scratch-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+  }
+
+  .scratch-text {
+    font-family: 'Courier Prime', monospace;
+    font-weight: 700;
+    font-size: 80px;
+    letter-spacing: 0.06em;
+    color: #1a1a18;
+    line-height: 1;
+  }
+
+  .scratch-svg {
+    width: 100%;
+    margin-top: -4px;
+    overflow: visible;
+  }
+
+  /* ─── CONCEPT F: STACKED MONO ────────────────────────────── */
+  .stacked-mono {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 0.88;
+  }
+
+  .stacked-mono .line {
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    font-size: 76px;
+    color: white;
+    letter-spacing: -0.04em;
+    display: block;
+  }
+
+  .stacked-mono .line:first-child {
+    opacity: 1;
+  }
+
+  .stacked-mono .line:last-child {
+    opacity: 1;
+    -webkit-text-stroke: 1.5px white;
+    color: transparent;
+  }
+
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span class="header-left">TACK — ROUND 02 / ORGANIC</span>
+  <span class="header-right">hand-made. counter. quiet.</span>
+</div>
+
+<div class="canvas">
+
+  <!-- ═══ A: TYPEWRITER ════════════════════════════════════ -->
+  <div class="tile paper">
+    <span class="tile-num">A</span>
+    <div class="logo-area">
+      <div class="typewriter-word">
+        <span class="l-t">T</span>
+        <span class="l-a">A</span>
+        <span class="l-c">C</span>
+        <span class="l-k">K</span>
+      </div>
+    </div>
+    <div class="tile-label">
+      <h3>Typewriter</h3>
+      <p>Each key struck at different pressure. Letters drift. Nothing is perfectly aligned. Pre-digital, anti-AI by nature.</p>
+    </div>
+  </div>
+
+  <!-- ═══ B: HAND CIRCLED ══════════════════════════════════ -->
+  <div class="tile white">
+    <span class="tile-num">B</span>
+    <div class="logo-area">
+      <div class="circled-wrap">
+        <span class="circled-text">TACK</span>
+        <svg class="circle-svg" viewBox="0 0 200 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Deliberately imperfect hand-drawn ellipse — doesn't close perfectly -->
+          <path
+            d="M 100,8 C 132,4 168,16 182,38 C 196,60 190,86 168,98 C 146,110 114,108 88,102 C 62,96 32,82 22,60 C 12,38 24,14 52,7 C 68,3 84,4 100,8"
+            stroke="#1a1a18"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            fill="none"
+            opacity="0.85"
+          />
+          <!-- Second pass of the pen — slightly offset, incomplete -->
+          <path
+            d="M 105,6 C 140,2 172,22 180,46"
+            stroke="#1a1a18"
+            stroke-width="1.2"
+            stroke-linecap="round"
+            fill="none"
+            opacity="0.3"
+          />
+        </svg>
+      </div>
+    </div>
+    <div class="tile-label">
+      <h3>Hand-circled</h3>
+      <p>The word is clean — a person circled it. One gesture. The imperfect loop says everything about the brand's handmade soul.</p>
+    </div>
+  </div>
+
+  <!-- ═══ C: MISREGISTERED ══════════════════════════════════ -->
+  <div class="tile cream">
+    <span class="tile-num">C</span>
+    <div class="logo-area">
+      <div class="misreg-wrap">
+        <span class="misreg-back">TACK</span>
+        <span class="misreg-front">TACK</span>
+      </div>
+    </div>
+    <div class="tile-label">
+      <h3>Misregistered</h3>
+      <p>A ghost of the word beneath the word. Bad photocopy. Zine energy. Feels like something run off at midnight.</p>
+    </div>
+  </div>
+
+  <!-- ═══ D: RUBBER STAMP ══════════════════════════════════ -->
+  <div class="tile white">
+    <span class="tile-num">D</span>
+    <div class="logo-area">
+      <svg class="stamp-svg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <filter id="stamp-rough" x="-10%" y="-10%" width="120%" height="120%">
+            <feTurbulence type="turbulence" baseFrequency="0.065" numOctaves="3" seed="8" result="noise"/>
+            <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.8" xChannelSelector="R" yChannelSelector="G"/>
+          </filter>
+        </defs>
+        <g filter="url(#stamp-rough)" transform="rotate(-3, 100, 100)">
+          <!-- Rough outer border — deliberately uneven stroke -->
+          <rect x="18" y="18" width="164" height="164" rx="4"
+            stroke="#1a1a18" stroke-width="2.5" fill="none"
+            stroke-dasharray="none" opacity="0.9"/>
+          <!-- Inner border — tighter -->
+          <rect x="26" y="26" width="148" height="148" rx="2"
+            stroke="#1a1a18" stroke-width="1" fill="none" opacity="0.5"/>
+          <!-- TACK text -->
+          <text x="100" y="128"
+            font-family="'Space Grotesk', sans-serif"
+            font-weight="900"
+            font-size="74"
+            fill="#1a1a18"
+            text-anchor="middle"
+            letter-spacing="-2"
+            opacity="0.92">TACK</text>
+          <!-- Small tagline text -->
+          <text x="100" y="52"
+            font-family="'Courier Prime', monospace"
+            font-size="9"
+            fill="#1a1a18"
+            text-anchor="middle"
+            letter-spacing="4"
+            opacity="0.5">ORIGINAL</text>
+          <text x="100" y="165"
+            font-family="'Courier Prime', monospace"
+            font-size="8"
+            fill="#1a1a18"
+            text-anchor="middle"
+            letter-spacing="3.5"
+            opacity="0.4">EST. MMXXVI</text>
+        </g>
+      </svg>
+    </div>
+    <div class="tile-label">
+      <h3>Rubber Stamp</h3>
+      <p>Ink pressure varies. The border bleeds. Rotated 3°. Something you'd find on the back of a package or inside a vinyl sleeve.</p>
+    </div>
+  </div>
+
+  <!-- ═══ E: SCRATCH UNDERLINE ════════════════════════════ -->
+  <div class="tile paper">
+    <span class="tile-num">E</span>
+    <div class="logo-area">
+      <div class="scratch-wrap">
+        <span class="scratch-text">TACK</span>
+        <svg class="scratch-svg" viewBox="0 0 220 22" fill="none" xmlns="http://www.w3.org/2000/svg" style="height:22px">
+          <!-- Primary rough underline stroke -->
+          <path
+            d="M 2,10 C 18,7 36,13 58,9 C 80,5 102,14 124,10 C 146,6 168,13 190,9 C 202,7 212,10 218,11"
+            stroke="#1a1a18"
+            stroke-width="2.2"
+            stroke-linecap="round"
+            fill="none"
+            opacity="0.9"
+          />
+          <!-- Second pass — slightly offset, adds weight unevenly -->
+          <path
+            d="M 4,13 C 30,11 55,16 78,13 C 100,10 130,17 155,14"
+            stroke="#1a1a18"
+            stroke-width="1.2"
+            stroke-linecap="round"
+            fill="none"
+            opacity="0.3"
+          />
+          <!-- A small pen-lift/mark at the start -->
+          <path
+            d="M 0,8 L 3,9"
+            stroke="#1a1a18"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            opacity="0.4"
+          />
+        </svg>
+      </div>
+    </div>
+    <div class="tile-label">
+      <h3>The Underline</h3>
+      <p>The word is clean. The emphasis is human. A double-pass stroke — the pen lifted once, came back. Quiet but immediate.</p>
+    </div>
+  </div>
+
+  <!-- ═══ F: STACKED OUTLINE ═══════════════════════════════ -->
+  <div class="tile dark">
+    <span class="tile-num">F</span>
+    <div class="logo-area">
+      <div class="stacked-mono">
+        <span class="line">TACK</span>
+        <span class="line">TACK</span>
+      </div>
+    </div>
+    <div class="tile-label">
+      <h3>Fill + Outline</h3>
+      <p>The word, then its ghost. Filled above, outlined below. A band poster trick. Feels silkscreened, lo-fi, subversive.</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- SVG defs used globally -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <filter id="paper-grain">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch" result="noise"/>
+      <feColorMatrix type="saturate" values="0" in="noise" result="grayNoise"/>
+      <feBlend in="SourceGraphic" in2="grayNoise" mode="multiply" result="blended"/>
+      <feComposite in="blended" in2="SourceGraphic" operator="in"/>
+    </filter>
+  </defs>
+</svg>
+
+</body>
+</html>

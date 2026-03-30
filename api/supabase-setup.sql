@@ -1,4 +1,4 @@
--- ── PinStyle AI — Supabase Auth + Usage Tracking Setup ──────────────────────
+-- ── tack — Supabase Auth + Usage Tracking Setup ──────────────────────
 -- Run this in your Supabase SQL Editor (Dashboard → SQL Editor → New query)
 
 -- 1. User profiles table (linked to Supabase Auth users)
