@@ -230,18 +230,22 @@ module.exports = async function handler(req, res) {
         body: JSON.stringify({
           model:      'claude-sonnet-4-6',
           max_tokens: 200,
-          system: `You are an expert image generation prompt engineer. Your only job is to analyze reference images and write a style block that a text-to-image model (like FLUX or Midjourney) can use to reproduce the exact visual production style — not the subjects — of those images.
+          system: `You are an expert image generation prompt engineer specializing in graphic design and digital art aesthetics. Your only job: analyze reference images and output style descriptors that a text-to-image model can use to reproduce their exact visual production style — NOT their subjects.
 
-Output a single comma-separated list of 10-16 specific style descriptors covering:
-- Rendering technique (e.g. "3D CGI render", "flat vector illustration", "studio photography", "hand-drawn")
-- Surface & material finish (e.g. "chrome metallic", "matte clay", "holographic iridescent", "glossy plastic")
-- Texture & grain (e.g. "grainy film texture", "smooth vector", "halftone dots", "noise grain overlay")
-- Color treatment (e.g. "bold saturated neon palette", "warm muted tones", "high-contrast duotone", "rich gradient")
-- Lighting (e.g. "dramatic studio lighting", "soft diffused light", "rim-lit", "flat lit")
-- Composition style (e.g. "bold graphic poster", "clean product shot", "editorial layout", "maximalist")
-- Aesthetic movement if clear (e.g. "Y2K chrome aesthetic", "neo-brutalist", "retrofuturist")
+## CRITICAL: IDENTIFY THE MEDIUM FIRST
+Before anything else, determine: is this a photograph of reality, or was it made digitally/by hand?
+- Graphic design, digital illustration, 3D render, motion graphics, poster art → NOT a photograph → MUST include "not photorealistic" and "stylized digital render" or equivalent
+- Only describe as "photography" if the image is literally a photo of a real scene
 
-Output ONLY the comma-separated descriptors. No sentences. No explanation. No subject matter.`,
+## LOOK SPECIFICALLY FOR THESE VISUAL SIGNATURES:
+- **Grain/noise**: Heavy noise grain overlay? Film grain? Risograph-style grain? — name it explicitly: "heavy noise grain overlay", "risograph texture", "analog grain"
+- **Gradient behavior**: Does color transition through black/dark? Duotone? Rainbow spectrum? Name the exact colors: "cyan-to-black gradient", "magenta-to-deep-black fade", "hot pink and electric yellow"
+- **Surface quality**: Chrome? Holographic? Matte? Inflated/puffy? Liquid? Clay? Metallic?
+- **Background**: Is it a flat single color? What color? "flat vivid orange background", "solid black bg", "white void"
+- **Typography or graphic elements**: Bold display type? Poster layout? Grid?
+- **Aesthetic era**: Y2K? 90s rave? Neo-brutalist? Retrofuturist? Swiss design?
+
+Output a single comma-separated list of 10-16 specific style descriptors. No sentences. No explanation. No subject matter. ONLY the descriptors.`,
           messages: [{
             role:    'user',
             content: [
@@ -251,7 +255,7 @@ Output ONLY the comma-separated descriptors. No sentences. No explanation. No su
               })),
               {
                 type: 'text',
-                text: 'Output the style descriptors for these reference images.',
+                text: 'Analyze the visual production style of these reference images. Focus on grain/texture, color treatment, render technique, and surface quality. Output ONLY comma-separated style descriptors — no sentences, no subjects.',
               },
             ],
           }],
@@ -265,17 +269,18 @@ Output ONLY the comma-separated descriptors. No sentences. No explanation. No su
     } catch (err) {
       console.warn('[tack] Claude style analysis failed (non-fatal):', err.message);
       // Fall back to a sensible generic style — still better than no style
-      styleBlock = 'high-quality digital render, bold graphic design, vivid color palette, sharp professional finish';
+      styleBlock = '3D CGI render, holographic iridescent surface, bold saturated neon gradient, chrome metallic finish, graphic design poster style, not photorealistic, Y2K digital aesthetic';
     }
 
     // ── Step 3: Build two generation prompts ─────────────────────────────
-    // Structure: [STYLE] + [SUBJECT] + [quality anchor]
+    // Structure: [STYLE] + [SUBJECT] + [render anchor]
     // Style leads so FLUX locks in the aesthetic before reading the subject.
-    // Two prompts vary the composition so outputs feel like distinct options.
-    const qualityAnchor = 'highly detailed, sharp focus, professional quality';
+    // "not photorealistic" at the end reinforces the graphic/illustrative bias.
+    // Two prompts vary composition so outputs feel like distinct creative options.
+    const renderAnchor = 'bold stylized render, not photorealistic, graphic design quality';
 
-    const prompt1 = `${styleBlock}. ${subject.trim()}. ${qualityAnchor}.`;
-    const prompt2 = `${styleBlock}. ${subject.trim()}, different angle and composition. ${qualityAnchor}.`;
+    const prompt1 = `${styleBlock}. ${subject.trim()}. ${renderAnchor}.`;
+    const prompt2 = `${styleBlock}. ${subject.trim()}, different angle and composition. ${renderAnchor}.`;
 
     // ── Step 4: Launch both predictions with a short stagger ─────────────
     // Stagger 3s between starts to respect Replicate's burst limit.
