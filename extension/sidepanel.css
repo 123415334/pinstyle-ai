@@ -103,9 +103,9 @@ header {
   border: 1px solid rgba(201,169,110,0.3);
 }
 .header-plan-badge.plan-unlimited {
-  background: rgba(224,61,47,0.12);
-  color: var(--accent-light);
-  border: 1px solid rgba(224,61,47,0.25);
+  background: rgba(240,235,227,0.07);
+  color: var(--ink);
+  border: 1px solid rgba(240,235,227,0.22);
 }
 
 .header-signin-btn {
@@ -263,7 +263,7 @@ textarea#subject-input {
 }
 textarea#subject-input::placeholder { color: var(--ink-muted); }
 textarea#subject-input:focus {
-  border-color: rgba(224,61,47,0.4);
+  border-color: rgba(240,235,227,0.22);
   box-shadow: 0 0 0 3px rgba(1,63,244,0.12);
 }
 
@@ -281,7 +281,7 @@ textarea#subject-input:focus {
   cursor: pointer;
   transition: opacity 0.15s, transform 0.15s, box-shadow 0.15s;
   letter-spacing: 0.01em;
-  box-shadow: 0 4px 20px rgba(224,61,47,0.25);
+  box-shadow: 0 4px 20px rgba(1,63,244,0.25);
 }
 #generate-btn:hover:not(:disabled) {
   opacity: 0.88;
@@ -343,7 +343,7 @@ textarea#subject-input:focus {
 
 /* Exhausted state */
 .trial-badge.counter-exhausted {
-  border-color: rgba(224,61,47,0.25);
+  border-color: rgba(240,235,227,0.15);
   background: var(--accent-soft);
 }
 .counter-upgrade-link {
@@ -498,7 +498,7 @@ textarea#subject-input:focus {
 }
 .auth-input::placeholder { color: var(--ink-muted); }
 .auth-input:focus {
-  border-color: rgba(224,61,47,0.4);
+  border-color: rgba(240,235,227,0.22);
   box-shadow: 0 0 0 3px rgba(1,63,244,0.12);
 }
 .auth-error {
@@ -520,7 +520,7 @@ textarea#subject-input:focus {
   cursor: pointer;
   transition: opacity 0.15s, transform 0.15s;
   letter-spacing: 0.01em;
-  box-shadow: 0 4px 20px rgba(224,61,47,0.25);
+  box-shadow: 0 4px 20px rgba(1,63,244,0.25);
 }
 .auth-submit-btn:hover { opacity: 0.88; transform: translateY(-1px); }
 .auth-submit-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
@@ -942,15 +942,15 @@ textarea#subject-input:focus {
   font-family: "DM Sans", sans-serif;
   font-size: 11px;
   font-weight: 500;
-  color: var(--accent-light);
+  color: var(--ink);
   background: none;
-  border: 1px solid rgba(224,61,47,0.3);
+  border: 1px solid rgba(240,235,227,0.22);
   border-radius: 20px;
   padding: 4px 10px;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, border-color 0.15s;
 }
-.btn-copy:hover { background: var(--accent-soft); }
+.btn-copy:hover { background: rgba(240,235,227,0.05); border-color: rgba(240,235,227,0.35); }
 
 .gen-images { display: flex; flex-direction: row; flex-wrap: wrap; gap: 8px; overflow: visible; }
 .gen-img-wrap { position: relative; display: block; flex: 1; min-width: min(120px, 100%); overflow: visible; }
