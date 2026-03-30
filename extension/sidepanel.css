@@ -163,17 +163,17 @@ main { padding: 14px; display: flex; flex-direction: column; gap: 16px; }
 .btn-scan {
   font-family: "DM Sans", sans-serif;
   font-size: 11px;
-  font-weight: 500;
-  color: var(--accent-light);
-  background: none;
-  border: 1px solid rgba(224,61,47,0.3);
+  font-weight: 600;
+  color: #ffffff;
+  background: var(--accent);
+  border: none;
   border-radius: 20px;
-  padding: 4px 11px;
+  padding: 5px 13px;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background 0.15s, opacity 0.15s;
   flex-shrink: 0;
 }
-.btn-scan:hover { background: var(--accent-soft); border-color: var(--accent-light); }
+.btn-scan:hover { background: #0235d4; }
 
 #status {
   font-size: 12px;
