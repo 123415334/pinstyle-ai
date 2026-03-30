@@ -68,16 +68,22 @@ async function fetchImageData(url) {
   }
 }
 
-// ── FLUX 1.1 Pro ──────────────────────────────────────────────────────────────
-// Single generation model for all board types. FLUX handles both photorealistic
-// and graphic/illustrative styles well when given precise style descriptors from
-// Claude. Photo boards stay photorealistic naturally; graphic boards get an
-// explicit anti-photorealism anchor to keep FLUX in the right lane.
+// ── FLUX 2 Pro ────────────────────────────────────────────────────────────────
+// Accepts reference image URLs alongside the text prompt for conditioning.
+// Combined with Claude's rich paragraph-style description this produced the
+// best style-accurate results in testing.
 
-async function startFluxPrediction(prompt, { retries = 3, backoffMs = 12000 } = {}) {
+async function startFluxPrediction(prompt, imageUrls = [], { retries = 3, backoffMs = 12000 } = {}) {
+  // Build image conditioning inputs from reference URLs
+  const imageInputs = {};
+  imageUrls.slice(0, 4).forEach((url, i) => {
+    if (i === 0) imageInputs.image_prompt  = url;
+    else         imageInputs[`image_prompt_${i + 1}`] = url;
+  });
+
   for (let attempt = 0; attempt <= retries; attempt++) {
     const resp = await fetch(
-      'https://api.replicate.com/v1/models/black-forest-labs/flux-1.1-pro/predictions',
+      'https://api.replicate.com/v1/models/black-forest-labs/flux-2-pro/predictions',
       {
         method: 'POST',
         headers: {
@@ -87,11 +93,11 @@ async function startFluxPrediction(prompt, { retries = 3, backoffMs = 12000 } = 
         body: JSON.stringify({
           input: {
             prompt,
+            ...imageInputs,
             aspect_ratio:      '1:1',
             output_format:     'webp',
             output_quality:    90,
             safety_tolerance:  5,
-            prompt_upsampling: false,
           },
         }),
       }
@@ -208,16 +214,13 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // ── Step 2: Claude identifies board type and extracts style ───────────
-    // Claude makes two decisions:
-    //   1. Is this a PHOTO board or a GRAPHIC/DIGITAL board?
-    //   2. What are the precise style descriptors?
-    //
-    // This drives the prompt anchor at generation time:
-    //   Photo boards  → descriptors feed FLUX naturally (it defaults to realism)
-    //   Graphic boards → descriptors + explicit "not photorealistic" anchor
-    let styleBlock = '';
-    let isPhotoBoard = false;
+    // ── Step 2: Claude deep style analysis ───────────────────────────────
+    // Claude acts as an art director: identifies the single most dominant
+    // visual element across the selected images, then writes a rich 140-180
+    // word paragraph description of the full style. This paragraph-form output
+    // (vs. keyword lists) gives FLUX 2 Pro more nuanced style information to
+    // work with and produced the most accurate results in testing.
+    let styleDescriptors = 'professional photography, natural lighting, high quality';
 
     try {
       const claudeResp = await fetch('https://api.anthropic.com/v1/messages', {
@@ -229,37 +232,8 @@ module.exports = async function handler(req, res) {
         },
         body: JSON.stringify({
           model:      'claude-sonnet-4-6',
-          max_tokens: 400,
-          system: `You are an expert image generation prompt engineer. Analyze the reference images and output EXACTLY two lines.
-
-## STEP 1 — MEDIUM
-Decide: are these primarily PHOTOGRAPHS of real scenes, or GRAPHIC/DIGITAL ART?
-- PHOTO: editorial photography, fashion, lifestyle, film, analogue, documentary, product shots of real objects
-- GRAPHIC: illustration, 3D render, poster design, vector art, digital collage, graphic design, CGI, mixed media
-
-Line 1 — MEDIUM: output exactly one word: photo OR graphic
-
-## STEP 2 — STYLE DESCRIPTORS
-Line 2 — STYLE: comma-separated list of 10-16 descriptors capturing the exact visual production style (NOT the subjects).
-
-For PHOTO boards describe:
-- Film stock / sensor quality: "35mm film", "medium format", "analog grain", "digital clean"
-- Color grading: name actual tones — "warm golden hour", "faded cool blues", "high contrast B&W", "overexposed pastels"
-- Lighting: "soft natural window light", "harsh midday sun", "dramatic studio strobe", "golden hour backlit"
-- Era / aesthetic: "90s editorial", "70s film photography", "contemporary fashion editorial"
-- Texture: "heavy film grain", "light noise", "smooth digital"
-
-For GRAPHIC boards describe:
-- Render type: "3D CGI render", "flat vector illustration", "risograph print", "digital collage", "hand-drawn"
-- Surface & material: "chrome metallic", "holographic iridescent", "matte clay", "glossy plastic"
-- Texture: "heavy grain noise overlay", "smooth clean vector", "halftone dots", "airbrush gradient"
-- Colors — be specific: "electric cyan and hot magenta", "bold neon on black", "warm orange-to-red gradient"
-- Lighting: "dramatic rim light", "flat graphic lit", "studio three-point"
-- Aesthetic: "Y2K chrome", "neo-brutalist", "retrofuturist", "90s rave graphic", "contemporary graphic design"
-
-Output format (EXACTLY two lines, nothing else):
-MEDIUM: [photo or graphic]
-STYLE: [descriptors]`,
+          max_tokens: 600,
+          system: 'You are an expert art director and image generation prompt engineer. Your job is to deeply analyze reference images, identify the single most distinctive visual element that defines their style, and write a prompt that leads with that element so an AI image generator reproduces the exact same style for any new subject.',
           messages: [{
             role:    'user',
             content: [
@@ -269,7 +243,27 @@ STYLE: [descriptors]`,
               })),
               {
                 type: 'text',
-                text: 'Analyze these reference images. Output MEDIUM and STYLE.',
+                text: `Analyze these reference images and extract their shared artistic style DNA.
+
+FIRST: If there are multiple images, identify which single image (by index, starting at 0) best represents the dominant shared style. Output this on the very first line as: BEST_IMAGE_INDEX: <number>
+
+THEN on the next line, write the style prompt:
+
+STEP 1 — Identify the DOMINANT STYLE ELEMENT: Look at these images and decide which single visual property is most distinctive and defining. Choose ONE:
+- TEXTURE/SURFACE PATTERN (e.g. topographic lines, marbling, weaving, engraving, dots) — if the surface detail is what makes these images unique
+- RENDERING TECHNIQUE (e.g. hand-drawn illustration, 3D render, collage, painting) — if the medium itself is the signature
+- COLOR & LIGHT (e.g. neon gradients, flat bold primaries, moody shadows) — if color treatment is the dominant signature
+- FORM & SHAPE LANGUAGE (e.g. inflated organic blobs, geometric precision, fluid curves) — if the silhouette and form is what's most distinctive
+- ARTISTIC MOVEMENT (e.g. Y2K, folk art, brutalism, surrealism) — if a specific aesthetic movement defines the look
+
+STEP 2 — Write the prompt: Start with the dominant element (2-3 sentences describing it in extreme detail), then cover the remaining style properties: rendering technique, color palette, lighting, composition, mood, and what makes this artist's visual voice unique.
+
+Rules:
+- Lead with the dominant element — describe it with maximum specificity
+- Be concrete, not vague ("lime green topographic contour lines carved into a matte clay surface" not "interesting texture")
+- Output ONLY the final image generation prompt — no headers, no labels, no "DOMINANT STYLE ELEMENT:" prefix, no markdown, no explanation whatsoever
+- Start the output directly with descriptive words about the style
+- 140-180 words total`,
               },
             ],
           }],
@@ -277,43 +271,31 @@ STYLE: [descriptors]`,
       });
 
       if (claudeResp.ok) {
-        const d      = await claudeResp.json();
-        const text   = d.content?.[0]?.text?.trim() || '';
-        const medMatch   = text.match(/^MEDIUM:\s*(.+)$/mi);
-        const styleMatch = text.match(/^STYLE:\s*(.+)$/mi);
-        if (medMatch)   isPhotoBoard = medMatch[1].trim().toLowerCase() === 'photo';
-        if (styleMatch) styleBlock   = styleMatch[1].trim();
-        console.log('[tack] medium:', isPhotoBoard ? 'photo' : 'graphic');
-        console.log('[tack] style:', styleBlock);
+        const d       = await claudeResp.json();
+        const rawText = d.content?.[0]?.text?.trim() || '';
+        // Strip the BEST_IMAGE_INDEX line if present — we don't need it for text-only generation
+        styleDescriptors = rawText.replace(/BEST_IMAGE_INDEX:\s*\d+\s*\n?/, '').trim() || styleDescriptors;
+        console.log('[tack] style descriptors:', styleDescriptors.slice(0, 120) + '...');
       }
     } catch (err) {
       console.warn('[tack] Claude failed (non-fatal):', err.message);
     }
 
-    // Fallbacks
-    if (!styleBlock) {
-      styleBlock = isPhotoBoard
-        ? 'analog film photography, natural light, warm color grading, editorial quality'
-        : '3D CGI render, bold saturated colors, graphic design poster, not photorealistic';
-    }
-
     // ── Step 3: Build prompts ─────────────────────────────────────────────
-    // Photo boards: style descriptors + subject (FLUX stays naturally realistic)
-    // Graphic boards: style descriptors + subject + explicit style anchor
-    //   to prevent FLUX drifting into photorealism
-    const anchor = isPhotoBoard ? '' : ' Bold stylized render, not photorealistic.';
+    // "Subject: ... Style: ..." format gives FLUX 2 Pro a clear separation
+    // between what to generate and how it should look.
+    const prompt1 = `Subject: ${subject.trim()}. Style: ${styleDescriptors}`;
+    const prompt2 = `Subject: ${subject.trim()}, different angle and composition. Style: ${styleDescriptors}`;
 
-    const prompt1 = `${styleBlock}. ${subject.trim()}.${anchor}`;
-    const prompt2 = `${styleBlock}. ${subject.trim()}, different angle and composition.${anchor}`;
+    console.log('[tack] prompt1:', prompt1.slice(0, 120) + '...');
 
-    console.log('[tack] prompt1:', prompt1);
-
-    // ── Step 4: Launch both FLUX predictions with a stagger ───────────────
+    // ── Step 4: Launch both predictions with a stagger ────────────────────
+    // Pass the reference image URLs so FLUX 2 Pro can use them for conditioning.
     let id1, id2;
     try {
-      id1 = await startFluxPrediction(prompt1);
+      id1 = await startFluxPrediction(prompt1, selectedUrls);
       await new Promise(r => setTimeout(r, 3000));
-      id2 = await startFluxPrediction(prompt2);
+      id2 = await startFluxPrediction(prompt2, selectedUrls);
     } catch (err) {
       console.error('[tack] prediction start failed:', err.message);
       throw new Error(`Could not start generation: ${err.message}`);
@@ -350,7 +332,7 @@ STYLE: [descriptors]`,
     return res.status(200).json({
       images,
       prompt:           prompt1,
-      styleDescriptors: styleBlock,
+      styleDescriptors: styleDescriptors,
       ...(isAnon ? {} : {
         usage: {
           used:         newUsed,
