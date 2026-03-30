@@ -471,23 +471,34 @@ RECRAFT: [one category]`,
     }
 
     // ── Step 4: Build prompts and launch both predictions ─────────────────
-    // FLUX: photo-quality prompt with no style anchor suffix
-    // Recraft: style keywords in prompt reinforce the fingerprint/category
-    const prompt1 = `${styleBlock}. ${subject.trim()}.`;
-    const prompt2 = `${styleBlock}. ${subject.trim()}, different angle and composition.`;
+    // Routing logic:
+    //   Photo board  → FLUX always (naturally photorealistic, no bias to fight)
+    //   Graphic board + fingerprint → Recraft V3 (pixel-accurate style reference)
+    //   Graphic board, no fingerprint → FLUX with anti-photorealism anchor
+    //     (FLUX produces more vibrant, board-accurate results than generic
+    //      Recraft category styles, which all share a flat editorial illustration look)
+    const useRecraft = !useFlux && !!styleId;
 
+    const base1 = `${styleBlock}. ${subject.trim()}.`;
+    const base2 = `${styleBlock}. ${subject.trim()}, different angle and composition.`;
+
+    // For FLUX on graphic boards, add explicit style anchor so it doesn't drift photorealistic
+    const prompt1 = (useRecraft || useFlux) ? base1 : `${base1} Bold stylized render, not photorealistic.`;
+    const prompt2 = (useRecraft || useFlux) ? base2 : `${base2} Bold stylized render, not photorealistic.`;
+
+    console.log('[tack] route:', useRecraft ? 'recraft+fingerprint' : useFlux ? 'flux-photo' : 'flux-graphic');
     console.log('[tack] prompt1:', prompt1);
 
     let id1, id2;
     try {
-      if (useFlux) {
-        id1 = await startFluxPrediction(prompt1);
-        await new Promise(r => setTimeout(r, 3000));
-        id2 = await startFluxPrediction(prompt2);
-      } else {
+      if (useRecraft) {
         id1 = await startRecraftPrediction(prompt1, { styleId, styleCategory: recraftStyle });
         await new Promise(r => setTimeout(r, 3000));
         id2 = await startRecraftPrediction(prompt2, { styleId, styleCategory: recraftStyle });
+      } else {
+        id1 = await startFluxPrediction(prompt1);
+        await new Promise(r => setTimeout(r, 3000));
+        id2 = await startFluxPrediction(prompt2);
       }
     } catch (err) {
       console.error('[tack] prediction start failed:', err.message);
