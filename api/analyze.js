@@ -11,7 +11,7 @@ async function validateToken(token) {
     },
   });
   if (!resp.ok) return null;
-  return await resp.json(); // { id, email, ... }
+  return await resp.json();
 }
 
 async function getUsage(userId) {
@@ -42,7 +42,7 @@ async function incrementUsage(userId) {
 }
 
 // ── Image fetching ────────────────────────────────────────────────────────────
-// Returns { buffer, base64, mediaType } or null. Fetches once, derives both.
+// Used only for Claude's visual analysis — not passed to the generation model.
 
 async function fetchImageData(url) {
   try {
@@ -58,98 +58,28 @@ async function fetchImageData(url) {
     });
     clearTimeout(timer);
     if (!resp.ok) return null;
-    const mediaType = (resp.headers.get('content-type') || 'image/jpeg').split(';')[0].trim();
-    const arrayBuf  = await resp.arrayBuffer();
-    const buffer    = Buffer.from(arrayBuf);
-    const base64    = buffer.toString('base64');
+    const mediaType  = (resp.headers.get('content-type') || 'image/jpeg').split(';')[0].trim();
+    const arrayBuf   = await resp.arrayBuffer();
+    const buffer     = Buffer.from(arrayBuf);
+    const base64     = buffer.toString('base64');
     return { buffer, base64, mediaType };
   } catch {
     return null;
   }
 }
 
-// ── Composite grid builder ────────────────────────────────────────────────────
-// Stitches up to 4 reference images into a single grid image so FLUX Kontext
-// can see ALL selected references at once — not just the "best" one.
-// Falls back gracefully: if sharp isn't available or images fail, uses raw
-// buffer of the first valid image.
+// ── Replicate: FLUX 1.1 Pro (text-to-image, no image conditioning) ────────────
+// Why text-only: image conditioning models (Redux, Kontext) absorb the CONTENT
+// of reference images as well as the style — causing content bleed (e.g. a
+// person from a reference appearing in the output instead of the requested
+// subject). Claude extracts the style as text; FLUX generates from that.
+// FLUX 1.1 Pro is excellent at graphic, 3D, chrome, and illustrative styles
+// from text prompts and has no content-bleed problem.
 
-async function buildComposite(imageDataList) {
-  const valid = imageDataList.filter(Boolean);
-  if (valid.length === 0) return null;
-
-  // Try to load sharp (Vercel installs it from package.json)
-  let sharp;
-  try {
-    sharp = require('sharp');
-  } catch {
-    // sharp not yet installed — return first image raw
-    console.warn('[tack] sharp not available, using first image directly');
-    return { buffer: valid[0].buffer, mediaType: valid[0].mediaType };
-  }
-
-  try {
-    if (valid.length === 1) {
-      // Single reference: just normalise to a square
-      const buf = await sharp(valid[0].buffer)
-        .resize(1024, 1024, { fit: 'cover', position: 'centre' })
-        .jpeg({ quality: 90 })
-        .toBuffer();
-      return { buffer: buf, mediaType: 'image/jpeg' };
-    }
-
-    // Grid layout:
-    //   2 images  →  2×1  (1024 × 512,  512px tiles)
-    //   3–4 images →  2×2  (1024 × 1024, 512px tiles, empty slots = bg colour)
-    const tileSize = 512;
-    const cols     = 2;
-    const rows     = valid.length <= 2 ? 1 : 2;
-    const width    = cols * tileSize;
-    const height   = rows * tileSize;
-
-    const tiles = await Promise.all(
-      valid.map(img =>
-        sharp(img.buffer)
-          .resize(tileSize, tileSize, { fit: 'cover', position: 'centre' })
-          .jpeg({ quality: 85 })
-          .toBuffer()
-      )
-    );
-
-    const compositeOps = tiles.map((tile, i) => ({
-      input: tile,
-      top:   Math.floor(i / cols) * tileSize,
-      left:  (i % cols) * tileSize,
-    }));
-
-    const buf = await sharp({
-      create: {
-        width,
-        height,
-        channels: 3,
-        background: { r: 20, g: 18, b: 16 }, // tack dark bg so empty slots aren't jarring
-      },
-    })
-      .composite(compositeOps)
-      .jpeg({ quality: 90 })
-      .toBuffer();
-
-    return { buffer: buf, mediaType: 'image/jpeg' };
-
-  } catch (err) {
-    console.error('[tack] composite build failed, falling back to first image:', err.message);
-    return { buffer: valid[0].buffer, mediaType: valid[0].mediaType };
-  }
-}
-
-// ── Replicate helpers ─────────────────────────────────────────────────────────
-
-async function startKontextPrediction(prompt, imageRef, { retries = 3, backoffMs = 12000 } = {}) {
-  // imageRef is either a data URI (base64) or a public URL (fallback)
-  // Retries with exponential backoff on 429 throttle responses.
+async function startFluxPrediction(prompt, { retries = 3, backoffMs = 12000 } = {}) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     const resp = await fetch(
-      'https://api.replicate.com/v1/models/black-forest-labs/flux-kontext-pro/predictions',
+      'https://api.replicate.com/v1/models/black-forest-labs/flux-1.1-pro/predictions',
       {
         method: 'POST',
         headers: {
@@ -159,17 +89,16 @@ async function startKontextPrediction(prompt, imageRef, { retries = 3, backoffMs
         body: JSON.stringify({
           input: {
             prompt,
-            image:            imageRef,
-            aspect_ratio:     '1:1',
-            output_format:    'jpg',
-            output_quality:   90,
-            safety_tolerance: 5,
+            aspect_ratio:       '1:1',
+            output_format:      'webp',
+            output_quality:     90,
+            safety_tolerance:   5,
+            prompt_upsampling:  false, // we craft the prompt ourselves
           },
         }),
       }
     );
 
-    // Throttled — wait then retry
     if (resp.status === 429) {
       if (attempt === retries) throw new Error('Replicate rate limit reached — please try again in a moment.');
       const wait = backoffMs * (attempt + 1);
@@ -185,7 +114,6 @@ async function startKontextPrediction(prompt, imageRef, { retries = 3, backoffMs
 }
 
 async function waitForResult(predictionId) {
-  // Poll up to 90 × 2s = 3 minutes max per prediction
   for (let i = 0; i < 90; i++) {
     await new Promise(r => setTimeout(r, 2000));
     const resp = await fetch(
@@ -259,7 +187,6 @@ module.exports = async function handler(req, res) {
         });
       }
     }
-    // Unlimited — no checks needed
   }
 
   // ── Input validation ──────────────────────────────────────────────────────
@@ -272,103 +199,105 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // ── Step 1: Fetch all selected reference images in parallel ───────────
-    const selectedUrls  = imageUrls.slice(0, 4); // cap at 4
+    // ── Step 1: Fetch reference images for Claude's analysis ──────────────
+    // Images go to Claude only — not to the generation model.
+    const selectedUrls  = imageUrls.slice(0, 4);
     const imageDataList = await Promise.all(selectedUrls.map(fetchImageData));
     const validImages   = imageDataList.filter(Boolean);
 
     if (validImages.length === 0) {
       return res.status(422).json({
-        error: 'Could not load any of the selected images. They may have expired or blocked access. Please rescan and try again.',
+        error: 'Could not load any of the selected images. They may have expired. Please rescan and try again.',
       });
     }
 
-    // ── Step 2: Build composite grid + run Claude analysis in parallel ─────
-    // Both operations need the image data — run them simultaneously.
-    const [compositeResult, styleNote] = await Promise.all([
+    // ── Step 2: Claude extracts the visual style as a generation prompt ───
+    // Claude's ONE job: look at all selected images and describe their shared
+    // visual production style in terms a text-to-image model understands.
+    // It outputs a ready-to-use style block — not a description of the images'
+    // subjects, but precisely how they were made: render technique, surface
+    // quality, color treatment, texture, lighting, aesthetic movement.
+    // This style block slots directly into the FLUX prompt.
+    let styleBlock = '';
+    try {
+      const claudeResp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type':      'application/json',
+          'anthropic-version': '2023-06-01',
+          'x-api-key':         process.env.ANTHROPIC_API_KEY,
+        },
+        body: JSON.stringify({
+          model:      'claude-sonnet-4-6',
+          max_tokens: 200,
+          system: `You are an expert image generation prompt engineer. Your only job is to analyze reference images and write a style block that a text-to-image model (like FLUX or Midjourney) can use to reproduce the exact visual production style — not the subjects — of those images.
 
-      // 2a: Stitch all references into one grid image for Kontext
-      buildComposite(validImages),
+Output a single comma-separated list of 10-16 specific style descriptors covering:
+- Rendering technique (e.g. "3D CGI render", "flat vector illustration", "studio photography", "hand-drawn")
+- Surface & material finish (e.g. "chrome metallic", "matte clay", "holographic iridescent", "glossy plastic")
+- Texture & grain (e.g. "grainy film texture", "smooth vector", "halftone dots", "noise grain overlay")
+- Color treatment (e.g. "bold saturated neon palette", "warm muted tones", "high-contrast duotone", "rich gradient")
+- Lighting (e.g. "dramatic studio lighting", "soft diffused light", "rim-lit", "flat lit")
+- Composition style (e.g. "bold graphic poster", "clean product shot", "editorial layout", "maximalist")
+- Aesthetic movement if clear (e.g. "Y2K chrome aesthetic", "neo-brutalist", "retrofuturist")
 
-      // 2b: Claude writes a SHORT 1–2 sentence style note (supplements the image)
-      (async () => {
-        try {
-          const claudeResp = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-              'Content-Type':      'application/json',
-              'anthropic-version': '2023-06-01',
-              'x-api-key':         process.env.ANTHROPIC_API_KEY,
-            },
-            body: JSON.stringify({
-              model:      'claude-sonnet-4-6',
-              max_tokens: 100,
-              system:     'You are a visual art director. In exactly 1 sentence, identify the single most distinctive shared quality across these reference images — be specific about rendering technique, surface quality, or color mood. No fluff, no headers.',
-              messages: [{
-                role:    'user',
-                content: [
-                  ...validImages.map(img => ({
-                    type:   'image',
-                    source: { type: 'base64', media_type: img.mediaType, data: img.base64 },
-                  })),
-                  { type: 'text', text: 'One sentence: what is the single most distinctive shared visual quality?' },
-                ],
-              }],
-            }),
-          });
-          if (!claudeResp.ok) return '';
-          const d = await claudeResp.json();
-          return d.content?.[0]?.text?.trim() || '';
-        } catch {
-          return ''; // style note is supplementary — never block generation
-        }
-      })(),
-    ]);
+Output ONLY the comma-separated descriptors. No sentences. No explanation. No subject matter.`,
+          messages: [{
+            role:    'user',
+            content: [
+              ...validImages.map(img => ({
+                type:   'image',
+                source: { type: 'base64', media_type: img.mediaType, data: img.base64 },
+              })),
+              {
+                type: 'text',
+                text: 'Output the style descriptors for these reference images.',
+              },
+            ],
+          }],
+        }),
+      });
 
-    // ── Step 3: Resolve the image reference for Kontext ───────────────────
-    // Prefer the composite buffer as a data URI; fall back to first image URL.
-    let imageRef;
-    if (compositeResult?.buffer) {
-      imageRef = `data:${compositeResult.mediaType};base64,${compositeResult.buffer.toString('base64')}`;
-    } else {
-      // Last resort: pass the first selected URL directly
-      imageRef = selectedUrls[0];
+      if (claudeResp.ok) {
+        const d = await claudeResp.json();
+        styleBlock = d.content?.[0]?.text?.trim() || '';
+      }
+    } catch (err) {
+      console.warn('[tack] Claude style analysis failed (non-fatal):', err.message);
+      // Fall back to a sensible generic style — still better than no style
+      styleBlock = 'high-quality digital render, bold graphic design, vivid color palette, sharp professional finish';
     }
 
-    // ── Step 4: Build two prompts — same style, different compositions ─────
-    const styleHint = styleNote ? ` ${styleNote}` : '';
-    const baseInstruction = 'Preserve the exact visual style of the reference image — same rendering technique, color palette, lighting, and mood.';
+    // ── Step 3: Build two generation prompts ─────────────────────────────
+    // Structure: [STYLE] + [SUBJECT] + [quality anchor]
+    // Style leads so FLUX locks in the aesthetic before reading the subject.
+    // Two prompts vary the composition so outputs feel like distinct options.
+    const qualityAnchor = 'highly detailed, sharp focus, professional quality';
 
-    const prompt1 = `${subject.trim()}. ${baseInstruction}${styleHint}`;
-    const prompt2 = `${subject.trim()}, different angle and composition. ${baseInstruction}${styleHint}`;
+    const prompt1 = `${styleBlock}. ${subject.trim()}. ${qualityAnchor}.`;
+    const prompt2 = `${styleBlock}. ${subject.trim()}, different angle and composition. ${qualityAnchor}.`;
 
-    // ── Step 5: Launch both predictions with a short stagger ─────────────
-    // Replicate enforces a burst limit of 1 simultaneous API call.
-    // We start prediction 1, wait 3s, then start prediction 2.
-    // Both run in parallel on Replicate's servers — the stagger is just
-    // for the launch calls, not the actual generation time.
+    // ── Step 4: Launch both predictions with a short stagger ─────────────
+    // Stagger 3s between starts to respect Replicate's burst limit.
+    // Both run in parallel on Replicate's end once started.
     let id1, id2;
     try {
-      id1 = await startKontextPrediction(prompt1, imageRef);
-      await new Promise(r => setTimeout(r, 3000)); // stagger to respect burst limit
-      id2 = await startKontextPrediction(prompt2, imageRef);
+      id1 = await startFluxPrediction(prompt1);
+      await new Promise(r => setTimeout(r, 3000));
+      id2 = await startFluxPrediction(prompt2);
     } catch (err) {
       console.error('[tack] prediction start failed:', err.message);
       throw new Error(`Could not start generation: ${err.message}`);
     }
 
-    // ── Step 6: Wait for both — use allSettled so one failure ≠ total loss ─
+    // ── Step 5: Wait for both — allSettled so one failure ≠ total loss ───
     const [result1, result2] = await Promise.allSettled([
       waitForResult(id1),
       waitForResult(id2),
     ]);
 
-    if (result1.status === 'rejected') {
-      console.error('[tack] prediction 1 failed:', result1.reason?.message);
-    }
-    if (result2.status === 'rejected') {
-      console.error('[tack] prediction 2 failed:', result2.reason?.message);
-    }
+    if (result1.status === 'rejected') console.error('[tack] prediction 1 failed:', result1.reason?.message);
+    if (result2.status === 'rejected') console.error('[tack] prediction 2 failed:', result2.reason?.message);
 
     const images = [
       result1.status === 'fulfilled' ? (Array.isArray(result1.value) ? result1.value[0] : result1.value) : null,
@@ -376,10 +305,10 @@ module.exports = async function handler(req, res) {
     ].filter(Boolean);
 
     if (images.length === 0) {
-      throw new Error('Both generations failed. Please try again — this can happen when reference images have unusual content.');
+      throw new Error('Both generations failed. Please try again.');
     }
 
-    // ── Step 7: Increment usage ───────────────────────────────────────────
+    // ── Step 6: Increment usage ───────────────────────────────────────────
     if (!isAnon) {
       await incrementUsage(user.id).catch(e =>
         console.error('[tack] usage increment failed (non-fatal):', e.message)
@@ -392,7 +321,7 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({
       images,
       prompt:           prompt1,
-      styleDescriptors: styleNote,
+      styleDescriptors: styleBlock,
       ...(isAnon ? {} : {
         usage: {
           used:         newUsed,
@@ -408,7 +337,6 @@ module.exports = async function handler(req, res) {
 
   } catch (err) {
     console.error('[tack] API error:', err);
-    // Never expose stack traces — surface a clean, actionable message
     const msg = err.message || 'Something went wrong — please try again.';
     return res.status(500).json({ error: msg });
   }
