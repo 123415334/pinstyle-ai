@@ -42,8 +42,7 @@ async function incrementUsage(userId) {
 }
 
 // ── Image fetching ────────────────────────────────────────────────────────────
-// Images are fetched once, used for both Claude analysis AND composite building.
-// The composite is uploaded to Recraft to create a custom style fingerprint.
+// Fetches reference images so Claude can analyze their visual style.
 
 async function fetchImageData(url) {
   try {
@@ -69,109 +68,11 @@ async function fetchImageData(url) {
   }
 }
 
-// ── Composite grid builder ────────────────────────────────────────────────────
-// Stitches all selected images into a single grid image used as the style
-// reference for Recraft's fingerprint API. The grid preserves each image's
-// individual aesthetic so the fingerprint captures the shared style across all.
-//   2 images  → 2×1 (1024×512, 512px tiles)
-//   3-4 images → 2×2 (1024×1024, 512px tiles, empty slots filled with dark bg)
-
-async function buildComposite(imageDataList) {
-  const valid = imageDataList.filter(Boolean);
-  if (valid.length === 0) return null;
-
-  let sharp;
-  try { sharp = require('sharp'); } catch {
-    console.warn('[tack] sharp not available, using first image for style fingerprint');
-    return { buffer: valid[0].buffer, mediaType: valid[0].mediaType };
-  }
-
-  try {
-    if (valid.length === 1) {
-      const buf = await sharp(valid[0].buffer)
-        .resize(1024, 1024, { fit: 'cover', position: 'centre' })
-        .jpeg({ quality: 90 })
-        .toBuffer();
-      return { buffer: buf, mediaType: 'image/jpeg' };
-    }
-
-    const tileSize = 512;
-    const cols     = 2;
-    const rows     = valid.length <= 2 ? 1 : 2;
-    const width    = cols * tileSize;
-    const height   = rows * tileSize;
-
-    const tiles = await Promise.all(
-      valid.map(img =>
-        sharp(img.buffer)
-          .resize(tileSize, tileSize, { fit: 'cover', position: 'centre' })
-          .jpeg({ quality: 85 })
-          .toBuffer()
-      )
-    );
-
-    const compositeOps = tiles.map((tile, i) => ({
-      input: tile,
-      top:   Math.floor(i / cols) * tileSize,
-      left:  (i % cols) * tileSize,
-    }));
-
-    const buf = await sharp({
-      create: { width, height, channels: 3, background: { r: 18, g: 18, b: 18 } },
-    })
-      .composite(compositeOps)
-      .jpeg({ quality: 90 })
-      .toBuffer();
-
-    return { buffer: buf, mediaType: 'image/jpeg' };
-
-  } catch (err) {
-    console.error('[tack] composite build failed, using first image:', err.message);
-    return { buffer: valid[0].buffer, mediaType: valid[0].mediaType };
-  }
-}
-
-// ── Recraft style fingerprint ─────────────────────────────────────────────────
-// Uploads the composite grid to Recraft's style API and returns a style_id.
-// The style_id encodes the visual fingerprint of all selected images and is
-// passed directly to Recraft V3 at generation time — this is more precise than
-// any text description because it captures the actual pixel-level aesthetic.
-// Gracefully returns null if the API key is missing or the upload fails.
-
-async function createRecraftStyleFingerprint(buffer, mediaType) {
-  if (!process.env.RECRAFT_API_KEY) {
-    console.warn('[tack] RECRAFT_API_KEY not set — skipping style fingerprint');
-    return null;
-  }
-  try {
-    const formData = new FormData();
-    formData.append('file', new Blob([buffer], { type: mediaType }), 'style-reference.jpg');
-
-    const resp = await fetch('https://external.api.recraft.ai/v1/images/styles', {
-      method:  'POST',
-      headers: { 'Authorization': `Bearer ${process.env.RECRAFT_API_KEY}` },
-      body:    formData,
-    });
-
-    if (!resp.ok) {
-      const err = await resp.text();
-      console.warn('[tack] Recraft style upload failed:', resp.status, err);
-      return null;
-    }
-    const data = await resp.json();
-    console.log('[tack] style fingerprint id:', data.id);
-    return data.id || null;
-  } catch (err) {
-    console.warn('[tack] Recraft style upload error:', err.message);
-    return null;
-  }
-}
-
-// ── Replicate: FLUX 1.1 Pro (photographic / realistic boards) ────────────────
-// Used when Claude detects the reference images are photographic in nature.
-// FLUX 1.1 Pro produces excellent photorealistic results from text prompts and
-// has no photorealism bias problem — it IS biased toward realism, which is
-// exactly what we want for photo boards.
+// ── FLUX 1.1 Pro ──────────────────────────────────────────────────────────────
+// Single generation model for all board types. FLUX handles both photorealistic
+// and graphic/illustrative styles well when given precise style descriptors from
+// Claude. Photo boards stay photorealistic naturally; graphic boards get an
+// explicit anti-photorealism anchor to keep FLUX in the right lane.
 
 async function startFluxPrediction(prompt, { retries = 3, backoffMs = 12000 } = {}) {
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -193,59 +94,6 @@ async function startFluxPrediction(prompt, { retries = 3, backoffMs = 12000 } = 
             prompt_upsampling: false,
           },
         }),
-      }
-    );
-    if (resp.status === 429) {
-      if (attempt === retries) throw new Error('Replicate rate limit reached — please try again in a moment.');
-      const wait = backoffMs * (attempt + 1);
-      console.warn(`[tack] throttled, retrying in ${wait}ms (attempt ${attempt + 1}/${retries})`);
-      await new Promise(r => setTimeout(r, wait));
-      continue;
-    }
-    const data = await resp.json();
-    if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
-    return data.id;
-  }
-}
-
-// ── Replicate: Recraft V3 (graphic / illustrative / 3D boards) ───────────────
-// Why Recraft V3: purpose-built for graphic design aesthetics with explicit
-// style categories (grain, graphic_art, 2d_art_poster, etc.). Unlike FLUX,
-// which defaults to photorealism, Recraft's style parameter locks the render
-// engine into a specific visual production mode — grain gives the heavy noise
-// texture, graphic_art gives bold illustrative output, etc.
-// Claude picks the best matching category from the images; Recraft executes it.
-
-async function startRecraftPrediction(prompt, { styleId = null, styleCategory = 'digital_illustration/graphic_art', retries = 3, backoffMs = 12000 } = {}) {
-  // styleId (from Recraft's fingerprint API) takes priority over styleCategory.
-  // When styleId is present, Recraft uses the actual pixel-level aesthetic from
-  // the composite reference image. styleCategory is the text-based fallback.
-  const validStyles = new Set([
-    'digital_illustration', 'digital_illustration/grain', 'digital_illustration/graphic_art',
-    'digital_illustration/2d_art_poster', 'digital_illustration/2d_art_poster_2',
-    'digital_illustration/hand_drawn', 'digital_illustration/engraving_color',
-    'digital_illustration/pixel_art', 'digital_illustration/antiquity',
-    'vector_illustration', 'vector_illustration/bold_stroke', 'vector_illustration/pop_art',
-    'vector_illustration/vivid_shapes', 'vector_illustration/neon_lines',
-    'realistic_image',
-  ]);
-  const safeCategory = validStyles.has(styleCategory) ? styleCategory : 'digital_illustration/graphic_art';
-
-  // Build the input: prefer style_id, fall back to style category
-  const modelInput = styleId
-    ? { prompt, style_id: styleId,      size: '1024x1024' }
-    : { prompt, style:    safeCategory, size: '1024x1024' };
-
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    const resp = await fetch(
-      'https://api.replicate.com/v1/models/recraft-ai/recraft-v3/predictions',
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.REPLICATE_API_KEY}`,
-          'Content-Type':  'application/json',
-        },
-        body: JSON.stringify({ input: modelInput }),
       }
     );
 
@@ -349,8 +197,7 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // ── Step 1: Fetch reference images for Claude's analysis ──────────────
-    // Images go to Claude only — not to the generation model.
+    // ── Step 1: Fetch reference images ────────────────────────────────────
     const selectedUrls  = imageUrls.slice(0, 4);
     const imageDataList = await Promise.all(selectedUrls.map(fetchImageData));
     const validImages   = imageDataList.filter(Boolean);
@@ -361,20 +208,19 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // ── Step 2: Claude analysis + composite build (parallel) ─────────────
-    // Both need the image data — run simultaneously to save time.
-    //   Claude → STYLE keywords + RECRAFT category
-    //   Sharp  → composite grid → uploaded to Recraft for style fingerprint
-    let styleBlock   = '';
-    let recraftStyle = 'digital_illustration/graphic_art';
-    let useFlux      = false; // true = photographic board → FLUX; false = graphic board → Recraft
-    let styleId      = null;  // Recraft fingerprint — only used when useFlux is false
+    // ── Step 2: Claude identifies board type and extracts style ───────────
+    // Claude makes two decisions:
+    //   1. Is this a PHOTO board or a GRAPHIC/DIGITAL board?
+    //   2. What are the precise style descriptors?
+    //
+    // This drives the prompt anchor at generation time:
+    //   Photo boards  → descriptors feed FLUX naturally (it defaults to realism)
+    //   Graphic boards → descriptors + explicit "not photorealistic" anchor
+    let styleBlock = '';
+    let isPhotoBoard = false;
 
-    const [claudeSettled, compositeSettled] = await Promise.allSettled([
-
-      // 2a: Claude extracts style keywords + identifies best Recraft category
-      (async () => {
-        const claudeResp = await fetch('https://api.anthropic.com/v1/messages', {
+    try {
+      const claudeResp = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
           'Content-Type':      'application/json',
@@ -383,32 +229,37 @@ module.exports = async function handler(req, res) {
         },
         body: JSON.stringify({
           model:      'claude-sonnet-4-6',
-          max_tokens: 350,
-          system: `You are an expert image generation prompt engineer. Analyze the reference images and output EXACTLY three lines — nothing else.
+          max_tokens: 400,
+          system: `You are an expert image generation prompt engineer. Analyze the reference images and output EXACTLY two lines.
 
-## STEP 1: Identify the medium
-First decide: are these images primarily PHOTOGRAPHS of real scenes (fashion, lifestyle, product, editorial photography) — or are they GRAPHIC/DIGITAL ART (illustration, 3D render, poster design, vector art, collage)?
+## STEP 1 — MEDIUM
+Decide: are these primarily PHOTOGRAPHS of real scenes, or GRAPHIC/DIGITAL ART?
+- PHOTO: editorial photography, fashion, lifestyle, film, analogue, documentary, product shots of real objects
+- GRAPHIC: illustration, 3D render, poster design, vector art, digital collage, graphic design, CGI, mixed media
 
-Line 1 — MODEL: output exactly one of:
-- flux       → images are photographs or photographic in nature (film, fashion, lifestyle, editorial, product shots)
-- recraft    → images are graphic design, illustration, 3D render, poster art, vector, digital collage, or mixed media
+Line 1 — MEDIUM: output exactly one word: photo OR graphic
 
-Line 2 — STYLE: a comma-separated list of 10-16 descriptors covering the visual production style:
-- For PHOTOS: describe film stock, color grading, lighting, era, mood (e.g. "analog film grain, warm golden tones, slight overexposure, vintage editorial, 90s fashion photography")
-- For GRAPHIC/DIGITAL: describe render technique, surface, texture, colors, aesthetic (e.g. "3D CGI render, chrome metallic, heavy noise grain, bold saturated gradient, Y2K aesthetic")
+## STEP 2 — STYLE DESCRIPTORS
+Line 2 — STYLE: comma-separated list of 10-16 descriptors capturing the exact visual production style (NOT the subjects).
 
-Line 3 — RECRAFT: (only matters if MODEL is recraft) choose ONE:
-- digital_illustration/grain         → grainy/noisy texture, risograph feel, gradient to black
-- digital_illustration/graphic_art   → bold graphic design, poster art, strong shapes
-- digital_illustration/2d_art_poster → flat poster design, bold type, vivid color fields
-- digital_illustration/hand_drawn    → hand-crafted, sketchy, organic
-- vector_illustration/bold_stroke    → clean bold vector shapes, strong outlines
-- digital_illustration               → general digital illustration fallback
+For PHOTO boards describe:
+- Film stock / sensor quality: "35mm film", "medium format", "analog grain", "digital clean"
+- Color grading: name actual tones — "warm golden hour", "faded cool blues", "high contrast B&W", "overexposed pastels"
+- Lighting: "soft natural window light", "harsh midday sun", "dramatic studio strobe", "golden hour backlit"
+- Era / aesthetic: "90s editorial", "70s film photography", "contemporary fashion editorial"
+- Texture: "heavy film grain", "light noise", "smooth digital"
 
-Output format (EXACTLY three lines):
-MODEL: [flux or recraft]
-STYLE: [descriptors]
-RECRAFT: [one category]`,
+For GRAPHIC boards describe:
+- Render type: "3D CGI render", "flat vector illustration", "risograph print", "digital collage", "hand-drawn"
+- Surface & material: "chrome metallic", "holographic iridescent", "matte clay", "glossy plastic"
+- Texture: "heavy grain noise overlay", "smooth clean vector", "halftone dots", "airbrush gradient"
+- Colors — be specific: "electric cyan and hot magenta", "bold neon on black", "warm orange-to-red gradient"
+- Lighting: "dramatic rim light", "flat graphic lit", "studio three-point"
+- Aesthetic: "Y2K chrome", "neo-brutalist", "retrofuturist", "90s rave graphic", "contemporary graphic design"
+
+Output format (EXACTLY two lines, nothing else):
+MEDIUM: [photo or graphic]
+STYLE: [descriptors]`,
           messages: [{
             role:    'user',
             content: [
@@ -418,7 +269,7 @@ RECRAFT: [one category]`,
               })),
               {
                 type: 'text',
-                text: 'Analyze these reference images. Output the three lines: MODEL, STYLE, and RECRAFT.',
+                text: 'Analyze these reference images. Output MEDIUM and STYLE.',
               },
             ],
           }],
@@ -426,86 +277,49 @@ RECRAFT: [one category]`,
       });
 
       if (claudeResp.ok) {
-          const d    = await claudeResp.json();
-          const text = d.content?.[0]?.text?.trim() || '';
-          const modelMatch   = text.match(/^MODEL:\s*(.+)$/m);
-          const styleMatch   = text.match(/^STYLE:\s*(.+)$/m);
-          const recraftMatch = text.match(/^RECRAFT:\s*(.+)$/m);
-          return {
-            useFlux:      modelMatch   ? modelMatch[1].trim().toLowerCase() === 'flux' : false,
-            styleBlock:   styleMatch   ? styleMatch[1].trim()   : '',
-            recraftStyle: recraftMatch ? recraftMatch[1].trim() : '',
-          };
-        }
-        return { useFlux: false, styleBlock: '', recraftStyle: '' };
-      })(),
-
-      // 2b: Build composite grid of all selected images for style fingerprint
-      buildComposite(validImages),
-    ]);
-
-    // Apply Claude results
-    if (claudeSettled.status === 'fulfilled') {
-      const { useFlux: uf, styleBlock: sb, recraftStyle: rs } = claudeSettled.value;
-      useFlux      = uf;
-      if (sb) styleBlock   = sb;
-      if (rs) recraftStyle = rs;
-    } else {
-      console.warn('[tack] Claude failed (non-fatal):', claudeSettled.reason?.message);
-    }
-    if (!styleBlock)   styleBlock   = useFlux
-      ? 'analog film photography, natural lighting, warm color grading, editorial quality'
-      : '3D CGI render, heavy noise grain overlay, bold saturated gradient, holographic iridescent, flat vivid background, graphic design poster, not photorealistic';
-    if (!recraftStyle) recraftStyle = 'digital_illustration/graphic_art';
-
-    console.log('[tack] model:', useFlux ? 'flux' : 'recraft');
-    console.log('[tack] style:', styleBlock);
-
-    // ── Step 3: Upload composite to Recraft → style fingerprint ──────────
-    // Only for Recraft (graphic) boards — skip for FLUX (photo) boards since
-    // FLUX doesn't use image conditioning.
-    if (!useFlux && compositeSettled.status === 'fulfilled' && compositeSettled.value) {
-      const { buffer, mediaType } = compositeSettled.value;
-      styleId = await createRecraftStyleFingerprint(buffer, mediaType);
-      console.log('[tack] fingerprint:', styleId || 'none — using category: ' + recraftStyle);
+        const d      = await claudeResp.json();
+        const text   = d.content?.[0]?.text?.trim() || '';
+        const medMatch   = text.match(/^MEDIUM:\s*(.+)$/mi);
+        const styleMatch = text.match(/^STYLE:\s*(.+)$/mi);
+        if (medMatch)   isPhotoBoard = medMatch[1].trim().toLowerCase() === 'photo';
+        if (styleMatch) styleBlock   = styleMatch[1].trim();
+        console.log('[tack] medium:', isPhotoBoard ? 'photo' : 'graphic');
+        console.log('[tack] style:', styleBlock);
+      }
+    } catch (err) {
+      console.warn('[tack] Claude failed (non-fatal):', err.message);
     }
 
-    // ── Step 4: Build prompts and launch both predictions ─────────────────
-    // Routing logic:
-    //   Photo board  → FLUX always (naturally photorealistic, no bias to fight)
-    //   Graphic board + fingerprint → Recraft V3 (pixel-accurate style reference)
-    //   Graphic board, no fingerprint → FLUX with anti-photorealism anchor
-    //     (FLUX produces more vibrant, board-accurate results than generic
-    //      Recraft category styles, which all share a flat editorial illustration look)
-    const useRecraft = !useFlux && !!styleId;
+    // Fallbacks
+    if (!styleBlock) {
+      styleBlock = isPhotoBoard
+        ? 'analog film photography, natural light, warm color grading, editorial quality'
+        : '3D CGI render, bold saturated colors, graphic design poster, not photorealistic';
+    }
 
-    const base1 = `${styleBlock}. ${subject.trim()}.`;
-    const base2 = `${styleBlock}. ${subject.trim()}, different angle and composition.`;
+    // ── Step 3: Build prompts ─────────────────────────────────────────────
+    // Photo boards: style descriptors + subject (FLUX stays naturally realistic)
+    // Graphic boards: style descriptors + subject + explicit style anchor
+    //   to prevent FLUX drifting into photorealism
+    const anchor = isPhotoBoard ? '' : ' Bold stylized render, not photorealistic.';
 
-    // For FLUX on graphic boards, add explicit style anchor so it doesn't drift photorealistic
-    const prompt1 = (useRecraft || useFlux) ? base1 : `${base1} Bold stylized render, not photorealistic.`;
-    const prompt2 = (useRecraft || useFlux) ? base2 : `${base2} Bold stylized render, not photorealistic.`;
+    const prompt1 = `${styleBlock}. ${subject.trim()}.${anchor}`;
+    const prompt2 = `${styleBlock}. ${subject.trim()}, different angle and composition.${anchor}`;
 
-    console.log('[tack] route:', useRecraft ? 'recraft+fingerprint' : useFlux ? 'flux-photo' : 'flux-graphic');
     console.log('[tack] prompt1:', prompt1);
 
+    // ── Step 4: Launch both FLUX predictions with a stagger ───────────────
     let id1, id2;
     try {
-      if (useRecraft) {
-        id1 = await startRecraftPrediction(prompt1, { styleId, styleCategory: recraftStyle });
-        await new Promise(r => setTimeout(r, 3000));
-        id2 = await startRecraftPrediction(prompt2, { styleId, styleCategory: recraftStyle });
-      } else {
-        id1 = await startFluxPrediction(prompt1);
-        await new Promise(r => setTimeout(r, 3000));
-        id2 = await startFluxPrediction(prompt2);
-      }
+      id1 = await startFluxPrediction(prompt1);
+      await new Promise(r => setTimeout(r, 3000));
+      id2 = await startFluxPrediction(prompt2);
     } catch (err) {
       console.error('[tack] prediction start failed:', err.message);
       throw new Error(`Could not start generation: ${err.message}`);
     }
 
-    // ── Step 5: Wait for both — allSettled so one failure ≠ total loss ───
+    // ── Step 5: Wait for results ──────────────────────────────────────────
     const [result1, result2] = await Promise.allSettled([
       waitForResult(id1),
       waitForResult(id2),
