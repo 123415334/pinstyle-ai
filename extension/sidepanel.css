@@ -7,10 +7,13 @@
   --bg3:         #1a1714;
   --ink:         #f0ebe3;
   --ink-muted:   #8a8070;
-  --red:         #e03d2f;
-  --red-soft:    rgba(224,61,47,0.12);
+  --accent:      #013FF4;
+  --error:       #e03d2f;
+  --accent-soft: rgba(1,63,244,0.10);
   --accent:      #013FF4;
   --accent-light: #8FBEF7;
+  --error:        #e03d2f;
+  --error-soft:   rgba(224,61,47,0.10);
   --border:      rgba(240,235,227,0.08);
   --border-soft: rgba(240,235,227,0.05);
   --radius:      10px;
@@ -101,7 +104,7 @@ header {
 }
 .header-plan-badge.plan-unlimited {
   background: rgba(224,61,47,0.12);
-  color: var(--red);
+  color: var(--accent);
   border: 1px solid rgba(224,61,47,0.25);
 }
 
@@ -161,7 +164,7 @@ main { padding: 14px; display: flex; flex-direction: column; gap: 16px; }
   font-family: "DM Sans", sans-serif;
   font-size: 11px;
   font-weight: 500;
-  color: var(--red);
+  color: var(--accent);
   background: none;
   border: 1px solid rgba(224,61,47,0.3);
   border-radius: 20px;
@@ -170,7 +173,7 @@ main { padding: 14px; display: flex; flex-direction: column; gap: 16px; }
   transition: background 0.15s, border-color 0.15s;
   flex-shrink: 0;
 }
-.btn-scan:hover { background: var(--red-soft); border-color: var(--red); }
+.btn-scan:hover { background: var(--accent-soft); border-color: var(--accent); }
 
 #status {
   font-size: 12px;
@@ -198,14 +201,14 @@ main { padding: 14px; display: flex; flex-direction: column; gap: 16px; }
 }
 .img-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .img-item:hover { transform: scale(0.97); }
-.img-item.selected { border-color: var(--red); }
+.img-item.selected { border-color: var(--accent); }
 
 .img-check {
   position: absolute;
   top: 4px; right: 4px;
   width: 18px; height: 18px;
   border-radius: 50%;
-  background: var(--red);
+  background: var(--accent);
   color: #fff;
   font-size: 10px;
   font-weight: 700;
@@ -261,7 +264,7 @@ textarea#subject-input {
 textarea#subject-input::placeholder { color: var(--ink-muted); }
 textarea#subject-input:focus {
   border-color: rgba(224,61,47,0.4);
-  box-shadow: 0 0 0 3px rgba(224,61,47,0.08);
+  box-shadow: 0 0 0 3px rgba(1,63,244,0.12);
 }
 
 /* ── GENERATE BUTTON ────────────────────────────────────────────────────── */
@@ -271,7 +274,7 @@ textarea#subject-input:focus {
   font-size: 14px;
   font-weight: 500;
   color: #fff;
-  background: var(--red);
+  background: var(--accent);
   border: none;
   border-radius: var(--radius);
   padding: 13px;
@@ -283,7 +286,7 @@ textarea#subject-input:focus {
 #generate-btn:hover:not(:disabled) {
   opacity: 0.88;
   transform: translateY(-1px);
-  box-shadow: 0 6px 24px rgba(224,61,47,0.35);
+  box-shadow: 0 6px 24px rgba(1,63,244,0.30);
 }
 #generate-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; box-shadow: none; }
 
@@ -319,7 +322,7 @@ textarea#subject-input:focus {
   display: inline-block;
   transition: background 0.2s;
 }
-.counter-dot.used  { background: var(--red); }
+.counter-dot.used  { background: var(--accent); }
 .counter-dot.open  { background: var(--border); border: 1px solid rgba(240,235,227,0.2); }
 .counter-label { font-size: 11px; color: var(--ink-muted); }
 
@@ -341,10 +344,10 @@ textarea#subject-input:focus {
 /* Exhausted state */
 .trial-badge.counter-exhausted {
   border-color: rgba(224,61,47,0.25);
-  background: var(--red-soft);
+  background: var(--accent-soft);
 }
 .counter-upgrade-link {
-  color: var(--red);
+  color: var(--accent);
   font-weight: 500;
   text-decoration: underline;
   cursor: pointer;
@@ -472,7 +475,7 @@ textarea#subject-input:focus {
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
-.auth-tab.active { background: var(--red); color: #fff; }
+.auth-tab.active { background: var(--accent); color: #fff; }
 
 /* Auth form */
 .auth-form {
@@ -496,11 +499,11 @@ textarea#subject-input:focus {
 .auth-input::placeholder { color: var(--ink-muted); }
 .auth-input:focus {
   border-color: rgba(224,61,47,0.4);
-  box-shadow: 0 0 0 3px rgba(224,61,47,0.08);
+  box-shadow: 0 0 0 3px rgba(1,63,244,0.12);
 }
 .auth-error {
   font-size: 12px;
-  color: var(--red);
+  color: var(--error);
   min-height: 16px;
   line-height: 1.4;
 }
@@ -510,7 +513,7 @@ textarea#subject-input:focus {
   font-size: 14px;
   font-weight: 500;
   color: #fff;
-  background: var(--red);
+  background: var(--accent);
   border: none;
   border-radius: var(--radius);
   padding: 13px;
@@ -738,7 +741,7 @@ textarea#subject-input:focus {
 .ps-btn-outline { background: transparent; border: 1px solid var(--border); color: var(--ink-muted); }
 .ps-btn-outline:hover { border-color: rgba(240,235,227,0.2); color: var(--ink); }
 .ps-btn-accent { background: var(--accent); color: #ffffff; box-shadow: 0 4px 14px rgba(1,63,244,0.30); }
-.ps-btn-red  { background: var(--red);  color: #fff;    box-shadow: 0 4px 14px rgba(224,61,47,0.22); }
+.ps-btn-red  { background: var(--accent);  color: #fff;    box-shadow: 0 4px 14px rgba(1,63,244,0.22); }
 
 /* Plan waiting state */
 .plan-waiting {
@@ -839,7 +842,7 @@ textarea#subject-input:focus {
 .upgrade-cta-btn {
   display: block;
   width: 100%;
-  background: var(--red);
+  background: var(--accent);
   color: #fff;
   font-family: "DM Sans", sans-serif;
   font-size: 14px;
@@ -848,7 +851,7 @@ textarea#subject-input:focus {
   padding: 14px 20px;
   border-radius: var(--radius);
   letter-spacing: 0.01em;
-  box-shadow: 0 6px 24px rgba(224,61,47,0.35);
+  box-shadow: 0 6px 24px rgba(1,63,244,0.30);
   transition: opacity 0.15s, transform 0.15s;
   margin-bottom: 10px;
 }
@@ -891,7 +894,7 @@ textarea#subject-input:focus {
   display: inline-block;
   width: 18px; height: 18px;
   border: 2px solid var(--border);
-  border-top-color: var(--red);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
   margin-bottom: 10px;
@@ -939,7 +942,7 @@ textarea#subject-input:focus {
   font-family: "DM Sans", sans-serif;
   font-size: 11px;
   font-weight: 500;
-  color: var(--red);
+  color: var(--accent);
   background: none;
   border: 1px solid rgba(224,61,47,0.3);
   border-radius: 20px;
@@ -947,7 +950,7 @@ textarea#subject-input:focus {
   cursor: pointer;
   transition: background 0.15s;
 }
-.btn-copy:hover { background: var(--red-soft); }
+.btn-copy:hover { background: var(--accent-soft); }
 
 .gen-images { display: flex; flex-direction: row; flex-wrap: wrap; gap: 8px; overflow: visible; }
 .gen-img-wrap { position: relative; display: block; flex: 1; min-width: min(120px, 100%); overflow: visible; }
@@ -972,7 +975,7 @@ textarea#subject-input:focus {
   font-family: "DM Sans", sans-serif;
   font-size: 11px;
   font-weight: 500;
-  color: var(--red);
+  color: var(--accent);
   background: none;
   border: 1px solid rgba(224,61,47,0.3);
   border-radius: 20px;
@@ -981,12 +984,12 @@ textarea#subject-input:focus {
   transition: background 0.15s;
   text-decoration: none;
 }
-.download-btn:hover { background: var(--red-soft); }
+.download-btn:hover { background: var(--accent-soft); }
 
 .error-msg {
   font-size: 12px;
-  color: var(--red);
-  background: var(--red-soft);
+  color: var(--error);
+  background: var(--error-soft);
   border: 1px solid rgba(224,61,47,0.2);
   border-radius: var(--radius);
   padding: 10px 12px;
@@ -1004,7 +1007,7 @@ textarea#subject-input:focus {
   padding: 0;
   transition: color 0.15s;
 }
-.logout-btn:hover { color: var(--red); }
+.logout-btn:hover { color: var(--accent); }
 
 /* ── FOOTER ─────────────────────────────────────────────────────────────── */
 footer {
@@ -1034,7 +1037,7 @@ footer a:hover { color: var(--ink); }
   align-items: center;
   gap: 4px;
 }
-.history-toggle:hover { color: var(--red); }
+.history-toggle:hover { color: var(--accent); }
 
 /* ── HISTORY PANEL ──────────────────────────────────────────────────────── */
 .history-panel {
@@ -1073,7 +1076,7 @@ footer a:hover { color: var(--ink); }
   color: var(--ink-muted);
   transition: color 0.15s;
 }
-.history-header button:hover { color: var(--red); }
+.history-header button:hover { color: var(--accent); }
 
 #history-list { overflow-y: auto; flex: 1; padding: 12px; }
 
@@ -1164,7 +1167,7 @@ footer a:hover { color: var(--ink); }
 .anon-cta-btn {
   display: block;
   width: 100%;
-  background: var(--red);
+  background: var(--accent);
   color: #fff;
   font-family: 'DM Sans', sans-serif;
   font-size: 13px;
@@ -1175,7 +1178,7 @@ footer a:hover { color: var(--ink); }
   cursor: pointer;
   transition: opacity 0.2s, transform 0.2s;
   letter-spacing: 0.01em;
-  box-shadow: 0 4px 16px rgba(224,61,47,0.22);
+  box-shadow: 0 4px 16px rgba(1,63,244,0.22);
   margin-bottom: 10px;
 }
 .anon-cta-btn:hover { opacity: 0.88; transform: translateY(-1px); }
