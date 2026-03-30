@@ -1,7 +1,12 @@
 {
+  "functions": {
+    "api/analyze.js": { "maxDuration": 300 },
+    "api/create-checkout.js": { "maxDuration": 30 },
+    "api/stripe-webhook.js": { "maxDuration": 30 }
+  },
   "rewrites": [
-    { "source": "/privacy", "destination": "/privacy.html" },
-    { "source": "/upgrade", "destination": "/upgrade.html" },
+    { "source": "/privacy",   "destination": "/privacy.html" },
+    { "source": "/upgrade",   "destination": "/upgrade.html" },
     { "source": "/confirmed", "destination": "/confirmed.html" }
   ]
 }

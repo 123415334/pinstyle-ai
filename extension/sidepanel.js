@@ -1,6 +1,6 @@
 'use strict';
 
-const API_URL  = 'https://tack.co/api/analyze'; // TODO: update DNS at Vercel when tack.co is acquired
+const API_URL  = 'https://tack.design/api/analyze';
 const MIN_SIZE = 200;
 
 const SUPABASE_URL      = 'https://sbdowcielgtcfholfyry.supabase.co';
@@ -126,16 +126,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('choose-pro-btn').addEventListener('click', () => openUpgradeFlow('pro'));
   document.getElementById('choose-unlimited-btn').addEventListener('click', () => openUpgradeFlow('unlimited'));
   document.getElementById('plan-done-btn').addEventListener('click', async () => {
-    const btn = document.getElementById('plan-done-btn');
-    btn.disabled = true;
+    const btn        = document.getElementById('plan-done-btn');
+    const waitingEl  = document.getElementById('plan-waiting');
+    // Clear any previous "not updated" error before re-checking
+    waitingEl.querySelectorAll('.plan-not-updated-msg').forEach(el => el.remove());
+    btn.disabled    = true;
     btn.textContent = 'Checking…';
     await fetchPlan();
     if (_plan === 'free') {
-      btn.disabled = false;
+      btn.disabled    = false;
       btn.textContent = "I've upgraded — continue →";
-      document.getElementById('plan-waiting').insertAdjacentHTML('beforeend',
-        '<p style="font-size:11px;color:var(--red);margin-top:-4px;">Plan not updated yet — complete checkout first.</p>'
-      );
+      const msg = document.createElement('p');
+      msg.className  = 'plan-not-updated-msg';
+      msg.style.cssText = 'font-size:11px;color:var(--red);margin-top:-4px;';
+      msg.textContent   = 'Plan not updated yet — complete checkout first.';
+      waitingEl.appendChild(msg);
     } else {
       hidePlanScreen();
       showMainUI();
@@ -188,14 +193,14 @@ function showUpgradeMoment(type) {
   if (type === 'pro_limit') {
     subEl.textContent          = "You've hit your 120 monthly generations. Keep creating with Unlimited — no limits, ever.";
     primaryBtn.textContent     = 'Go Unlimited → $35/month';
-    primaryBtn.href            = `https://tack.co/upgrade${email}&current=pro`;
+    primaryBtn.href            = `https://tack.design/upgrade${email}&current=pro`;
     secondaryBtn.style.display = 'none';
   } else {
     subEl.textContent          = "Your 3 free generations are up. Keep going with Pro — 120 images/month for $12.";
     primaryBtn.textContent     = 'Get Pro → $12/month';
-    primaryBtn.href            = `https://tack.co/upgrade${email}`;
+    primaryBtn.href            = `https://tack.design/upgrade${email}`;
     secondaryBtn.textContent   = 'Or go Unlimited → $35/month';
-    secondaryBtn.href          = `https://tack.co/upgrade${email}`;
+    secondaryBtn.href          = `https://tack.design/upgrade${email}`;
     secondaryBtn.style.display = '';
   }
 
@@ -334,7 +339,7 @@ function hidePlanScreen() {
 }
 
 function openUpgradeFlow(plan) {
-  const upgradeUrl = `https://tack.co/upgrade?email=${encodeURIComponent(_authEmail)}&plan=${plan}`;
+  const upgradeUrl = `https://tack.design/upgrade?email=${encodeURIComponent(_authEmail)}&plan=${plan}`;
   chrome.tabs.create({ url: upgradeUrl });
   document.getElementById('plan-cards').classList.add('hidden');
   document.getElementById('plan-waiting').classList.remove('hidden');
@@ -487,7 +492,7 @@ function updateTrialBadge() {
     return;
   }
 
-  const upgradeBase = `https://tack.co/upgrade${_authEmail ? '?email=' + encodeURIComponent(_authEmail) : ''}`;
+  const upgradeBase = `https://tack.design/upgrade${_authEmail ? '?email=' + encodeURIComponent(_authEmail) : ''}`;
   trialBadge.classList.remove('hidden');
 
   // ── Unlimited ──
@@ -507,7 +512,7 @@ function updateTrialBadge() {
     if (remaining <= 0) {
       trialBadge.className = 'trial-badge counter-exhausted';
       const unlimitedUrl = upgradeBase + (_authEmail ? '&current=pro' : '?current=pro');
-      trialBadge.innerHTML = `Monthly limit reached &middot; <a href="${unlimitedUrl}" target="_blank" rel="noopener" class="counter-upgrade-link">Go Unlimited →</a>`;
+      trialBadge.innerHTML = `Monthly limit reached · <a href="${unlimitedUrl}" target="_blank" rel="noopener" class="counter-upgrade-link">Go Unlimited →</a>`;
       generateBtn.disabled = true;
     } else {
       const resetDate = _monthlyResetAt
@@ -745,7 +750,7 @@ async function supabaseLogin(email, password) {
 }
 
 async function supabaseSignup(email, password) {
-  const resp = await fetch(`${SUPABASE_URL}/auth/v1/signup?redirect_to=https://tack.co/confirmed`, {
+  const resp = await fetch(`${SUPABASE_URL}/auth/v1/signup?redirect_to=https://tack.design/confirmed`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
     body: JSON.stringify({ email, password }),
@@ -1144,24 +1149,14 @@ async function generate() {
 
 // ── Render results ────────────────────────────────────────────────────────────
 function renderResults(data) {
-  const { style, prompt, images } = data;
+  const { styleDescriptors, prompt, images } = data;
   let html = '';
 
-  if (style) {
-    const swatches = (style.colors || [])
-      .map((hex, i) => `<div class="swatch" style="background:${hex}" title="${style.colorNames?.[i] || hex}"></div>`)
-      .join('');
-    const tags = [...(style.mood || []), ...(style.styleKeywords || [])]
-      .slice(0, 8)
-      .map(t => `<span class="tag">${t}</span>`)
-      .join('');
-
+  if (styleDescriptors) {
     html += `
       <div class="result-block">
         <h3>Style Analysis</h3>
-        ${swatches ? `<div class="swatches">${swatches}</div>` : ''}
-        ${style.aesthetic ? `<p>${style.aesthetic}</p>` : ''}
-        ${tags ? `<div class="tags" style="margin-top:8px">${tags}</div>` : ''}
+        <p class="style-descriptors">${escHtml(styleDescriptors)}</p>
       </div>`;
   }
 
@@ -1180,9 +1175,9 @@ function renderResults(data) {
         <h3>Generated Images</h3>
         <div class="gen-images">
           ${images.map((url, i) => `
-            <div class="gen-img-wrap" onclick="showPreview('${escAttr(url)}')">
+            <div class="gen-img-wrap" data-preview-url="${escAttr(url)}">
               <img src="${escAttr(url)}" alt="Generated image" loading="lazy">
-              <div class="img-actions" onclick="event.stopPropagation()">
+              <div class="img-actions">
                 <button class="download-btn" data-url="${escAttr(url)}" data-filename="tack-${i+1}.png">
                   ↓ Download
                 </button>
@@ -1199,8 +1194,20 @@ function renderResults(data) {
 
   resultsEl.innerHTML = html;
 
+  // Wire up generated image clicks via data attribute (safe, no inline JS)
+  resultsEl.querySelectorAll('.gen-img-wrap').forEach(wrap => {
+    wrap.addEventListener('click', e => {
+      if (!e.target.closest('.img-actions')) {
+        showPreview(wrap.dataset.previewUrl);
+      }
+    });
+  });
+
   resultsEl.querySelectorAll('.download-btn').forEach(btn => {
-    btn.addEventListener('click', () => downloadAsPng(btn.dataset.url, btn.dataset.filename));
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      downloadAsPng(btn.dataset.url, btn.dataset.filename);
+    });
   });
   resultsEl.querySelectorAll('.btn-copy').forEach(btn => {
     btn.addEventListener('click', () => {
