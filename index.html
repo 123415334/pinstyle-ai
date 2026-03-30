@@ -7,22 +7,23 @@
   <meta name="description" content="Select images from any website. Generate AI images that match their exact visual style. The Chrome extension that turns inspiration into creation.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --ink: #f0ebe3;
-      --ink-muted: #8a8070;
-      --accent: #013FF4;
-      --error: #e03d2f;
-      --accent-soft: rgba(1,63,244,0.10);
-      --bg: #0e0c0a;
-      --bg2: #141210;
-      --bg3: #1a1714;
-      --border: rgba(240, 235, 227, 0.08);
-      --accent: #013FF4;
+      --ink:          #f0ebe3;
+      --ink-muted:    #8a8070;
+      --accent:       #013FF4;
       --accent-light: #8FBEF7;
+      --accent-soft:  rgba(1,63,244,0.10);
+      --error:        #e03d2f;
+      --bg:           #0d0b09;
+      --bg2:          #111009;
+      --bg-card:      #161410;
+      --border:       rgba(240,235,227,0.07);
+      --border-hi:    rgba(240,235,227,0.14);
+      --radius-card:  28px;
     }
 
     html { scroll-behavior: smooth; }
@@ -33,626 +34,1073 @@
       font-family: 'DM Sans', sans-serif;
       font-weight: 300;
       overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
 
-    /* ── Grain overlay ── */
     body::before {
       content: '';
-      position: fixed;
-      inset: 0;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
-      pointer-events: none;
-      z-index: 1000;
-      opacity: 0.4;
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 999; opacity: 0.38;
     }
 
-    /* ── Nav ── */
+
+    /* ══ NAV ══ */
     nav {
-      position: fixed;
-      top: 0; left: 0; right: 0;
-      z-index: 100;
-      padding: 20px 40px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: linear-gradient(to bottom, rgba(14,12,10,0.95), transparent);
+      position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+      height: 68px; padding: 0 52px;
+      display: flex; justify-content: space-between; align-items: center;
+      transition: background 0.4s, border-color 0.4s;
     }
-
-    .nav-logo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      text-decoration: none;
+    nav.scrolled {
+      background: rgba(13,11,9,0.88);
+      backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+      border-bottom: 1px solid var(--border);
     }
-
-    .nav-pin {
-      width: 28px;
-      height: 28px;
-      background: var(--accent);
-      border-radius: 50% 50% 50% 0;
-      transform: rotate(-45deg);
-      position: relative;
-      flex-shrink: 0;
-    }
-    .nav-pin::after {
-      content: '';
-      position: absolute;
-      inset: 6px;
-      background: var(--bg);
-      border-radius: 50%;
-    }
-
-    .nav-wordmark {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 22px;
-      font-weight: 400;
-      color: var(--ink);
-      letter-spacing: 0.02em;
-    }
-    .nav-wordmark em { color: var(--accent-light); font-style: italic; }
-
+    .nav-logo img { height: 28px; width: auto; display: block; }
     .nav-cta {
-      background: var(--accent);
-      color: white;
-      border: none;
-      padding: 10px 22px;
-      border-radius: 100px;
-      font-family: 'DM Sans', sans-serif;
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-      text-decoration: none;
-      letter-spacing: 0.02em;
-      transition: opacity 0.2s, transform 0.2s;
+      background: var(--accent); color: #fff; border: none;
+      padding: 11px 22px; border-radius: 100px;
+      font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500;
+      cursor: pointer; text-decoration: none; letter-spacing: 0.01em;
+      display: flex; align-items: center; gap: 9px;
+      transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+      box-shadow: 0 4px 24px rgba(1,63,244,0.3);
     }
-    .nav-cta:hover { opacity: 0.85; transform: translateY(-1px); }
+    .nav-cta:hover { opacity: 0.88; transform: translateY(-1px); box-shadow: 0 8px 32px rgba(1,63,244,0.4); }
 
-    /* ── Hero ── */
+
+    /* ══ HERO — 200vh for extended parallax experience ══ */
     .hero {
-      min-height: 100vh;
+      height: 200vh;
+      position: relative;
+    }
+
+    /* Sticky panel: pins content while tiles scroll behind */
+    .hero-sticky {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: hidden;
       display: flex;
       flex-direction: column;
       justify-content: center;
-      align-items: center;
-      text-align: center;
-      padding: 120px 40px 80px;
-      position: relative;
+      padding-top: 68px;
     }
 
-    .hero-eyebrow {
-      font-size: 11px;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: var(--ink-muted);
-      margin-bottom: 32px;
-      opacity: 0;
-      animation: fadeUp 0.8s ease 0.2s forwards;
+    /* Floating tiles */
+    .hero-tiles {
+      position: absolute; inset: 0;
+      pointer-events: none; z-index: 0;
     }
 
-    .hero-eyebrow span {
-      color: var(--accent-light);
+    .ftile {
+      position: absolute;
+      border-radius: 10px; overflow: hidden;
+      box-shadow: 0 10px 36px rgba(0,0,0,0.52);
+      will-change: transform;
     }
+    .ftile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .ftile-back  { z-index: 1; }
+    .ftile-front { z-index: 3; pointer-events: none; }
+
+    /* tack selection state — teaches users what the app does at a glance */
+    .ftile-selected {
+      box-shadow:
+        0 10px 36px rgba(0,0,0,0.52),
+        0 0 0 2.5px var(--accent-light);
+    }
+    .ftile-selected::after {
+      content: '✓';
+      position: absolute; bottom: 8px; right: 8px;
+      width: 22px; height: 22px;
+      background: var(--accent-light); color: #111009;
+      border-radius: 50%; font-size: 11px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      line-height: 22px; text-align: center;
+      font-family: 'DM Sans', sans-serif; z-index: 5;
+    }
+
+    /* Hero text content */
+    .hero-content {
+      position: relative; z-index: 2;
+      display: flex; flex-direction: column;
+      align-items: center; text-align: center;
+      padding: 80px 52px 80px;
+    }
+
+    .hero-app-icon {
+      width: 80px; height: 80px;
+      margin: 0 auto 28px; display: block;
+      border-radius: 18px;
+      box-shadow: 0 16px 52px rgba(1,63,244,0.42), 0 4px 16px rgba(1,63,244,0.25);
+      opacity: 0; animation: fadeUp 0.6s ease 0.05s forwards;
+    }
+
+    .eyebrow {
+      font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--ink-muted); margin-bottom: 32px;
+      opacity: 0; animation: fadeUp 0.7s ease 0.18s forwards;
+    }
+    .eyebrow span { color: var(--accent-light); }
 
     h1 {
       font-family: 'Cormorant Garamond', serif;
-      font-size: clamp(52px, 8vw, 96px);
-      font-weight: 300;
-      line-height: 1.0;
-      letter-spacing: -0.02em;
-      max-width: 900px;
-      opacity: 0;
-      animation: fadeUp 0.8s ease 0.4s forwards;
+      font-size: clamp(56px, 9vw, 116px);
+      font-weight: 300; line-height: 0.94; letter-spacing: -0.03em;
+      max-width: 860px;
+      opacity: 0; animation: fadeUp 0.88s cubic-bezier(0.16,1,0.3,1) 0.30s forwards;
     }
-
-    h1 em {
-      font-style: italic;
-      color: var(--accent-light);
-    }
-
-    h1 .accent { color: var(--accent-light); }
+    h1 em { font-style: italic; color: var(--accent-light); }
 
     .hero-sub {
-      font-size: 17px;
-      color: var(--ink-muted);
-      max-width: 480px;
-      line-height: 1.7;
-      margin-top: 28px;
-      font-weight: 300;
-      opacity: 0;
-      animation: fadeUp 0.8s ease 0.6s forwards;
+      font-size: 16px; color: var(--ink-muted); max-width: 400px;
+      line-height: 1.8; margin-top: 30px; font-weight: 300;
+      opacity: 0; animation: fadeUp 0.8s ease 0.46s forwards;
     }
 
     .hero-actions {
-      display: flex;
-      gap: 14px;
-      align-items: center;
-      margin-top: 44px;
-      opacity: 0;
-      animation: fadeUp 0.8s ease 0.8s forwards;
+      display: flex; gap: 18px; align-items: center; margin-top: 46px;
+      opacity: 0; animation: fadeUp 0.8s ease 0.60s forwards;
     }
 
     .btn-primary {
-      background: var(--accent);
-      color: white;
-      border: none;
-      padding: 16px 32px;
-      border-radius: 100px;
-      font-family: 'DM Sans', sans-serif;
-      font-size: 15px;
-      font-weight: 500;
-      cursor: pointer;
-      text-decoration: none;
-      display: flex;
-      align-items: center;
-      gap: 10px;
+      background: var(--accent); color: #fff; border: none;
+      padding: 15px 30px; border-radius: 100px;
+      font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500;
+      cursor: pointer; text-decoration: none;
+      display: flex; align-items: center; gap: 10px;
+      letter-spacing: 0.01em;
       transition: opacity 0.2s, transform 0.2s, box-shadow 0.2s;
-      box-shadow: 0 8px 32px rgba(224, 61, 47, 0.3);
+      box-shadow: 0 8px 40px rgba(1,63,244,0.38);
     }
-    .btn-primary:hover {
-      opacity: 0.9;
-      transform: translateY(-2px);
-      box-shadow: 0 12px 40px rgba(224, 61, 47, 0.4);
-    }
+    .btn-primary:hover { opacity: 0.9; transform: translateY(-2px); box-shadow: 0 14px 50px rgba(1,63,244,0.48); }
 
     .btn-ghost {
-      color: var(--ink-muted);
-      font-size: 14px;
-      text-decoration: none;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      transition: color 0.2s;
+      color: var(--ink-muted); font-size: 13px;
+      text-decoration: none; transition: color 0.2s; letter-spacing: 0.01em;
     }
     .btn-ghost:hover { color: var(--ink); }
 
-    .chrome-icon {
-      width: 20px;
-      height: 20px;
-      background: conic-gradient(#4285f4 0deg 90deg, #ea4335 90deg 180deg, #fbbc04 180deg 270deg, #34a853 270deg 360deg);
-      border-radius: 50%;
+
+    /* ══ EDITORIAL ══ */
+    .editorial-wrap {
+      max-width: 1240px; margin: 0 auto;
+      padding: 160px 52px 100px;
+    }
+    .section-label {
+      font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--accent-light); margin-bottom: 120px;
+    }
+    .ed-step {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 80px; align-items: center; margin-bottom: 160px;
+    }
+    .ed-step:last-child { margin-bottom: 0; }
+    .ed-step.flip { direction: rtl; }
+    .ed-step.flip > * { direction: ltr; }
+    .ed-ghost {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(100px, 16vw, 220px);
+      font-weight: 300; line-height: 0.88; letter-spacing: -0.05em;
+      color: rgba(240,235,227,0.032);
+      user-select: none; margin-bottom: -28px; display: block;
+    }
+    .ed-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(40px, 6vw, 72px);
+      font-weight: 300; line-height: 1.02; letter-spacing: -0.025em;
+      margin-bottom: 22px;
+    }
+    .ed-title em { font-style: italic; color: var(--accent-light); }
+    .ed-body { font-size: 15px; color: var(--ink-muted); line-height: 1.85; max-width: 380px; }
+    .ed-visual { position: relative; }
+
+
+    /* ── Context mock ── */
+    .context-mock {
+      width: 100%; aspect-ratio: 4/3;
+      border-radius: 20px; overflow: hidden;
+      box-shadow: 0 48px 96px rgba(0,0,0,0.64);
+      border: 1px solid var(--border); display: flex;
+    }
+    .ctx-browser { flex: 1; min-width: 0; display: flex; flex-direction: column; background: #111; }
+    .ctx-bar { height: 30px; background: #1a1a1a; border-bottom: 1px solid #2a2a2a; display: flex; align-items: center; gap: 6px; padding: 0 10px; flex-shrink: 0; }
+    .ctx-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .ctx-url { flex: 1; background: #252525; border-radius: 100px; height: 17px; display: flex; align-items: center; padding: 0 8px; gap: 4px; font-size: 9px; color: #666; font-family: 'DM Sans', sans-serif; }
+    .ctx-url-p { color: #E60023; font-weight: 700; font-size: 10px; }
+    .ctx-pins { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; padding: 6px; overflow: hidden; align-content: start; }
+    .ctx-pin { border-radius: 7px; overflow: hidden; background: #222; }
+    .ctx-pin img { width: 100%; display: block; object-fit: cover; }
+    .ctx-pin:nth-child(1) { aspect-ratio: 2/3; }
+    .ctx-pin:nth-child(2) { aspect-ratio: 3/4; }
+    .ctx-pin:nth-child(3) { aspect-ratio: 2/3; }
+    .ctx-pin:nth-child(4) { aspect-ratio: 1/1; }
+    .ctx-pin:nth-child(5) { aspect-ratio: 3/4; }
+    .ctx-pin:nth-child(6) { aspect-ratio: 4/3; }
+    .ctx-ext { width: 198px; flex-shrink: 0; background: #111009; border-left: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; padding: 10px 8px; gap: 5px; }
+    .ce-header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; }
+    .ce-logo { height: 13px; width: auto; }
+    .ce-badge { font-size: 7px; padding: 2px 5px; background: rgba(143,190,247,0.10); border: 1px solid rgba(143,190,247,0.18); color: #8FBEF7; border-radius: 100px; letter-spacing: 0.05em; text-transform: uppercase; font-family: 'DM Sans', sans-serif; }
+    .ce-tagline { font-family: 'Cormorant Garamond', serif; font-size: 9.5px; color: #f0ebe3; text-align: center; opacity: 0.65; flex-shrink: 0; font-style: italic; }
+    .ce-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; flex: 1; min-height: 0; }
+    .ce-cell { border-radius: 3px; overflow: hidden; position: relative; min-height: 0; }
+    .ce-cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .ce-cell.on { outline: 1.5px solid #8FBEF7; outline-offset: 1px; }
+    .ce-cell.on::after { content: '✓'; position: absolute; bottom: 2px; right: 2px; width: 11px; height: 11px; background: #8FBEF7; color: #111; border-radius: 50%; font-size: 6px; font-weight: 700; display: flex; align-items: center; justify-content: center; line-height: 11px; text-align: center; font-family: 'DM Sans', sans-serif; }
+    .ce-label { font-family: 'Cormorant Garamond', serif; font-size: 8.5px; color: var(--ink); text-align: center; flex-shrink: 0; }
+    .ce-label em { font-style: italic; color: var(--accent-light); }
+    .ce-input { background: rgba(255,255,255,0.03); flex-shrink: 0; border: 1px solid rgba(255,255,255,0.07); border-radius: 4px; padding: 5px 6px; font-size: 7.5px; color: #666; line-height: 1.5; font-family: 'DM Sans', sans-serif; }
+    .ce-btn { background: var(--accent); color: white; border: none; border-radius: 4px; padding: 7px 6px; font-size: 8px; font-weight: 500; text-align: center; font-family: 'DM Sans', sans-serif; cursor: default; flex-shrink: 0; }
+    .ce-footer { font-size: 7px; color: #3a3a3a; text-align: center; flex-shrink: 0; font-family: 'DM Sans', sans-serif; }
+    .ce-footer span { color: #8FBEF7; opacity: 0.4; }
+
+    /* ── Product frames ── */
+    .product-frame { background: var(--bg-card); border-radius: 20px; border: 1px solid var(--border); overflow: hidden; box-shadow: 0 48px 96px rgba(0,0,0,0.64); aspect-ratio: 4/3; }
+    .product-frame img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+    .output-mock { width: 100%; aspect-ratio: 4/3; background: var(--bg-card); border-radius: 20px; border: 1px solid var(--border); box-shadow: 0 48px 96px rgba(0,0,0,0.64); padding: 18px; display: grid; grid-template-columns: 1.4fr 1fr; grid-template-rows: repeat(2, 1fr); gap: 10px; }
+    .out-thumb { border-radius: 8px; overflow: hidden; }
+    .out-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .out-thumb:first-child { grid-row: span 2; }
+
+
+    /* ══ FEATURES ══ */
+    .features-wrap { max-width: 1240px; margin: 0 auto; padding: 0 52px 180px; }
+    .features-header { margin-bottom: 52px; }
+    .features-tag { font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--accent-light); margin-bottom: 16px; }
+    .features-headline { font-family: 'Cormorant Garamond', serif; font-size: clamp(36px, 5vw, 60px); font-weight: 300; line-height: 1.05; letter-spacing: -0.02em; }
+    .features-headline em { font-style: italic; color: var(--accent-light); }
+
+    .feature-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+
+    .fcard {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-card); padding: 52px 48px 48px;
+      transition: border-color 0.3s, transform 0.4s cubic-bezier(0.16,1,0.3,1);
+    }
+    .fcard:hover { border-color: var(--border-hi); transform: translateY(-3px); }
+
+    /* Icon replaces the old 01–04 numbers */
+    .fcard-icon {
+      width: 30px; height: 30px; margin-bottom: 24px;
+    }
+    .fcard-icon svg { width: 100%; height: 100%; display: block; }
+
+    .fcard-tag { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent-light); margin-bottom: 12px; }
+    .fcard h3 { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 400; letter-spacing: -0.01em; margin-bottom: 12px; line-height: 1.2; }
+    .fcard p { font-size: 14px; color: var(--ink-muted); line-height: 1.82; }
+
+
+    /* ══ DOWNLOAD BOOKEND ══
+       Mirrors the hero: scattered tiles, 2 selected,
+       CTA content floats centered over them.
+    ══ */
+    .download-bookend {
+      position: relative;
+      min-height: 86vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      padding: 0 52px;
+    }
+
+    /* Tile layer */
+    .dl-tiles { position: absolute; inset: 0; pointer-events: none; }
+    .dl-tile {
+      position: absolute;
+      border-radius: 10px; overflow: hidden;
+      box-shadow: 0 10px 36px rgba(0,0,0,0.52);
+      animation: dlFloat var(--dur, 6s) ease-in-out infinite;
+      animation-delay: var(--del, 0s);
+    }
+    .dl-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    /* Selected state (reused same pattern as hero) */
+    .dl-tile-sel {
+      box-shadow: 0 10px 36px rgba(0,0,0,0.52), 0 0 0 2.5px var(--accent-light);
+    }
+    .dl-tile-sel::after {
+      content: '✓';
+      position: absolute; bottom: 8px; right: 8px;
+      width: 22px; height: 22px;
+      background: var(--accent-light); color: #111009;
+      border-radius: 50%; font-size: 11px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      line-height: 22px; text-align: center;
+      font-family: 'DM Sans', sans-serif; z-index: 5;
+    }
+
+    @keyframes dlFloat {
+      0%, 100% { transform: translateY(0) rotate(var(--rot, 0deg)); }
+      50%       { transform: translateY(-10px) rotate(var(--rot, 0deg)); }
+    }
+
+    /* CTA content */
+    .dl-cta {
+      position: relative; z-index: 2;
+      text-align: center;
+      padding: 120px 0 100px;
+    }
+    /* Subtle radial glow behind text */
+    .dl-cta::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse 60% 55% at 50% 50%, rgba(1,63,244,0.14), transparent 70%);
+      pointer-events: none; z-index: -1;
+    }
+
+    .app-tile-wrap {
+      width: 100px; margin: 0 auto 44px; position: relative;
+    }
+    .app-tile-wrap::before {
+      content: ''; position: absolute; inset: -20px;
+      background: radial-gradient(ellipse, rgba(1,63,244,0.35) 0%, transparent 70%);
+      border-radius: 50%; animation: pulse 3s ease-in-out infinite;
+    }
+    .app-tile {
+      width: 100px; height: 100px; border-radius: 22px;
+      display: block; position: relative;
+      animation: floatIcon 4s ease-in-out infinite;
+      box-shadow: 0 20px 60px rgba(1,63,244,0.45);
+    }
+    @keyframes floatIcon { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+    @keyframes pulse { 0%,100%{opacity:0.7;transform:scale(0.9)} 50%{opacity:1;transform:scale(1.1)} }
+
+    .dl-cta h2 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(42px, 6vw, 76px);
+      font-weight: 300; line-height: 0.98; letter-spacing: -0.03em;
+      margin-bottom: 20px;
+    }
+    .dl-cta h2 em { font-style: italic; color: var(--accent-light); }
+    .dl-cta .sub { color: var(--ink-muted); font-size: 15px; margin-bottom: 50px; }
+    .dl-actions { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+    .free-note { font-size: 12px; color: var(--ink-muted); letter-spacing: 0.05em; }
+
+
+    /* ── Prompt panel mock (Step 02) ── */
+    .prompt-mock {
+      width: 100%; aspect-ratio: 4/3;
+      background: #0e0c0a; border-radius: 20px;
+      border: 1px solid var(--border);
+      box-shadow: 0 48px 96px rgba(0,0,0,0.64);
+      padding: 20px 22px 18px;
+      display: flex; flex-direction: column; gap: 13px;
+    }
+    .pm-header {
+      display: flex; align-items: center; justify-content: space-between;
       flex-shrink: 0;
     }
-
-    /* ── Hero screenshot ── */
-    .hero-visual {
-      margin-top: 64px;
-      width: 100%;
-      max-width: 900px;
-      opacity: 0;
-      animation: fadeUp 1s ease 1s forwards;
+    .pm-logo { height: 14px; width: auto; }
+    .pm-sel-badge {
+      font-size: 9px; padding: 3px 8px;
+      background: rgba(143,190,247,0.10);
+      border: 1px solid rgba(143,190,247,0.18);
+      color: var(--accent-light); border-radius: 100px;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      font-family: 'DM Sans', sans-serif;
     }
-    .hero-visual img {
-      display: block;
-      width: 100%;
-      height: auto;
-      border-radius: 16px;
+    .pm-refgrid {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 4px; flex-shrink: 0;
+    }
+    .pm-cell {
+      border-radius: 4px; overflow: hidden; aspect-ratio: 1;
+      background: #222; position: relative;
+    }
+    .pm-cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .pm-cell.sel { outline: 1.5px solid var(--accent-light); outline-offset: 1px; }
+    .pm-cell.sel::after {
+      content: '✓'; position: absolute; bottom: 2px; right: 2px;
+      width: 11px; height: 11px; background: var(--accent-light); color: #111009;
+      border-radius: 50%; font-size: 6px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      line-height: 11px; text-align: center; font-family: 'DM Sans', sans-serif;
+    }
+    .pm-divider {
+      font-family: 'Cormorant Garamond', serif; font-size: 12px;
+      color: rgba(240,235,227,0.30); text-align: center; font-style: italic;
+      border-top: 1px solid var(--border); padding-top: 10px;
+      flex-shrink: 0;
+    }
+    .pm-textarea {
+      flex: 1; background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 8px; padding: 14px 16px;
+      font-size: 15px; color: var(--ink); line-height: 1.6;
+      font-family: 'DM Sans', sans-serif; font-weight: 300;
+      display: flex; align-items: flex-start; min-height: 0;
+    }
+    .pm-cursor {
+      display: inline-block; width: 1.5px; height: 1.1em;
+      background: var(--accent-light); margin-left: 1px;
+      animation: blink 1s step-end infinite;
+      vertical-align: text-bottom; flex-shrink: 0;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+    .pm-generate {
+      background: var(--accent); color: white; border: none;
+      border-radius: 6px; padding: 13px 16px;
+      font-size: 13px; font-weight: 500; letter-spacing: 0.01em;
+      font-family: 'DM Sans', sans-serif; cursor: default;
+      flex-shrink: 0; display: flex; align-items: center;
+      justify-content: center; gap: 8px;
+    }
+
+
+    /* ── Results / download mock (Step 03) ── */
+    .results-mock {
+      width: 100%; aspect-ratio: 4/3;
+      background: #0e0c0a; border-radius: 20px;
       border: 1px solid var(--border);
-      box-shadow: 0 40px 100px rgba(0,0,0,0.65);
+      box-shadow: 0 48px 96px rgba(0,0,0,0.64);
+      padding: 20px 22px 18px;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .rm-header {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .rm-logo { height: 14px; width: auto; }
+    .rm-done {
+      font-size: 9px; padding: 3px 8px;
+      background: rgba(143,190,247,0.10);
+      border: 1px solid rgba(143,190,247,0.18);
+      color: var(--accent-light); border-radius: 100px;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .rm-prompt {
+      font-size: 11px; color: rgba(240,235,227,0.35);
+      font-family: 'DM Sans', sans-serif; font-style: italic;
+      flex-shrink: 0;
+    }
+    .rm-grid {
+      flex: 1; display: grid; grid-template-columns: 1fr 1fr;
+      gap: 10px; min-height: 0;
+    }
+    .rm-card {
+      display: flex; flex-direction: column; gap: 6px; min-height: 0;
+    }
+    .rm-img {
+      flex: 1; border-radius: 7px; overflow: hidden; min-height: 0;
+    }
+    .rm-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .rm-dl {
+      background: rgba(1,63,244,0.10); border: 1px solid rgba(1,63,244,0.22);
+      color: var(--accent-light); border-radius: 5px; padding: 8px 10px;
+      font-size: 11px; font-weight: 500; font-family: 'DM Sans', sans-serif;
+      cursor: default; display: flex; align-items: center;
+      justify-content: center; gap: 6px; flex-shrink: 0;
+      transition: background 0.2s;
+    }
+    .rm-footer {
+      display: flex; gap: 8px; flex-shrink: 0;
+    }
+    .rm-dl-all {
+      flex: 1; background: var(--accent); color: white; border: none;
+      border-radius: 5px; padding: 10px 14px;
+      font-size: 12px; font-weight: 500; font-family: 'DM Sans', sans-serif;
+      cursor: default; text-align: center;
+    }
+    .rm-again {
+      background: transparent; border: 1px solid var(--border);
+      color: var(--ink-muted); border-radius: 5px; padding: 10px 14px;
+      font-size: 12px; font-family: 'DM Sans', sans-serif; cursor: default;
     }
 
-    /* ── Scroll indicator ── */
-    .scroll-hint {
-      position: absolute;
-      bottom: 40px;
-      left: 50%;
-      transform: translateX(-50%);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;
-      color: var(--ink-muted);
-      font-size: 11px;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      animation: fadeIn 1s ease 1.5s forwards;
-      opacity: 0;
-    }
 
-    .scroll-line {
-      width: 1px;
-      height: 40px;
-      background: linear-gradient(to bottom, var(--ink-muted), transparent);
-      animation: scrollLine 2s ease-in-out infinite;
-    }
-
-    @keyframes scrollLine {
-      0%, 100% { transform: scaleY(1); opacity: 0.4; }
-      50% { transform: scaleY(0.5); opacity: 1; }
-    }
-
-    /* ── How it works ── */
-    .section {
-      padding: 120px 40px;
-      max-width: 1100px;
-      margin: 0 auto;
-    }
-
-    .section-tag {
-      font-size: 11px;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: var(--accent-light);
-      margin-bottom: 20px;
-    }
-
-    .section-title {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: clamp(36px, 5vw, 58px);
-      font-weight: 300;
-      line-height: 1.1;
-      letter-spacing: -0.01em;
-      max-width: 600px;
-    }
-
-    .section-title em { font-style: italic; color: var(--accent-light); }
-
-    .steps {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 2px;
-      margin-top: 64px;
-    }
-
-    .step {
-      background: var(--bg2);
-      padding: 40px 36px;
-      position: relative;
-      border: 1px solid var(--border);
-    }
-
-    .step:first-child { border-radius: 16px 0 0 16px; }
-    .step:last-child { border-radius: 0 16px 16px 0; }
-
-    .step-num {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 64px;
-      font-weight: 300;
-      color: rgba(240, 235, 227, 0.06);
-      line-height: 1;
-      margin-bottom: 24px;
-    }
-
-    .step-icon {
-      width: 44px;
-      height: 44px;
-      background: var(--accent-soft);
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 20px;
-      margin-bottom: 20px;
-    }
-
-    .step h3 {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 24px;
-      font-weight: 400;
-      margin-bottom: 12px;
-      letter-spacing: -0.01em;
-    }
-
-    .step p {
-      font-size: 14px;
-      color: var(--ink-muted);
-      line-height: 1.7;
-    }
-
-    /* ── Works everywhere ── */
-    .sites-section {
-      padding: 80px 40px;
-      background: var(--bg2);
-      border-top: 1px solid var(--border);
-      border-bottom: 1px solid var(--border);
-      text-align: center;
-    }
-
-    .sites-label {
-      font-size: 11px;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: var(--ink-muted);
-      margin-bottom: 32px;
-    }
-
-    .sites-list {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 40px;
-      flex-wrap: wrap;
-    }
-
-    .site-pill {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 22px;
-      font-weight: 300;
-      color: rgba(240, 235, 227, 0.25);
-      letter-spacing: 0.02em;
-      transition: color 0.3s;
-    }
-    .site-pill:hover { color: var(--ink); }
-
-    .site-dot {
-      width: 4px; height: 4px;
-      background: var(--border);
-      border-radius: 50%;
-    }
-
-    /* ── Use cases ── */
-    .usecases {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 2px;
-      margin-top: 64px;
-    }
-
-    .usecase {
-      background: var(--bg2);
-      padding: 36px;
-      border: 1px solid var(--border);
-    }
-
-    .usecase:first-child { border-radius: 16px 0 0 0; }
-    .usecase:nth-child(2) { border-radius: 0 16px 0 0; }
-    .usecase:nth-child(3) { border-radius: 0 0 0 16px; }
-    .usecase:last-child { border-radius: 0 0 16px 0; }
-
-    .usecase-tag {
-      font-size: 10px;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: var(--accent-light);
-      margin-bottom: 14px;
-    }
-
-    .usecase h3 {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 26px;
-      font-weight: 400;
-      margin-bottom: 10px;
-      letter-spacing: -0.01em;
-    }
-
-    .usecase p {
-      font-size: 13px;
-      color: var(--ink-muted);
-      line-height: 1.7;
-    }
-
-    /* ── CTA section ── */
-    .cta-section {
-      padding: 160px 40px;
-      text-align: center;
-      position: relative;
-    }
-
-    .cta-glow {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 600px;
-      height: 400px;
-      background: radial-gradient(ellipse, rgba(224,61,47,0.08) 0%, transparent 70%);
-      pointer-events: none;
-    }
-
-    .cta-section h2 {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: clamp(44px, 6vw, 72px);
-      font-weight: 300;
-      line-height: 1.1;
-      letter-spacing: -0.02em;
-      margin-bottom: 24px;
-      position: relative;
-    }
-
-    .cta-section h2 em { font-style: italic; color: var(--accent-light); }
-
-    .cta-section p {
-      color: var(--ink-muted);
-      font-size: 16px;
-      margin-bottom: 44px;
-      position: relative;
-    }
-
-    .cta-actions {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 16px;
-      position: relative;
-    }
-
-    .free-note {
-      font-size: 12px;
-      color: var(--ink-muted);
-      letter-spacing: 0.05em;
-    }
-
-    /* ── Footer ── */
+    /* ══ FOOTER ══ */
     footer {
-      border-top: 1px solid var(--border);
-      padding: 32px 40px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 12px;
-      color: var(--ink-muted);
+      border-top: 1px solid var(--border); padding: 28px 52px;
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 12px; color: var(--ink-muted);
     }
-
-    footer a { color: var(--ink-muted); text-decoration: none; }
+    footer a { color: var(--ink-muted); text-decoration: none; transition: color 0.2s; }
     footer a:hover { color: var(--ink); }
 
-    /* ── Animations ── */
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
 
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
+    /* ══ SCROLL REVEALS ══ */
+    .reveal { opacity:0; transform:translateY(40px); transition:opacity 0.95s cubic-bezier(0.16,1,0.3,1),transform 0.95s cubic-bezier(0.16,1,0.3,1); }
+    .reveal.visible { opacity:1; transform:none; }
+    .reveal-d1{transition-delay:0.08s} .reveal-d2{transition-delay:0.16s}
+    .reveal-d3{transition-delay:0.24s} .reveal-d4{transition-delay:0.34s}
+    .reveal-left  { opacity:0; transform:translateX(-48px); transition:opacity 0.95s cubic-bezier(0.16,1,0.3,1),transform 0.95s cubic-bezier(0.16,1,0.3,1); }
+    .reveal-right { opacity:0; transform:translateX(48px);  transition:opacity 0.95s cubic-bezier(0.16,1,0.3,1),transform 0.95s cubic-bezier(0.16,1,0.3,1); }
+    .reveal-left.visible,.reveal-right.visible { opacity:1; transform:none; }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(22px)} to{opacity:1;transform:translateY(0)} }
 
-    /* ── Responsive ── */
-    @media (max-width: 768px) {
-      nav { padding: 16px 20px; }
-      .hero { padding: 100px 24px 60px; }
-      .steps { grid-template-columns: 1fr; }
-      .step:first-child { border-radius: 16px 16px 0 0; }
-      .step:last-child { border-radius: 0 0 16px 16px; }
-      .usecases { grid-template-columns: 1fr; }
-      .usecase:first-child { border-radius: 16px 16px 0 0; }
-      .usecase:last-child { border-radius: 0 0 16px 16px; }
-      .usecase:nth-child(2), .usecase:nth-child(3) { border-radius: 0; }
-      .section { padding: 80px 24px; }
-      footer { flex-direction: column; gap: 16px; text-align: center; }
-      .sites-list { gap: 20px; }
+
+    /* ══ RESPONSIVE ══ */
+    @media (max-width: 900px) {
+      nav { padding: 0 24px; }
+      .hero { height: auto; min-height: 100vh; }
+      .hero-sticky { position: relative; top: auto; height: auto; min-height: calc(100vh - 68px); }
+      .hero-content { padding: 60px 24px 80px; }
+      h1 { font-size: clamp(48px, 12vw, 80px); }
+      .hero-tiles { display: none; }
+      .editorial-wrap { padding: 100px 24px 60px; }
+      .section-label { margin-bottom: 60px; }
+      .ed-step { grid-template-columns: 1fr; gap: 48px; margin-bottom: 100px; }
+      .ed-step.flip { direction: ltr; }
+      .context-mock { flex-direction: column; aspect-ratio: auto; height: 340px; }
+      .ctx-ext { width: 100%; height: 160px; }
+      .features-wrap { padding: 0 24px 100px; }
+      .feature-grid { grid-template-columns: 1fr; }
+      .fcard { padding: 40px 28px 36px; }
+      .download-bookend { padding: 0 24px; min-height: 70vh; }
+      .dl-tiles { display: none; }
+      .dl-cta { padding: 80px 0 72px; }
+      footer { flex-direction: column; gap: 16px; text-align: center; padding: 24px; }
     }
   </style>
 </head>
 <body>
 
-  <!-- Nav -->
-  <nav>
-    <a href="/" class="nav-logo">
-      <img src="tack_logo.png" alt="tack" style="height:36px;width:auto;">
-    </a>
+
+  <!-- ══ NAV ══ -->
+  <nav id="main-nav">
+    <a href="/" class="nav-logo"><img src="tack_logo.svg" alt="tack"></a>
     <a href="#download" class="nav-cta">Add to Chrome</a>
   </nav>
 
-  <!-- Hero -->
-  <section class="hero">
-    <p class="hero-eyebrow">Chrome Extension · <span>Free</span> · Powered by Claude AI</p>
 
-    <h1>
-      Select any image.<br>
-      <em>Generate its twin.</em>
-    </h1>
+  <!-- ══ HERO ══ -->
+  <section class="hero" id="hero">
+    <div class="hero-sticky" id="heroSticky">
 
-    <p class="hero-sub">
-      Browse Pinterest, Behance, or anywhere. Select images that inspire you. Get AI-generated images in their exact visual style — instantly.
-    </p>
+      <div class="hero-tiles" id="heroTiles" aria-hidden="true">
 
-    <div class="hero-actions">
-      <a href="#download" class="btn-primary">
-        <div class="chrome-icon"></div>
-        Add to Chrome — It's Free
-      </a>
-      <a href="#how" class="btn-ghost">
-        See how it works ↓
-      </a>
-    </div>
+        <!-- ══════════════════════════════════════════════
+             BACK LAYER — z:1, slower parallax, depth
+             LEFT tiles right-edge ≈ 21% (barely into copy)
+             RIGHT tiles left-edge ≈ 76% (barely into copy)
+        ════════════════════════════════════════════════ -->
 
-    <!-- Hero screenshot -->
-    <div class="hero-visual">
-      <img src="/site_mock_short.png" alt="tack — select images, generate their style">
-    </div>
+        <!-- B1 ▸ SELECTED — upper left, isolated from all other selects -->
+        <div class="ftile ftile-back ftile-selected"
+             style="width:134px;aspect-ratio:2/3;top:8%;left:9%"
+             data-vy="-0.08" data-vx="-0.03" data-rot="-4">
+          <img src="images/photo_09.jpg" alt="">
+        </div>
 
-    <div class="scroll-hint">
-      <div class="scroll-line"></div>
-      Scroll
+        <!-- B2 ▸ upper right far -->
+        <div class="ftile ftile-back"
+             style="width:108px;aspect-ratio:2/3;top:4%;left:78%"
+             data-vy="-0.07" data-vx="0.04" data-rot="3">
+          <img src="images/photo_05.jpg" alt="">
+        </div>
+
+        <!-- B3 ▸ far left mid — pushed out to the very edge -->
+        <div class="ftile ftile-back"
+             style="width:112px;aspect-ratio:2/3;top:46%;left:2%"
+             data-vy="-0.09" data-vx="-0.02" data-rot="6">
+          <img src="images/photo_15.jpg" alt="">
+        </div>
+
+        <!-- B4 ▸ SELECTED — right side mid, far from B1 (opposite corner) -->
+        <div class="ftile ftile-back ftile-selected"
+             style="width:120px;aspect-ratio:2/3;top:47%;left:78%"
+             data-vy="-0.10" data-vx="0.03" data-rot="-2">
+          <img src="images/photo_16.jpg" alt="">
+        </div>
+
+        <!-- B5 ▸ lower left -->
+        <div class="ftile ftile-back"
+             style="width:122px;aspect-ratio:2/3;top:74%;left:9%"
+             data-vy="-0.07" data-vx="-0.03" data-rot="-5">
+          <img src="images/photo_18.jpg" alt="">
+        </div>
+
+        <!-- B6 ▸ lower right -->
+        <div class="ftile ftile-back"
+             style="width:110px;aspect-ratio:2/3;top:72%;left:76%"
+             data-vy="-0.09" data-vx="0.04" data-rot="4">
+          <img src="images/photo_12.jpg" alt="">
+        </div>
+
+        <!-- B7 ▸ very bottom, partially under viewport — leads eye downward -->
+        <div class="ftile ftile-back"
+             style="width:136px;aspect-ratio:3/4;top:87%;left:36%"
+             data-vy="-0.06" data-vx="0.01" data-rot="-2">
+          <img src="images/photo_20.jpg" alt="">
+        </div>
+
+
+        <!-- ══════════════════════════════════════════════
+             FRONT LAYER — z:3, faster parallax, foreground
+             NOT selected — clean photo tiles in foreground
+        ════════════════════════════════════════════════ -->
+
+        <!-- F1 ▸ upper left — separate from B1 (different vertical) -->
+        <div class="ftile ftile-front"
+             style="width:96px;aspect-ratio:2/3;top:16%;left:19%"
+             data-vy="-0.19" data-vx="-0.05" data-rot="-5">
+          <img src="images/photo_01.jpg" alt="">
+        </div>
+
+        <!-- F2 ▸ far left mid -->
+        <div class="ftile ftile-front"
+             style="width:124px;aspect-ratio:2/3;top:38%;left:1%"
+             data-vy="-0.17" data-vx="-0.04" data-rot="5">
+          <img src="images/photo_21.jpg" alt="">
+        </div>
+
+        <!-- F3 ▸ upper right, just inside copy edge -->
+        <div class="ftile ftile-front"
+             style="width:106px;aspect-ratio:2/3;top:5%;left:65%"
+             data-vy="-0.21" data-vx="0.06" data-rot="5">
+          <img src="images/photo_02.jpg" alt="">
+        </div>
+
+        <!-- F4 ▸ right side far -->
+        <div class="ftile ftile-front"
+             style="width:114px;aspect-ratio:2/3;top:30%;left:82%"
+             data-vy="-0.23" data-vx="0.05" data-rot="-3">
+          <img src="images/photo_13.jpg" alt="">
+        </div>
+
+        <!-- F5 ▸ lower right area -->
+        <div class="ftile ftile-front"
+             style="width:100px;aspect-ratio:2/3;top:62%;left:64%"
+             data-vy="-0.18" data-vx="0.04" data-rot="4">
+          <img src="images/photo_03.jpg" alt="">
+        </div>
+
+        <!-- F6 ▸ lower left edge -->
+        <div class="ftile ftile-front"
+             style="width:116px;aspect-ratio:2/3;top:78%;left:22%"
+             data-vy="-0.20" data-vx="-0.03" data-rot="-4">
+          <img src="images/photo_06.jpg" alt="">
+        </div>
+
+        <!-- F7 ▸ bottom right, bleeds off-screen — draws eye to next section -->
+        <div class="ftile ftile-front"
+             style="width:104px;aspect-ratio:2/3;top:89%;left:58%"
+             data-vy="-0.16" data-vx="0.03" data-rot="3">
+          <img src="images/photo_23.jpg" alt="">
+        </div>
+
+      </div><!-- /hero-tiles -->
+
+
+      <div class="hero-content">
+        <img src="tack_square.svg" class="hero-app-icon" alt="tack Chrome extension">
+        <p class="eyebrow">Chrome Extension &nbsp;·&nbsp; <span>Free</span> &nbsp;·&nbsp; Powered by Claude AI</p>
+        <h1>The whole internet<br>is your <em>moodboard.</em></h1>
+        <p class="hero-sub">Select images from any website. Generate AI images that match their exact visual style — in seconds.</p>
+        <div class="hero-actions">
+          <a href="#download" class="btn-primary">Add to Chrome — It's Free</a>
+          <a href="#how" class="btn-ghost">See how it works ↓</a>
+        </div>
+      </div>
+
+    </div><!-- /hero-sticky -->
+  </section>
+
+
+  <!-- ══ EDITORIAL ══ -->
+  <section id="how">
+    <div class="editorial-wrap">
+      <p class="section-label reveal">How it works</p>
+
+      <!-- Step 01 -->
+      <div class="ed-step">
+        <div class="reveal reveal-left">
+          <span class="ed-ghost">01</span>
+          <h2 class="ed-title">Browse any site.<br><em>Select what moves you.</em></h2>
+          <p class="ed-body">Open tack from your Chrome toolbar on any page — Pinterest, Behance, Instagram, anywhere. Click the images that catch your eye directly on the page. tack highlights each selection as you build your reference set.</p>
+        </div>
+        <div class="ed-visual reveal reveal-right">
+          <div class="context-mock">
+            <div class="ctx-browser">
+              <div class="ctx-bar">
+                <span class="ctx-dot" style="background:#ff5f57"></span>
+                <span class="ctx-dot" style="background:#febc2e"></span>
+                <span class="ctx-dot" style="background:#28c840"></span>
+                <div class="ctx-url"><span class="ctx-url-p">P</span> pinterest.com</div>
+              </div>
+              <div class="ctx-pins">
+                <div class="ctx-pin"><img src="images/photo_08.jpg" loading="lazy" alt=""></div>
+                <div class="ctx-pin"><img src="images/photo_14.jpg" loading="lazy" alt=""></div>
+                <div class="ctx-pin"><img src="images/photo_10.jpg" loading="lazy" alt=""></div>
+                <div class="ctx-pin"><img src="images/photo_11.jpg" loading="lazy" alt=""></div>
+                <div class="ctx-pin"><img src="images/photo_04.jpg" loading="lazy" alt=""></div>
+                <div class="ctx-pin"><img src="images/photo_17.jpg" loading="lazy" alt=""></div>
+              </div>
+            </div>
+            <div class="ctx-ext">
+              <div class="ce-header">
+                <img src="tack_logo.svg" class="ce-logo" alt="tack">
+                <span class="ce-badge">Unlimited</span>
+              </div>
+              <p class="ce-tagline">Select images. Generate their style.</p>
+              <div class="ce-grid">
+                <div class="ce-cell"><img src="images/photo_08.jpg" alt="" loading="lazy"></div>
+                <div class="ce-cell on"><img src="images/photo_14.jpg" alt="" loading="lazy"></div>
+                <div class="ce-cell on"><img src="images/photo_10.jpg" alt="" loading="lazy"></div>
+                <div class="ce-cell"><img src="images/photo_11.jpg" alt="" loading="lazy"></div>
+                <div class="ce-cell on"><img src="images/photo_04.jpg" alt="" loading="lazy"></div>
+                <div class="ce-cell"><img src="images/photo_17.jpg" alt="" loading="lazy"></div>
+                <div class="ce-cell"><img src="images/photo_09.jpg" alt="" loading="lazy"></div>
+                <div class="ce-cell on"><img src="images/photo_21.jpg" alt="" loading="lazy"></div>
+                <div class="ce-cell"><img src="images/photo_01.jpg" alt="" loading="lazy"></div>
+                <div class="ce-cell"><img src="images/photo_15.jpg" alt="" loading="lazy"></div>
+                <div class="ce-cell on"><img src="images/photo_06.jpg" alt="" loading="lazy"></div>
+                <div class="ce-cell"><img src="images/photo_22.jpg" alt="" loading="lazy"></div>
+              </div>
+              <p class="ce-label">What do you want to <em>create?</em></p>
+              <div class="ce-input">a flat style illustration of a cowboy hat with warm gradient and grain</div>
+              <div class="ce-btn">Generate Images</div>
+              <p class="ce-footer"><span>✦</span> Unlimited plan · no monthly limit</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 02 -->
+      <div class="ed-step flip">
+        <div class="reveal reveal-right">
+          <span class="ed-ghost">02</span>
+          <h2 class="ed-title">Describe your<br><em>subject.</em> We do the rest.</h2>
+          <p class="ed-body">Type what you want to create — "a perfume bottle", "a living room", "a brand logo". Just the subject. Claude AI reads the visual DNA from your references and generates images that look like they belong in the same collection.</p>
+        </div>
+        <div class="ed-visual reveal reveal-left">
+          <!-- Prompt panel mock: user mid-typing a prompt after selecting references -->
+          <div class="prompt-mock">
+
+            <div class="pm-header">
+              <img src="tack_logo.svg" class="pm-logo" alt="tack">
+              <span class="pm-sel-badge">5 selected</span>
+            </div>
+
+            <!-- Reference thumbnails: 4 selected, 4 not -->
+            <div class="pm-refgrid">
+              <div class="pm-cell sel"><img src="images/photo_09.jpg" loading="lazy" alt=""></div>
+              <div class="pm-cell sel"><img src="images/photo_01.jpg" loading="lazy" alt=""></div>
+              <div class="pm-cell sel"><img src="images/photo_14.jpg" loading="lazy" alt=""></div>
+              <div class="pm-cell sel"><img src="images/photo_10.jpg" loading="lazy" alt=""></div>
+              <div class="pm-cell">   <img src="images/photo_04.jpg" loading="lazy" alt=""></div>
+              <div class="pm-cell sel"><img src="images/photo_16.jpg" loading="lazy" alt=""></div>
+              <div class="pm-cell">   <img src="images/photo_11.jpg" loading="lazy" alt=""></div>
+              <div class="pm-cell">   <img src="images/photo_05.jpg" loading="lazy" alt=""></div>
+            </div>
+
+            <p class="pm-divider">References captured. Describe what to create.</p>
+
+            <!-- Prompt input: mid-typing, cursor blinks -->
+            <div class="pm-textarea">
+              a perfume bottle in morning light<span class="pm-cursor"></span>
+            </div>
+
+            <div class="pm-generate">Generate Images</div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 03 -->
+      <div class="ed-step">
+        <div class="reveal reveal-left">
+          <span class="ed-ghost">03</span>
+          <h2 class="ed-title"><em>Download</em> and use<br>immediately.</h2>
+          <p class="ed-body">Four generated images arrive in seconds, each styled to your exact references. Save what works. Go again with a new subject. Your moodboard just became a production tool.</p>
+        </div>
+        <div class="ed-visual reveal reveal-right">
+          <!-- Results mock: 2 generated images ready to download -->
+          <div class="results-mock">
+
+            <div class="rm-header">
+              <img src="tack_logo.svg" class="rm-logo" alt="tack">
+              <span class="rm-done">2 images generated</span>
+            </div>
+
+            <p class="rm-prompt">~ a perfume bottle in morning light</p>
+
+            <!-- 2 generated images side by side -->
+            <div class="rm-grid">
+              <div class="rm-card">
+                <div class="rm-img"><img src="images/photo_22.jpg" alt="" loading="lazy"></div>
+                <div class="rm-dl">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  Download
+                </div>
+              </div>
+              <div class="rm-card">
+                <div class="rm-img"><img src="images/photo_07.jpg" alt="" loading="lazy"></div>
+                <div class="rm-dl">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  Download
+                </div>
+              </div>
+            </div>
+
+            <div class="rm-footer">
+              <div class="rm-dl-all">Download all</div>
+              <div class="rm-again">Generate more</div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
     </div>
   </section>
 
-  <!-- Works everywhere -->
-  <div class="sites-section">
-    <p class="sites-label">Works on any website</p>
-    <div class="sites-list">
-      <span class="site-pill">Pinterest</span>
-      <div class="site-dot"></div>
-      <span class="site-pill">Behance</span>
-      <div class="site-dot"></div>
-      <span class="site-pill">Instagram</span>
-      <div class="site-dot"></div>
-      <span class="site-pill">Dribbble</span>
-      <div class="site-dot"></div>
-      <span class="site-pill">Are.na</span>
-      <div class="site-dot"></div>
-      <span class="site-pill">Any Website</span>
-    </div>
-  </div>
 
-  <!-- How it works -->
-  <section class="section" id="how">
-    <p class="section-tag">How it works</p>
-    <h2 class="section-title">Three steps from <em>inspiration</em> to image.</h2>
+  <!-- ══ FEATURES ══ -->
+  <section>
+    <div class="features-wrap">
+      <div class="features-header reveal">
+        <p class="features-tag">Built for</p>
+        <h2 class="features-headline">Every creative who<br><em>saves</em> inspiration.</h2>
+      </div>
+      <div class="feature-grid">
 
-    <div class="steps">
-      <div class="step">
-        <div class="step-num">01</div>
-        <div class="step-icon">🖱</div>
-        <h3>Select your references</h3>
-        <p>Browse any site with images. Click the tack icon and tap the images that define the style you're going for.</p>
-      </div>
-      <div class="step">
-        <div class="step-num">02</div>
-        <div class="step-icon">✦</div>
-        <h3>Describe your subject</h3>
-        <p>Type what you want to create — "a perfume bottle", "a living room", "a brand logo". Just the subject, nothing else.</p>
-      </div>
-      <div class="step">
-        <div class="step-num">03</div>
-        <div class="step-icon">🎨</div>
-        <h3>Get matched images</h3>
-        <p>Claude AI reads the visual style from your references. gpt-image-1 generates images that look like they belong in the same collection.</p>
+        <!-- Card 01: Brands & Agencies — icon: paint palette (NP style, filled) -->
+        <div class="fcard reveal reveal-d1">
+          <div class="fcard-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- Palette body -->
+              <path d="M12 2C6.48 2 2 6.48 2 12c0 2.28.76 4.38 2.04 6.08.36.48.96.42 1.26-.1.5-.88 1.56-1.48 2.7-1.48 1.66 0 3 1.34 3 3 0 .48.4.9.88.82C17.46 19.82 22 16.24 22 11.5 22 6.26 17.52 2 12 2z"
+                    fill="#013FF4"/>
+              <!-- Palette dots -->
+              <circle cx="8.5"  cy="9.5"  r="1.5" fill="rgba(240,235,227,0.80)"/>
+              <circle cx="12"   cy="7"    r="1.5" fill="rgba(240,235,227,0.80)"/>
+              <circle cx="15.5" cy="9.5"  r="1.5" fill="rgba(240,235,227,0.80)"/>
+              <circle cx="16.5" cy="13"   r="1.5" fill="rgba(240,235,227,0.80)"/>
+            </svg>
+          </div>
+          <p class="fcard-tag">Brands &amp; Agencies</p>
+          <h3>Pitch in your client's aesthetic</h3>
+          <p>Select images from their existing brand or reference folder. Generate concept images that already feel on-brand before a single brief is written.</p>
+        </div>
+
+        <!-- Card 02: Product Designers — icon: stacked layers (NP style, filled) -->
+        <div class="fcard reveal reveal-d2">
+          <div class="fcard-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- Back layer (lightest) -->
+              <polygon points="12,2 2,7 12,12 22,7"
+                       fill="#013FF4" opacity="0.32"/>
+              <!-- Mid layer -->
+              <polyline points="2,12 12,17 22,12"
+                        stroke="#013FF4" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round"
+                        opacity="0.60"/>
+              <!-- Front layer (darkest, most prominent) -->
+              <polyline points="2,17 12,22 22,17"
+                        stroke="#013FF4" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <p class="fcard-tag">Product Designers</p>
+          <h3>Prototype visual directions fast</h3>
+          <p>Pull references from competitor products or design systems. Generate product concepts in that exact visual language — in seconds, not hours.</p>
+        </div>
+
+        <!-- Card 03: Content Creators — icon: camera (NP style, filled) -->
+        <div class="fcard reveal reveal-d3">
+          <div class="fcard-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- Camera body -->
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
+                    fill="#013FF4"/>
+              <!-- Lens ring outer -->
+              <circle cx="12" cy="13" r="4" fill="rgba(240,235,227,0.12)" stroke="rgba(240,235,227,0.42)" stroke-width="1.2"/>
+              <!-- Lens ring inner -->
+              <circle cx="12" cy="13" r="2" fill="rgba(240,235,227,0.22)"/>
+            </svg>
+          </div>
+          <p class="fcard-tag">Content Creators</p>
+          <h3>Match your visual identity</h3>
+          <p>Select your best-performing posts as references. Generate new content that matches your established aesthetic — consistently, endlessly.</p>
+        </div>
+
+        <!-- Card 04: Art Directors — icon: thumbtack / pushpin (NP style, filled) -->
+        <div class="fcard reveal reveal-d4">
+          <div class="fcard-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- Pin head (diamond) -->
+              <path d="M15 3H9v7l-2 2v2h5v7h2v-7h5v-2l-2-2V3z"
+                    fill="#013FF4"/>
+              <!-- Highlight on pin head -->
+              <rect x="10" y="4" width="2" height="5" rx="1" fill="rgba(240,235,227,0.35)"/>
+            </svg>
+          </div>
+          <p class="fcard-tag">Art Directors</p>
+          <h3>Turn mood boards into assets</h3>
+          <p>Stop screenshotting references and struggling to describe them in prompts. Select them directly and generate usable assets in seconds.</p>
+        </div>
+
       </div>
     </div>
   </section>
 
-  <!-- Use cases -->
-  <section class="section" style="padding-top: 0;">
-    <p class="section-tag">Built for</p>
-    <h2 class="section-title">Every creative who <em>saves</em> inspiration.</h2>
 
-    <div class="usecases">
-      <div class="usecase">
-        <p class="usecase-tag">Brands & Agencies</p>
-        <h3>Pitch in your client's aesthetic</h3>
-        <p>Select images from their existing brand or mood board. Generate concept images that already feel on-brand before a single brief is written.</p>
+  <!-- ══ DOWNLOAD — bookend tiles mirror the hero ══ -->
+  <section id="download">
+    <div class="download-bookend">
+
+      <!-- Scattered tiles, some selected — bookend to the hero -->
+      <div class="dl-tiles" aria-hidden="true">
+
+        <!-- Left zone -->
+        <div class="dl-tile"
+             style="width:120px;aspect-ratio:2/3;top:6%;left:3%;--rot:-4deg;--dur:7s;--del:0s">
+          <img src="images/photo_08.jpg" loading="lazy" alt="">
+        </div>
+        <div class="dl-tile dl-tile-sel"
+             style="width:130px;aspect-ratio:2/3;top:34%;left:5%;--rot:3deg;--dur:6s;--del:-1.5s">
+          <img src="images/photo_14.jpg" loading="lazy" alt="">
+        </div>
+        <div class="dl-tile"
+             style="width:112px;aspect-ratio:2/3;top:58%;left:2%;--rot:-6deg;--dur:8s;--del:-3s">
+          <img src="images/photo_10.jpg" loading="lazy" alt="">
+        </div>
+        <div class="dl-tile"
+             style="width:125px;aspect-ratio:2/3;top:78%;left:12%;--rot:5deg;--dur:6.5s;--del:-0.8s">
+          <img src="images/photo_11.jpg" loading="lazy" alt="">
+        </div>
+
+        <!-- Right zone -->
+        <div class="dl-tile dl-tile-sel"
+             style="width:128px;aspect-ratio:2/3;top:4%;left:78%;--rot:4deg;--dur:7.5s;--del:-2s">
+          <img src="images/photo_20.jpg" loading="lazy" alt="">
+        </div>
+        <div class="dl-tile"
+             style="width:110px;aspect-ratio:2/3;top:30%;left:81%;--rot:-3deg;--dur:6s;--del:-4s">
+          <img src="images/photo_23.jpg" loading="lazy" alt="">
+        </div>
+        <div class="dl-tile"
+             style="width:118px;aspect-ratio:2/3;top:58%;left:77%;--rot:6deg;--dur:7s;--del:-1s">
+          <img src="images/photo_04.jpg" loading="lazy" alt="">
+        </div>
+        <div class="dl-tile"
+             style="width:108px;aspect-ratio:2/3;top:80%;left:83%;--rot:-4deg;--dur:5.5s;--del:-3.5s">
+          <img src="images/photo_17.jpg" loading="lazy" alt="">
+        </div>
+
+        <!-- Edges near copy (slight overlap, just like hero) -->
+        <div class="dl-tile"
+             style="width:95px;aspect-ratio:2/3;top:12%;left:17%;--rot:-7deg;--dur:8s;--del:-2.5s">
+          <img src="images/photo_07.jpg" loading="lazy" alt="">
+        </div>
+        <div class="dl-tile"
+             style="width:100px;aspect-ratio:2/3;top:68%;left:70%;--rot:5deg;--dur:6.5s;--del:-1.2s">
+          <img src="images/photo_22.jpg" loading="lazy" alt="">
+        </div>
+
+      </div><!-- /dl-tiles -->
+
+
+      <!-- CTA content — centered over tiles -->
+      <div class="dl-cta">
+        <div class="app-tile-wrap">
+          <img src="tack_square.svg" alt="tack" class="app-tile">
+        </div>
+        <h2>Your inspiration,<br><em>finally made real.</em></h2>
+        <p class="sub">Free to install. Works on every website. No board URLs needed.</p>
+        <div class="dl-actions">
+          <a href="#" class="btn-primary" style="font-size:15px;padding:17px 38px;">
+            Add tack to Chrome
+          </a>
+          <p class="free-note">Free · Chrome Web Store · No account required to start</p>
+        </div>
       </div>
-      <div class="usecase">
-        <p class="usecase-tag">Product Designers</p>
-        <h3>Prototype visual directions fast</h3>
-        <p>Pull references from competitor products or design systems. Generate product concepts in that exact visual language instantly.</p>
-      </div>
-      <div class="usecase">
-        <p class="usecase-tag">Content Creators</p>
-        <h3>Match your visual identity</h3>
-        <p>Select your best-performing posts as references. Generate new content that matches your established aesthetic — consistently.</p>
-      </div>
-      <div class="usecase">
-        <p class="usecase-tag">Art Directors</p>
-        <h3>Turn mood boards into assets</h3>
-        <p>Stop screenshotting references and struggling to describe them. Select them directly and generate usable assets in seconds.</p>
-      </div>
+
     </div>
   </section>
 
-  <!-- CTA -->
-  <section class="cta-section" id="download">
-    <div class="cta-glow"></div>
-    <h2>Your inspiration,<br><em>finally made real.</em></h2>
-    <p>Free to install. Works on every website. No board URLs needed.</p>
-    <div class="cta-actions">
-      <a href="#" class="btn-primary" style="font-size: 16px; padding: 18px 40px;">
-        <div class="chrome-icon"></div>
-        Add tack to Chrome
-      </a>
-      <p class="free-note">Free · Chrome Web Store · No account required</p>
-    </div>
-  </section>
 
-  <!-- Footer -->
+  <!-- ══ FOOTER ══ -->
   <footer>
     <span>© 2026 tack</span>
-    <div style="display:flex;gap:24px">
-      <a href="/privacy">Privacy Policy</a>
+    <div style="display:flex;gap:28px">
+      <a href="/privacy">Privacy</a>
       <a href="mailto:hello@tack.co">Contact</a>
     </div>
   </footer>
+
+
+  <script>
+    // ── Nav scroll ──────────────────────────────────────────
+    const nav = document.getElementById('main-nav');
+    window.addEventListener('scroll', () =>
+      nav.classList.toggle('scrolled', window.scrollY > 20), { passive: true });
+
+
+    // ── Hero tile parallax ──────────────────────────────────
+    // Hero is 200vh tall with a sticky panel. Tiles parallax
+    // upward independently before content starts scrolling.
+    // Fade: tiles stay full-opacity for 1 viewport, then
+    // dissolve over the next 0.65vh so editorial enters clean.
+
+    const hero      = document.getElementById('hero');
+    const tilesCont = document.getElementById('heroTiles');
+    const tiles     = tilesCont ? Array.from(tilesCont.querySelectorAll('.ftile')) : [];
+    let heroH = 0, rafPending = false;
+
+    function updateTiles() {
+      const sy = window.scrollY;
+      const vh = window.innerHeight;
+      heroH = heroH || hero.offsetHeight;
+
+      tiles.forEach(t => {
+        const dy = sy * parseFloat(t.dataset.vy);
+        const dx = sy * parseFloat(t.dataset.vx);
+        t.style.transform = `translate(${dx}px,${dy}px) rotate(${t.dataset.rot}deg)`;
+      });
+
+      // Fade tiles: starts at 1 full viewport of scroll, ends at 1.65vh
+      const fadeProgress = Math.max(0, Math.min(1, (sy - vh) / (vh * 0.65)));
+      tilesCont.style.opacity = String(1 - fadeProgress);
+
+      rafPending = false;
+    }
+
+    window.addEventListener('scroll', () => {
+      if (!rafPending) { rafPending = true; requestAnimationFrame(updateTiles); }
+    }, { passive: true });
+    window.addEventListener('resize', () => { heroH = 0; updateTiles(); });
+    updateTiles();
+
+
+    // ── Scroll reveals ──────────────────────────────────────
+    const obs = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }
+      });
+    }, { threshold: 0.12 });
+    document.querySelectorAll('.reveal, .reveal-left, .reveal-right').forEach(el => obs.observe(el));
+
+
+    // ── Editorial visual subtle parallax ───────────────────
+    const visuals = document.querySelectorAll('.ed-visual');
+    let vt = false;
+    window.addEventListener('scroll', () => {
+      if (!vt) {
+        requestAnimationFrame(() => {
+          visuals.forEach((v, i) => {
+            const c = (v.getBoundingClientRect().top + v.offsetHeight / 2) - window.innerHeight / 2;
+            v.style.transform = `translateY(${c * 0.04 * (i % 2 === 0 ? 1 : -1)}px)`;
+          });
+          vt = false;
+        });
+        vt = true;
+      }
+    }, { passive: true });
+  </script>
 
 </body>
 </html>
