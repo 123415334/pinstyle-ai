@@ -467,7 +467,7 @@
 
     async function fetchGenerations() {
       const { ok, data } = await sbFetch(
-        '/rest/v1/generations?select=id,created_at,subject,image_urls&order=created_at.desc',
+        '/rest/v1/generations?select=id,created_at,prompt,image_urls&order=created_at.desc',
         { method: 'GET', headers: { 'Accept': 'application/json' } }
       );
       if (!ok) throw new Error('Could not load generations');
@@ -538,19 +538,19 @@
 
           const img = document.createElement('img');
           img.src     = url;
-          img.alt     = gen.subject || '';
+          img.alt     = gen.prompt || '';
           img.loading = 'lazy';
           img.decoding = 'async';
 
           const label = document.createElement('div');
           label.className = 'tile-label';
-          label.innerHTML = gen.subject
-            ? `<div class="tile-subject">${gen.subject}</div><div>${date}</div>`
+          label.innerHTML = gen.prompt
+            ? `<div class="tile-subject">${gen.prompt}</div><div>${date}</div>`
             : `<div>${date}</div>`;
 
           item.appendChild(img);
           item.appendChild(label);
-          item.addEventListener('click', () => openLightbox(url, gen.subject, date));
+          item.addEventListener('click', () => openLightbox(url, gen.prompt, date));
           grid.appendChild(item);
         });
       });

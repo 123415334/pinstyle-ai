@@ -1309,7 +1309,7 @@ async function saveToSupabase(buffers, subject) {
       'Content-Type':  'application/json',
       'Prefer':        'return=minimal',
     },
-    body: JSON.stringify({ subject: subject || '', image_urls: uploadedUrls }),
+    body: JSON.stringify({ prompt: subject || '', image_urls: uploadedUrls }),
   }).catch(() => { /* non-fatal */ });
 }
 
