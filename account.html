@@ -412,7 +412,10 @@
           <h1 class="history-heading">Your <em>generations</em></h1>
           <p class="history-meta" id="history-meta"></p>
         </div>
-        <button class="signout-btn" id="signout-btn">Sign out</button>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+          <span id="user-email" style="font-size:12px;color:var(--ink-muted);font-family:'DM Sans',sans-serif;"></span>
+          <button class="signout-btn" id="signout-btn">Sign out</button>
+        </div>
       </div>
       <div id="gallery-wrap"></div>
     </div>
@@ -483,6 +486,12 @@
     function showHistory() {
       document.getElementById('signin-screen').style.display = 'none';
       document.getElementById('history-screen').style.display = 'block';
+      // Show email from session
+      try {
+        const payload = JSON.parse(atob(_session.access_token.split('.')[1]));
+        const email = payload.email || _session.user?.email || '';
+        if (email) document.getElementById('user-email').textContent = email;
+      } catch { /* non-fatal */ }
     }
 
     function formatDate(iso) {
