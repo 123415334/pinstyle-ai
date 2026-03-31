@@ -1420,11 +1420,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ── Image Preview ─────────────────────────────────────────────────────────────
 function showPreview(url) {
-  const overlay   = document.getElementById('preview-overlay');
-  const img       = document.getElementById('preview-img');
-  const dlLink    = document.getElementById('preview-download');
+  const overlay = document.getElementById('preview-overlay');
+  const img     = document.getElementById('preview-img');
+  const dlLink  = document.getElementById('preview-download');
   if (!overlay || !img) return;
-  img.src              = url;
+  img.src = url;
   if (dlLink) dlLink.href = url;
   overlay.style.display = 'flex';
 }
+
+function hidePreview() {
+  const overlay = document.getElementById('preview-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+// Wire up preview close — X button, clicking the image, and Escape key
+document.addEventListener('DOMContentLoaded', () => {
+  const overlay      = document.getElementById('preview-overlay');
+  const previewImg   = document.getElementById('preview-img');
+  const previewClose = document.getElementById('preview-close');
+
+  if (previewClose) previewClose.addEventListener('click', hidePreview);
+  if (previewImg)   previewImg.addEventListener('click', hidePreview);
+  if (overlay) {
+    overlay.addEventListener('click', e => {
+      // Close if clicking the backdrop (not the image or buttons)
+      if (e.target === overlay) hidePreview();
+    });
+  }
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') hidePreview();
+});
