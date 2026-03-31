@@ -1284,7 +1284,7 @@ async function saveToSupabase(buffers, subject) {
   for (let i = 0; i < buffers.length; i++) {
     try {
       const path = `${userId}/${timestamp}_${i}.webp`;
-      const resp = await fetch(`${SUPABASE_URL}/storage/v1/object/tack-images/${path}`, {
+      const resp = await fetch(`${SUPABASE_URL}/storage/v1/object/generated-images/${path}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${_authToken}`,
@@ -1294,7 +1294,7 @@ async function saveToSupabase(buffers, subject) {
         body: buffers[i],
       });
       if (resp.ok) {
-        uploadedUrls.push(`${SUPABASE_URL}/storage/v1/object/public/tack-images/${path}`);
+        uploadedUrls.push(`${SUPABASE_URL}/storage/v1/object/public/generated-images/${path}`);
       }
     } catch { /* non-fatal */ }
   }
