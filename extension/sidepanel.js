@@ -1130,7 +1130,7 @@ async function generate() {
       }
 
       if (data.images && data.images.length > 0) {
-        saveToHistory(data.images).catch(e => console.warn('[tack] history save failed:', e));
+        saveToHistory(data.images, subject).catch(e => console.warn('[tack] history save failed:', e));
       }
     }
 
@@ -1266,6 +1266,53 @@ function escAttr(str) {
   return str.replace(/"/g, '&quot;');
 }
 
+// ── Supabase cloud history sync ───────────────────────────────────────────────
+function getUserIdFromToken(token) {
+  try {
+    return JSON.parse(atob(token.split('.')[1])).sub || null;
+  } catch { return null; }
+}
+
+async function saveToSupabase(buffers, subject) {
+  if (!_authToken) return;
+  const userId = getUserIdFromToken(_authToken);
+  if (!userId) return;
+
+  const timestamp = Date.now();
+  const uploadedUrls = [];
+
+  for (let i = 0; i < buffers.length; i++) {
+    try {
+      const path = `${userId}/${timestamp}_${i}.webp`;
+      const resp = await fetch(`${SUPABASE_URL}/storage/v1/object/tack-images/${path}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${_authToken}`,
+          'Content-Type':  'image/webp',
+          'x-upsert':      'false',
+        },
+        body: buffers[i],
+      });
+      if (resp.ok) {
+        uploadedUrls.push(`${SUPABASE_URL}/storage/v1/object/public/tack-images/${path}`);
+      }
+    } catch { /* non-fatal */ }
+  }
+
+  if (uploadedUrls.length === 0) return;
+
+  await fetch(`${SUPABASE_URL}/rest/v1/generations`, {
+    method: 'POST',
+    headers: {
+      'apikey':        SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${_authToken}`,
+      'Content-Type':  'application/json',
+      'Prefer':        'return=minimal',
+    },
+    body: JSON.stringify({ subject: subject || '', image_urls: uploadedUrls }),
+  }).catch(() => { /* non-fatal */ });
+}
+
 // ── History Archive (IndexedDB) ───────────────────────────────────────────────
 const DB_NAME     = 'tack_db';
 const DB_VERSION  = 1;
@@ -1286,7 +1333,7 @@ function openDB() {
   });
 }
 
-async function saveToHistory(imageUrls) {
+async function saveToHistory(imageUrls, subject = '') {
   if (!_authEmail) return; // never save for guests
   const buffers = await Promise.all(imageUrls.map(async url => {
     try {
@@ -1299,6 +1346,7 @@ async function saveToHistory(imageUrls) {
   const validBuffers = buffers.filter(Boolean);
   if (validBuffers.length === 0) return;
 
+  // Save to IndexedDB for offline/extension history
   const db = await openDB();
 
   await new Promise((resolve, reject) => {
@@ -1306,8 +1354,11 @@ async function saveToHistory(imageUrls) {
     tx.oncomplete = resolve;
     tx.onerror    = () => reject(tx.error);
     // Tag each entry with the user's email so history is user-specific
-    tx.objectStore(STORE_NAME).add({ timestamp: Date.now(), email: _authEmail, buffers: validBuffers });
+    tx.objectStore(STORE_NAME).add({ timestamp: Date.now(), email: _authEmail, subject, buffers: validBuffers });
   });
+
+  // Also sync to Supabase for web dashboard access
+  saveToSupabase(validBuffers, subject).catch(() => { /* non-fatal */ });
 
   // Prune oldest entries for THIS user only — never touch other users' history
   await new Promise((resolve, reject) => {

@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Generations — tack</title>
+  <meta name="description" content="Your tack generation history.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --ink:          #f0ebe3;
+      --ink-muted:    #8a8070;
+      --accent:       #013FF4;
+      --accent-light: #8FBEF7;
+      --accent-soft:  rgba(1,63,244,0.10);
+      --error:        #e03d2f;
+      --bg:           #0d0b09;
+      --bg2:          #111009;
+      --bg-card:      #161410;
+      --border:       rgba(240,235,227,0.07);
+      --border-hi:    rgba(240,235,227,0.14);
+      --radius-card:  16px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 300;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 999; opacity: 0.38;
+    }
+
+    /* ══ NAV ══ */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+      height: 68px; padding: 0 52px;
+      display: flex; justify-content: space-between; align-items: center;
+      background: rgba(13,11,9,0.88);
+      backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo img { height: 28px; width: auto; display: block; }
+    .nav-right { display: flex; align-items: center; gap: 20px; }
+    .nav-link {
+      color: var(--ink-muted); font-size: 13px; text-decoration: none;
+      font-weight: 400; transition: color 0.2s;
+    }
+    .nav-link:hover { color: var(--ink); }
+    .nav-cta {
+      background: var(--accent); color: #fff; border: none;
+      padding: 11px 22px; border-radius: 100px;
+      font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500;
+      cursor: pointer; text-decoration: none;
+      transition: opacity 0.2s, transform 0.15s;
+      box-shadow: 0 4px 24px rgba(1,63,244,0.3);
+    }
+    .nav-cta:hover { opacity: 0.88; transform: translateY(-1px); }
+
+    /* ══ PAGE LAYOUT ══ */
+    .page-wrap {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 110px 40px 80px;
+    }
+
+    /* ══ SIGN-IN SCREEN ══ */
+    #signin-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: calc(100vh - 68px);
+      padding: 40px 20px;
+    }
+    .signin-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 48px 44px;
+      width: 100%;
+      max-width: 420px;
+    }
+    .signin-logo {
+      width: 52px; height: 52px;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(1,63,244,0.4);
+      margin: 0 auto 28px;
+      display: block;
+    }
+    .signin-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 36px;
+      font-weight: 300;
+      line-height: 1.1;
+      letter-spacing: -0.025em;
+      text-align: center;
+      margin-bottom: 6px;
+    }
+    .signin-title em { font-style: italic; color: var(--accent-light); }
+    .signin-sub {
+      font-size: 13px;
+      color: var(--ink-muted);
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .form-field { margin-bottom: 14px; }
+    .form-field label {
+      display: block;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ink-muted);
+      margin-bottom: 7px;
+    }
+    .form-field input {
+      width: 100%;
+      background: rgba(240,235,227,0.05);
+      border: 1px solid var(--border-hi);
+      border-radius: 10px;
+      padding: 12px 14px;
+      color: var(--ink);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 300;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-field input:focus { border-color: var(--accent-light); }
+    .form-field input::placeholder { color: var(--ink-muted); }
+    .signin-btn {
+      width: 100%;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 14px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: opacity 0.2s;
+      box-shadow: 0 4px 24px rgba(1,63,244,0.3);
+    }
+    .signin-btn:hover { opacity: 0.88; }
+    .signin-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .signin-error {
+      color: var(--error);
+      font-size: 12px;
+      margin-top: 10px;
+      text-align: center;
+      min-height: 18px;
+    }
+    .signin-footer {
+      font-size: 12px;
+      color: var(--ink-muted);
+      text-align: center;
+      margin-top: 20px;
+    }
+    .signin-footer a { color: var(--accent-light); text-decoration: none; }
+
+    /* ══ HISTORY SCREEN ══ */
+    #history-screen { display: none; }
+
+    .history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 48px;
+    }
+    .history-heading {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(40px, 6vw, 64px);
+      font-weight: 300;
+      line-height: 0.95;
+      letter-spacing: -0.03em;
+    }
+    .history-heading em { font-style: italic; color: var(--accent-light); }
+    .history-meta {
+      font-size: 13px;
+      color: var(--ink-muted);
+      margin-top: 10px;
+    }
+    .signout-btn {
+      background: transparent;
+      border: 1px solid var(--border-hi);
+      color: var(--ink-muted);
+      border-radius: 100px;
+      padding: 9px 18px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+      white-space: nowrap;
+    }
+    .signout-btn:hover { border-color: var(--ink-muted); color: var(--ink); }
+
+    /* ══ MASONRY GRID ══ */
+    .masonry {
+      columns: 4;
+      column-gap: 12px;
+    }
+    @media (max-width: 1100px) { .masonry { columns: 3; } }
+    @media (max-width: 720px)  { .masonry { columns: 2; } }
+    @media (max-width: 460px)  { .masonry { columns: 1; } }
+
+    .masonry-item {
+      break-inside: avoid;
+      margin-bottom: 12px;
+      border-radius: var(--radius-card);
+      overflow: hidden;
+      background: var(--bg-card);
+      cursor: pointer;
+      position: relative;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .masonry-item:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(0,0,0,0.6); }
+    .masonry-item img {
+      width: 100%;
+      display: block;
+      object-fit: cover;
+    }
+    .masonry-item .tile-label {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      padding: 28px 14px 12px;
+      background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%);
+      font-size: 11px;
+      color: rgba(255,255,255,0.6);
+      font-family: 'DM Sans', sans-serif;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .masonry-item:hover .tile-label { opacity: 1; }
+    .tile-subject {
+      font-size: 12px;
+      color: rgba(255,255,255,0.85);
+      font-weight: 400;
+      margin-bottom: 2px;
+    }
+
+    /* ══ EMPTY STATE ══ */
+    .empty-state {
+      text-align: center;
+      padding: 100px 20px;
+    }
+    .empty-state-icon {
+      font-size: 48px;
+      margin-bottom: 20px;
+      opacity: 0.3;
+    }
+    .empty-state h2 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 32px;
+      font-weight: 300;
+      margin-bottom: 12px;
+    }
+    .empty-state p {
+      font-size: 14px;
+      color: var(--ink-muted);
+      line-height: 1.7;
+      max-width: 340px;
+      margin: 0 auto 28px;
+    }
+    .empty-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--accent);
+      color: #fff;
+      text-decoration: none;
+      padding: 13px 26px;
+      border-radius: 100px;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: 'DM Sans', sans-serif;
+      box-shadow: 0 6px 28px rgba(1,63,244,0.35);
+      transition: opacity 0.2s, transform 0.15s;
+    }
+    .empty-cta:hover { opacity: 0.9; transform: translateY(-1px); }
+
+    /* ══ LOADING ══ */
+    .loading-state {
+      text-align: center;
+      padding: 80px 20px;
+      color: var(--ink-muted);
+      font-size: 14px;
+    }
+    .spinner {
+      width: 28px; height: 28px;
+      border: 2px solid var(--border-hi);
+      border-top-color: var(--accent-light);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ══ LIGHTBOX ══ */
+    #lightbox {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.94);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+    }
+    #lightbox.open { display: flex; }
+    #lightbox-img {
+      max-width: min(90vw, 860px);
+      max-height: 80vh;
+      border-radius: 14px;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.8);
+      object-fit: contain;
+      cursor: zoom-out;
+    }
+    .lightbox-meta {
+      font-size: 12px;
+      color: rgba(255,255,255,0.4);
+      font-family: 'DM Sans', sans-serif;
+    }
+    #lightbox-close {
+      position: absolute;
+      top: 20px; right: 24px;
+      color: rgba(255,255,255,0.4);
+      font-size: 26px;
+      cursor: pointer;
+      padding: 8px;
+      line-height: 1;
+      transition: color 0.15s;
+    }
+    #lightbox-close:hover { color: rgba(255,255,255,0.85); }
+    #lightbox-download {
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+      text-decoration: none;
+      padding: 9px 20px;
+      border-radius: 100px;
+      font-size: 12px;
+      font-weight: 500;
+      font-family: 'DM Sans', sans-serif;
+      border: 1px solid rgba(255,255,255,0.15);
+      transition: background 0.15s;
+    }
+    #lightbox-download:hover { background: rgba(255,255,255,0.18); }
+
+    @media (max-width: 600px) {
+      nav { padding: 0 20px; }
+      .page-wrap { padding: 90px 16px 60px; }
+      .signin-card { padding: 32px 24px; }
+      .history-header { flex-direction: column; align-items: flex-start; gap: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a href="/" class="nav-logo"><img src="tack_logo.svg" alt="tack"></a>
+    <div class="nav-right">
+      <a href="/" class="nav-link">Home</a>
+      <a href="/#download" class="nav-cta">Add to Chrome</a>
+    </div>
+  </nav>
+
+  <!-- Sign-in screen -->
+  <div id="signin-screen">
+    <div class="signin-card">
+      <img src="tack_logo.svg" alt="tack" class="signin-logo">
+      <h1 class="signin-title">Your <em>generations</em></h1>
+      <p class="signin-sub">Sign in to view your full image history</p>
+
+      <div class="form-field">
+        <label for="email">Email</label>
+        <input type="email" id="email" placeholder="you@example.com" autocomplete="email">
+      </div>
+      <div class="form-field">
+        <label for="password">Password</label>
+        <input type="password" id="password" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <button class="signin-btn" id="signin-btn">Sign in</button>
+      <p class="signin-error" id="signin-error"></p>
+      <p class="signin-footer">Don't have an account? <a href="/#download">Get the extension →</a></p>
+    </div>
+  </div>
+
+  <!-- History screen -->
+  <div id="history-screen">
+    <div class="page-wrap">
+      <div class="history-header">
+        <div>
+          <h1 class="history-heading">Your <em>generations</em></h1>
+          <p class="history-meta" id="history-meta"></p>
+        </div>
+        <button class="signout-btn" id="signout-btn">Sign out</button>
+      </div>
+      <div id="gallery-wrap"></div>
+    </div>
+  </div>
+
+  <!-- Lightbox -->
+  <div id="lightbox">
+    <div id="lightbox-close">✕</div>
+    <img id="lightbox-img" src="" alt="">
+    <div style="display:flex;align-items:center;gap:14px;">
+      <a id="lightbox-download" href="" download="tack-generation.webp">↓ Save image</a>
+      <span class="lightbox-meta" id="lightbox-meta"></span>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL      = 'https://sbdowcielgtcfholfyry.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiZG93Y2llbGd0Y2Zob2xmeXJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2NjkwNzMsImV4cCI6MjA5MDI0NTA3M30.3dUuwXB8kcAbKvEWWMpvyrXhcdLx1x8x4wKxp3UY4Kk';
+
+    let _session = null;
+
+    // ── Supabase helpers ──────────────────────────────────────────────────────
+    async function sbFetch(path, opts = {}) {
+      const headers = {
+        'apikey': SUPABASE_ANON_KEY,
+        'Content-Type': 'application/json',
+        ...(opts.headers || {}),
+      };
+      if (_session) headers['Authorization'] = `Bearer ${_session.access_token}`;
+      const resp = await fetch(`${SUPABASE_URL}${path}`, { ...opts, headers });
+      const body = await resp.json().catch(() => ({}));
+      return { ok: resp.ok, status: resp.status, data: body };
+    }
+
+    async function signIn(email, password) {
+      const resp = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+        method: 'POST',
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error_description || data.msg || 'Sign-in failed');
+      return data;
+    }
+
+    async function signOut() {
+      await sbFetch('/auth/v1/logout', { method: 'POST' }).catch(() => {});
+      _session = null;
+      localStorage.removeItem('tack_session');
+      showSignIn();
+    }
+
+    async function fetchGenerations() {
+      const { ok, data } = await sbFetch(
+        '/rest/v1/generations?select=id,created_at,subject,image_urls&order=created_at.desc',
+        { method: 'GET', headers: { 'Accept': 'application/json' } }
+      );
+      if (!ok) throw new Error('Could not load generations');
+      return Array.isArray(data) ? data : [];
+    }
+
+    // ── UI ────────────────────────────────────────────────────────────────────
+    function showSignIn() {
+      document.getElementById('signin-screen').style.display = 'flex';
+      document.getElementById('history-screen').style.display = 'none';
+    }
+
+    function showHistory() {
+      document.getElementById('signin-screen').style.display = 'none';
+      document.getElementById('history-screen').style.display = 'block';
+    }
+
+    function formatDate(iso) {
+      const d = new Date(iso);
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    function openLightbox(url, subject, dateStr) {
+      const lb   = document.getElementById('lightbox');
+      const img  = document.getElementById('lightbox-img');
+      const dl   = document.getElementById('lightbox-download');
+      const meta = document.getElementById('lightbox-meta');
+      img.src    = url;
+      dl.href    = url;
+      meta.textContent = [subject, dateStr].filter(Boolean).join(' · ');
+      lb.classList.add('open');
+    }
+
+    function closeLightbox() {
+      document.getElementById('lightbox').classList.remove('open');
+      document.getElementById('lightbox-img').src = '';
+    }
+
+    function renderGallery(generations) {
+      const wrap = document.getElementById('gallery-wrap');
+      const meta = document.getElementById('history-meta');
+
+      const total = generations.reduce((n, g) => n + (g.image_urls || []).length, 0);
+      meta.textContent = `${total} image${total !== 1 ? 's' : ''} across ${generations.length} generation${generations.length !== 1 ? 's' : ''}`;
+
+      if (generations.length === 0) {
+        wrap.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">✦</div>
+            <h2>No generations yet</h2>
+            <p>Your AI-generated images will appear here after you generate them in the extension.</p>
+            <a href="/#download" class="empty-cta">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Add tack to Chrome
+            </a>
+          </div>`;
+        return;
+      }
+
+      const grid = document.createElement('div');
+      grid.className = 'masonry';
+
+      generations.forEach(gen => {
+        const date = formatDate(gen.created_at);
+        (gen.image_urls || []).forEach(url => {
+          const item = document.createElement('div');
+          item.className = 'masonry-item';
+
+          const img = document.createElement('img');
+          img.src     = url;
+          img.alt     = gen.subject || '';
+          img.loading = 'lazy';
+          img.decoding = 'async';
+
+          const label = document.createElement('div');
+          label.className = 'tile-label';
+          label.innerHTML = gen.subject
+            ? `<div class="tile-subject">${gen.subject}</div><div>${date}</div>`
+            : `<div>${date}</div>`;
+
+          item.appendChild(img);
+          item.appendChild(label);
+          item.addEventListener('click', () => openLightbox(url, gen.subject, date));
+          grid.appendChild(item);
+        });
+      });
+
+      wrap.innerHTML = '';
+      wrap.appendChild(grid);
+    }
+
+    async function loadHistory() {
+      const wrap = document.getElementById('gallery-wrap');
+      wrap.innerHTML = `<div class="loading-state"><div class="spinner"></div>Loading your generations…</div>`;
+      try {
+        const generations = await fetchGenerations();
+        renderGallery(generations);
+      } catch (e) {
+        wrap.innerHTML = `<div class="loading-state" style="color:var(--error)">Could not load history. Try refreshing.</div>`;
+      }
+    }
+
+    // ── Lightbox wiring ───────────────────────────────────────────────────────
+    document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
+    document.getElementById('lightbox-img').addEventListener('click', closeLightbox);
+    document.getElementById('lightbox').addEventListener('click', e => {
+      if (e.target === document.getElementById('lightbox')) closeLightbox();
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeLightbox();
+    });
+
+    // ── Sign-in form ──────────────────────────────────────────────────────────
+    document.getElementById('signin-btn').addEventListener('click', async () => {
+      const email    = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const errorEl  = document.getElementById('signin-error');
+      const btn      = document.getElementById('signin-btn');
+
+      if (!email || !password) {
+        errorEl.textContent = 'Please enter your email and password.';
+        return;
+      }
+
+      btn.disabled    = true;
+      btn.textContent = 'Signing in…';
+      errorEl.textContent = '';
+
+      try {
+        const session = await signIn(email, password);
+        _session = session;
+        localStorage.setItem('tack_session', JSON.stringify(session));
+        showHistory();
+        loadHistory();
+      } catch (err) {
+        errorEl.textContent = err.message;
+      } finally {
+        btn.disabled    = false;
+        btn.textContent = 'Sign in';
+      }
+    });
+
+    document.getElementById('email').addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('password').focus();
+    });
+    document.getElementById('password').addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('signin-btn').click();
+    });
+
+    document.getElementById('signout-btn').addEventListener('click', signOut);
+
+    // ── Boot ──────────────────────────────────────────────────────────────────
+    (async function init() {
+      // Try to restore session from localStorage
+      try {
+        const stored = localStorage.getItem('tack_session');
+        if (stored) {
+          const session = JSON.parse(stored);
+          // Check if token is still valid (not expired)
+          const payload = JSON.parse(atob(session.access_token.split('.')[1]));
+          if (payload.exp * 1000 > Date.now()) {
+            _session = session;
+            showHistory();
+            loadHistory();
+            return;
+          }
+        }
+      } catch { /* fall through to sign-in */ }
+      showSignIn();
+    })();
+  </script>
+</body>
+</html>
