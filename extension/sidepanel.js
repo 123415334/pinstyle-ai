@@ -7,6 +7,12 @@ const SUPABASE_URL      = 'https://sbdowcielgtcfholfyry.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiZG93Y2llbGd0Y2Zob2xmeXJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2NjkwNzMsImV4cCI6MjA5MDI0NTA3M30.3dUuwXB8kcAbKvEWWMpvyrXhcdLx1x8x4wKxp3UY4Kk';
 const FREE_TRIAL_LIMIT  = 3;
 const PRO_MONTHLY_LIMIT = 120;
+const SCAN_CACHE_KEY    = 'ps_scan_cache';
+const WORKSPACE_KEY     = 'ps_workspace_store';
+const EVENT_LOG_KEY     = 'ps_event_log';
+const ONBOARDING_KEY    = 'ps_onboarding_dismissed';
+const SCAN_CACHE_TTL_MS = 5 * 60 * 1000;
+const WORKSPACE_TTL_MS  = 24 * 60 * 60 * 1000;
 
 const selectedUrls = new Set();
 
@@ -32,12 +38,25 @@ const authBackdrop = document.getElementById('auth-modal-backdrop');
 const verifyScreen = document.getElementById('verify-screen');
 const planScreen   = document.getElementById('plan-screen');
 const upgradeMoment = document.getElementById('upgrade-moment');
+const onboardingCard = document.getElementById('onboarding-card');
+const styleMemoryBanner = document.getElementById('style-memory-banner');
+
+let _currentPageUrl        = '';
+let _pendingWorkspace      = null;
+let _savedStyleMemory      = null;
+let _lastResultData        = null;
+let _generationProgressTimer = null;
+let _telemetryFlushTimer   = null;
+let _telemetryQueue        = [];
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-  refreshBtn.addEventListener('click', loadImages);
+  refreshBtn.addEventListener('click', () => loadImages({ forceRefresh: true }));
   generateBtn.addEventListener('click', generate);
-  subjectInput.addEventListener('input', updateGenerateBtn);
+  subjectInput.addEventListener('input', () => {
+    updateGenerateBtn();
+    saveWorkspaceState().catch(() => {});
+  });
 
   // Header sign-in button (shown in guest mode)
   document.getElementById('header-signin-btn').addEventListener('click', () => {
@@ -154,6 +173,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Upgrade moment dismiss
   document.getElementById('upgrade-dismiss').addEventListener('click', hideUpgradeMoment);
 
+  if (onboardingCard) {
+    onboardingCard.addEventListener('click', async e => {
+      if (e.target.closest('[data-onboarding-dismiss]')) {
+        onboardingCard.classList.add('hidden');
+        await chrome.storage.local.set({ [ONBOARDING_KEY]: true });
+      }
+    });
+  }
+
+  if (styleMemoryBanner) {
+    styleMemoryBanner.addEventListener('click', e => {
+      if (e.target.closest('[data-clear-style-memory]')) clearSavedStyleMemory();
+    });
+  }
+
   // Boot
   await initAuth();
 });
@@ -248,6 +282,8 @@ function injectAnonCTA() {
 let _verifyEmail    = null;
 let _verifyPassword = null;
 let _verifyTimer    = null;
+let _verifyResendTimer = null;
+let _verifyTimeoutId   = null;
 
 function showVerifyScreen(email, password) {
   hideAuthModal();
@@ -265,13 +301,14 @@ function startVerifyPolling() {
   // Show "Resend" button after 30 seconds
   const resendBtn = document.getElementById('verify-resend-btn');
   if (resendBtn) {
-    setTimeout(() => {
+    resendBtn.classList.add('hidden');
+    _verifyResendTimer = setTimeout(() => {
       if (_verifyEmail) resendBtn.classList.remove('hidden');
     }, 30000);
   }
 
   // After 3 minutes with no confirmation, show a timeout message
-  const timeoutId = setTimeout(() => {
+  _verifyTimeoutId = setTimeout(() => {
     if (_verifyEmail) {
       document.getElementById('verify-status-text').textContent = 'Link expired or not received.';
       if (resendBtn) resendBtn.classList.remove('hidden');
@@ -280,11 +317,10 @@ function startVerifyPolling() {
 
   // Poll every 4 seconds — try signing in; succeeds once email is confirmed
   _verifyTimer = setInterval(async () => {
-    if (!_verifyEmail || !_verifyPassword) { clearTimeout(timeoutId); return; }
+    if (!_verifyEmail || !_verifyPassword) return;
     try {
       const data = await supabaseLogin(_verifyEmail, _verifyPassword);
       if (data?.access_token) {
-        clearTimeout(timeoutId);
         stopVerifyPolling();
         document.getElementById('verify-status-text').textContent = 'Confirmed! Signing you in…';
 
@@ -308,6 +344,7 @@ function startVerifyPolling() {
         });
 
         await fetchPlan();
+        await saveWorkspaceState();
         verifyScreen.classList.add('hidden');
         // New signup → plan selection
         showPlanScreen();
@@ -321,6 +358,14 @@ function stopVerifyPolling() {
     clearInterval(_verifyTimer);
     _verifyTimer = null;
   }
+  if (_verifyResendTimer) {
+    clearTimeout(_verifyResendTimer);
+    _verifyResendTimer = null;
+  }
+  if (_verifyTimeoutId) {
+    clearTimeout(_verifyTimeoutId);
+    _verifyTimeoutId = null;
+  }
   // _verifyEmail / _verifyPassword are NOT cleared here — startVerifyPolling()
   // calls this before starting a new interval, so clearing them here would
   // wipe credentials before the interval ever fires.
@@ -331,6 +376,18 @@ function stopVerifyPolling() {
 
 function showPlanScreen() {
   hideAuthModal();
+  const cards = document.getElementById('plan-cards');
+  const waiting = document.getElementById('plan-waiting');
+  const doneBtn = document.getElementById('plan-done-btn');
+  if (cards) cards.classList.remove('hidden');
+  if (waiting) {
+    waiting.classList.add('hidden');
+    waiting.querySelectorAll('.plan-not-updated-msg').forEach(el => el.remove());
+  }
+  if (doneBtn) {
+    doneBtn.disabled = false;
+    doneBtn.textContent = "I've upgraded — continue →";
+  }
   planScreen.classList.remove('hidden');
 }
 
@@ -348,6 +405,9 @@ function openUpgradeFlow(plan) {
 // ── Auth init ─────────────────────────────────────────────────────────────────
 
 async function initAuth() {
+  const tab = await getActiveTab().catch(() => null);
+  _currentPageUrl = tab?.url || '';
+
   const stored = await chrome.storage.local.get(['ps_token', 'ps_refresh', 'ps_email', 'ps_used', 'ps_plan', 'ps_monthly', 'ps_reset']);
 
   if (stored.ps_token) {
@@ -359,6 +419,7 @@ async function initAuth() {
       _monthlyUsed     = stored.ps_monthly || 0;
       _monthlyResetAt  = stored.ps_reset   || null;
       _plan            = stored.ps_plan    || 'free';
+      _pendingWorkspace = await loadPendingWorkspaceState();
       await fetchPlan();
       showMainUI();
       return;
@@ -374,6 +435,7 @@ async function initAuth() {
         _monthlyUsed     = stored.ps_monthly || 0;
         _monthlyResetAt  = stored.ps_reset   || null;
         _plan            = stored.ps_plan    || 'free';
+        _pendingWorkspace = await loadPendingWorkspaceState();
         await chrome.storage.local.set({
           ps_token:   refreshed.access_token,
           ps_refresh: refreshed.refresh_token,
@@ -391,6 +453,7 @@ async function initAuth() {
   // Guest mode — show UI immediately, no auth wall
   const anonData = await chrome.storage.local.get(['ps_anon_used']);
   _anonUsed = !!anonData.ps_anon_used;
+  _pendingWorkspace = await loadPendingWorkspaceState();
   showGuestUI();
 }
 
@@ -400,6 +463,8 @@ function showGuestUI() {
   document.getElementById('header-signin-btn').classList.remove('hidden');
   // Hide counter (no account yet)
   trialBadge.classList.add('hidden');
+  restoreWorkspaceUI();
+  renderOnboardingCard();
   // Load images right away so they can explore
   loadImages();
 }
@@ -413,6 +478,8 @@ function showMainUI() {
   document.getElementById('header-email').textContent = _authEmail;
   updateHeaderPlanBadge();
   updateTrialBadge();
+  restoreWorkspaceUI();
+  onboardingCard?.classList.add('hidden');
   loadImages();
 }
 
@@ -557,6 +624,7 @@ function updateTrialBadge() {
 // ── Logout ────────────────────────────────────────────────────────────────────
 
 async function logout() {
+  const priorScope = getAccountScope();
   try {
     await fetch(`${SUPABASE_URL}/auth/v1/logout`, {
       method: 'POST',
@@ -570,7 +638,13 @@ async function logout() {
   _monthlyUsed     = 0;
   _monthlyResetAt  = null;
   _plan            = 'free';
+  _lastResultData  = null;
+  _savedStyleMemory = null;
   await chrome.storage.local.remove(['ps_token', 'ps_refresh', 'ps_email', 'ps_used', 'ps_plan', 'ps_monthly', 'ps_reset']);
+  await clearWorkspaceState(priorScope);
+  stopVerifyPolling();
+  stopGenerationProgress();
+  verifyScreen.classList.add('hidden');
 
   // ── Clean slate — don't leak current user's data to the next person ──────
   // Clear results
@@ -578,6 +652,7 @@ async function logout() {
   resultsEl.className = 'hidden';
   // Clear subject input
   subjectInput.value = '';
+  selectedUrls.clear();
   // Close & reset history panel
   const historyPanel = document.getElementById('history-panel');
   if (historyPanel) {
@@ -595,6 +670,9 @@ async function logout() {
   document.getElementById('header-account').classList.add('hidden');
   document.getElementById('header-signin-btn').classList.remove('hidden');
   trialBadge.classList.add('hidden');
+  renderStyleMemoryBanner();
+  renderOnboardingCard();
+  loadImages();
   updateGenerateBtn();
 }
 
@@ -698,6 +776,7 @@ async function handleAuthSubmit() {
     });
 
     await fetchPlan();
+    await saveWorkspaceState();
 
     // New signup → plan selection screen
     // Login → straight to main UI
@@ -791,24 +870,32 @@ async function supabaseResetPassword(email) {
 
 // ── Image scanning ────────────────────────────────────────────────────────────
 
-async function loadImages() {
+async function loadImages(options = {}) {
+  const { forceRefresh = false } = options;
   imageGrid.innerHTML = '';
   setStatus('Scanning page…');
   setHint('');
+  const memoryUrls = _savedStyleMemory?.referenceUrls || [];
   selectedUrls.clear();
+  memoryUrls.forEach(url => selectedUrls.add(url));
+  applyPendingPageSelection();
   updateGenerateBtn();
 
-  let tab;
-  try {
-    [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  } catch {
+  const tab = await getActiveTab().catch(() => null);
+  if (!tab) {
     setStatus('Could not access the current tab.');
     return;
   }
+  _currentPageUrl = tab.url || '';
 
   const isPinterest = tab.url && tab.url.includes('pinterest.com');
+  const canAutoScroll = /^https?:\/\//i.test(tab.url || '');
+  const cachedImages = !forceRefresh ? await getCachedScan(tab.url) : null;
+  if (cachedImages?.length) {
+    renderScannedImages(cachedImages, { isPinterest, fromCache: true });
+  }
 
-  if (!isPinterest) {
+  if (!isPinterest && canAutoScroll) {
     try {
       await chrome.scripting.executeScript({
         target: { tabId: tab.id },
@@ -847,6 +934,7 @@ async function loadImages() {
   }
 
   const images = results?.[0]?.result ?? [];
+  await setCachedScan(tab.url, images);
 
   if (images.length === 0) {
     imageGrid.innerHTML = isPinterest
@@ -859,23 +947,7 @@ async function loadImages() {
   const src = isPinterest ? 'Pinterest data' : 'page';
   setStatus(`${images.length} image${images.length !== 1 ? 's' : ''} from ${src} — tap to select`);
   if (isPinterest) setHint('Scroll down to load more pins, then tap ↻ Rescan');
-
-  images.forEach(img => {
-    const item  = document.createElement('div');
-    item.className = 'img-item';
-    const thumb = document.createElement('img');
-    thumb.src     = img.src;
-    thumb.loading = 'lazy';
-    thumb.alt     = img.alt || '';
-    thumb.onerror = () => { item.style.display = 'none'; };
-    const check   = document.createElement('div');
-    check.className  = 'img-check';
-    check.textContent = '✓';
-    item.appendChild(thumb);
-    item.appendChild(check);
-    item.addEventListener('click', () => toggleSelect(item, img.src));
-    imageGrid.appendChild(item);
-  });
+  renderScannedImages(images, { isPinterest, fromCache: false });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1007,6 +1079,7 @@ function toggleSelect(item, src) {
     item.classList.add('selected');
   }
   updateGenerateBtn();
+  saveWorkspaceState().catch(() => {});
 }
 
 function updateGenerateBtn() {
@@ -1029,6 +1102,7 @@ function updateGenerateBtn() {
 async function generate() {
   const subject = subjectInput.value.trim();
   if (!subject || selectedUrls.size === 0) return;
+  trackEvent('generate_started', { count: selectedUrls.size, source: _savedStyleMemory ? 'history_memory' : 'page' });
 
   // Guest → allow first generation as anonymous preview; gate the second one
   if (!_authToken) {
@@ -1057,27 +1131,20 @@ async function generate() {
 
   generateBtn.disabled    = true;
   generateBtn.textContent = 'Generating…';
-  resultsEl.className     = '';
-  resultsEl.innerHTML     = `
-    <div class="loading-msg">
-      <div class="spinner"></div><br>
-      Analyzing style and generating images…<br>
-      <small style="color:var(--ink-muted);margin-top:6px;display:block">This takes about 30–60 seconds</small>
-    </div>`;
+  renderGeneratingState();
 
   let pageUrl = '';
-  try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    pageUrl = tab.url || '';
-  } catch { /* optional */ }
+  const activeTab = await getActiveTab().catch(() => null);
+  pageUrl = activeTab?.url || _currentPageUrl || '';
+  _currentPageUrl = pageUrl;
 
   try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (_authToken) headers.Authorization = `Bearer ${_authToken}`;
+
     const resp = await fetch(API_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type':  'application/json',
-        'Authorization': `Bearer ${_authToken}`,
-      },
+      headers,
       body: JSON.stringify({ imageUrls: [...selectedUrls], subject, pageUrl }),
     });
 
@@ -1086,11 +1153,18 @@ async function generate() {
     if (resp.status === 401) {
       // Session expired
       _authToken = null;
-      await chrome.storage.local.remove(['ps_token', 'ps_email', 'ps_used']);
+      _authEmail = null;
+      _generationsUsed = 0;
+      _monthlyUsed = 0;
+      _monthlyResetAt = null;
+      _plan = 'free';
+      await chrome.storage.local.remove(['ps_token', 'ps_refresh', 'ps_email', 'ps_used', 'ps_plan', 'ps_monthly', 'ps_reset']);
       document.getElementById('header-account').classList.add('hidden');
       document.getElementById('header-signin-btn').classList.remove('hidden');
       trialBadge.classList.add('hidden');
+      resultsEl.className = 'hidden';
       switchAuthTab('login');
+      updateGenerateBtn();
       showAuthModal();
       return;
     }
@@ -1114,6 +1188,12 @@ async function generate() {
 
     if (!resp.ok) throw new Error(data.error || `API returned ${resp.status}`);
 
+    stopGenerationProgress();
+    _lastResultData = {
+      styleDescriptors: data.styleDescriptors || '',
+      prompt: data.prompt || '',
+      images: Array.isArray(data.images) ? data.images : [],
+    };
     renderResults(data);
 
     if (!_authToken) {
@@ -1130,18 +1210,29 @@ async function generate() {
       }
 
       if (data.images && data.images.length > 0) {
-        saveToHistory(data.images, subject).catch(e => console.warn('[tack] history save failed:', e));
+        saveToHistory(data.images, {
+          subject,
+          pageUrl,
+          styleDescriptors: data.styleDescriptors || '',
+          prompt: data.prompt || '',
+          referenceUrls: [...selectedUrls],
+        }).catch(e => console.warn('[tack] history save failed:', e));
       }
     }
+    await saveWorkspaceState();
+    trackEvent('generate_succeeded', { count: data.images?.length || 0 });
 
   } catch (err) {
+    stopGenerationProgress();
     const msg = err.message || '';
     const friendly = msg.includes('fetch') || msg.includes('network') || msg.includes('Failed')
       ? 'Connection error — check your internet and try again.'
       : msg || 'Something went wrong. Please try again.';
     resultsEl.innerHTML = `<p class="error-msg">⚠ ${friendly}</p>`;
     resultsEl.className = '';
+    trackEvent('generate_failed', { message: friendly });
   } finally {
+    stopGenerationProgress();
     generateBtn.textContent = 'Generate Images';
     updateGenerateBtn();
   }
@@ -1175,7 +1266,7 @@ function renderResults(data) {
         <h3>Generated Images</h3>
         <div class="gen-images">
           ${images.map((url, i) => `
-            <div class="gen-img-wrap" data-preview-url="${escAttr(url)}">
+            <div class="gen-img-wrap" data-preview-url="${escAttr(url)}" data-preview-filename="tack-${i+1}.png">
               <img src="${escAttr(url)}" alt="Generated image" loading="lazy">
               <div class="img-actions">
                 <button class="download-btn" data-url="${escAttr(url)}" data-filename="tack-${i+1}.png">
@@ -1193,12 +1284,13 @@ function renderResults(data) {
   }
 
   resultsEl.innerHTML = html;
+  saveWorkspaceState().catch(() => {});
 
   // Wire up generated image clicks via data attribute (safe, no inline JS)
   resultsEl.querySelectorAll('.gen-img-wrap').forEach(wrap => {
     wrap.addEventListener('click', e => {
       if (!e.target.closest('.img-actions')) {
-        showPreview(wrap.dataset.previewUrl);
+        showPreview(wrap.dataset.previewUrl, wrap.dataset.previewFilename);
       }
     });
   });
@@ -1222,24 +1314,45 @@ function renderResults(data) {
 // ── Download as PNG ───────────────────────────────────────────────────────────
 async function downloadAsPng(url, filename) {
   try {
-    const resp   = await fetch(url);
-    const blob   = await resp.blob();
-    const objUrl = URL.createObjectURL(blob);
-    const img    = new Image();
-    img.onload   = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width  = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      canvas.getContext('2d').drawImage(img, 0, 0);
-      canvas.toBlob(pngBlob => {
-        const a   = document.createElement('a');
-        a.href     = URL.createObjectURL(pngBlob);
-        a.download = filename;
-        a.click();
-        URL.revokeObjectURL(objUrl);
-      }, 'image/png');
-    };
-    img.src = objUrl;
+    const safeName = sanitizeFilename(filename);
+    const directDownload = () => chrome.downloads.download({
+      url,
+      filename: safeName,
+      conflictAction: 'uniquify',
+      saveAs: false,
+    });
+
+    let resp;
+    try {
+      resp = await fetch(url, { credentials: 'omit' });
+    } catch {
+      await directDownload();
+      return;
+    }
+
+    if (!resp.ok) {
+      await directDownload();
+      return;
+    }
+
+    const blob = await resp.blob();
+    if (!blob.type.startsWith('image/')) {
+      await directDownload();
+      return;
+    }
+
+    const resolvedName = normalizeImageFilename(safeName, blob.type);
+    const objectUrl = URL.createObjectURL(blob);
+    try {
+      await chrome.downloads.download({
+        url: objectUrl,
+        filename: resolvedName,
+        conflictAction: 'uniquify',
+        saveAs: false,
+      });
+    } finally {
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+    }
   } catch (err) {
     console.error('[tack] download error:', err);
   }
@@ -1264,6 +1377,29 @@ function escHtml(str) {
 }
 function escAttr(str) {
   return str.replace(/"/g, '&quot;');
+}
+
+function sanitizeFilename(name) {
+  const safe = (name || 'tack-image.png')
+    .replace(/[\\/:*?"<>|]+/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return safe || 'tack-image.png';
+}
+
+function normalizeImageFilename(filename, mimeType) {
+  const extension = mimeTypeToExtension(mimeType);
+  if (!extension) return filename;
+  return filename.replace(/\.[a-z0-9]+$/i, '') + extension;
+}
+
+function mimeTypeToExtension(mimeType) {
+  const normalized = (mimeType || '').split(';')[0].trim().toLowerCase();
+  if (normalized === 'image/jpeg') return '.jpg';
+  if (normalized === 'image/png') return '.png';
+  if (normalized === 'image/webp') return '.webp';
+  if (normalized === 'image/gif') return '.gif';
+  return '';
 }
 
 // ── Supabase cloud history sync ───────────────────────────────────────────────
@@ -1334,17 +1470,21 @@ function openDB() {
 }
 
 async function saveToHistory(imageUrls, subject = '') {
+  const meta = typeof subject === 'string' ? { subject } : (subject || {});
   if (!_authEmail) return; // never save for guests
-  const buffers = await Promise.all(imageUrls.map(async url => {
+  const assets = await Promise.all(imageUrls.map(async url => {
     try {
       const resp = await fetch(url);
       if (!resp.ok) return null;
-      return await resp.arrayBuffer();
+      return {
+        buffer: await resp.arrayBuffer(),
+        type: resp.headers.get('content-type') || 'image/png',
+      };
     } catch { return null; }
   }));
 
-  const validBuffers = buffers.filter(Boolean);
-  if (validBuffers.length === 0) return;
+  const validAssets = assets.filter(Boolean);
+  if (validAssets.length === 0) return;
 
   // Save to IndexedDB for offline/extension history
   const db = await openDB();
@@ -1354,11 +1494,21 @@ async function saveToHistory(imageUrls, subject = '') {
     tx.oncomplete = resolve;
     tx.onerror    = () => reject(tx.error);
     // Tag each entry with the user's email so history is user-specific
-    tx.objectStore(STORE_NAME).add({ timestamp: Date.now(), email: _authEmail, subject, buffers: validBuffers });
+    tx.objectStore(STORE_NAME).add({
+      timestamp: Date.now(),
+      email: _authEmail,
+      subject: meta.subject || '',
+      prompt: meta.prompt || '',
+      styleDescriptors: meta.styleDescriptors || '',
+      sourcePageUrl: meta.pageUrl || '',
+      referenceUrls: Array.isArray(meta.referenceUrls) ? meta.referenceUrls : [],
+      sourceUrls: imageUrls,
+      assets: validAssets,
+    });
   });
 
   // Also sync to Supabase for web dashboard access
-  saveToSupabase(validBuffers, subject).catch(() => { /* non-fatal */ });
+  saveToSupabase(validAssets.map(asset => asset.buffer), meta.subject || '').catch(() => { /* non-fatal */ });
 
   // Prune oldest entries for THIS user only — never touch other users' history
   await new Promise((resolve, reject) => {
@@ -1369,7 +1519,7 @@ async function saveToHistory(imageUrls, subject = '') {
     const allReq = store.getAll();
     allReq.onsuccess = () => {
       const userEntries = allReq.result
-        .filter(e => !e.email || e.email === _authEmail)
+        .filter(e => e.email === _authEmail)
         .sort((a, b) => a.timestamp - b.timestamp); // oldest first
       const excess = userEntries.length - MAX_HISTORY;
       if (excess <= 0) return;
@@ -1387,9 +1537,10 @@ async function loadHistory() {
     const req   = store.getAll();
     req.onsuccess = () => {
       const all = req.result;
-      // Filter to only this user's entries; entries without email are legacy (pre-fix)
+      // Filter strictly to this user's entries so a shared browser profile
+      // never shows generations created under a different account.
       const mine = _authEmail
-        ? all.filter(e => !e.email || e.email === _authEmail)
+        ? all.filter(e => e.email === _authEmail)
         : [];
       resolve(mine.reverse());
     };
@@ -1419,30 +1570,45 @@ async function renderHistory() {
   }
 
   listEl.innerHTML = '';
-  const grid = document.createElement('div');
-  grid.style.cssText = 'display:grid;grid-template-columns:repeat(2,1fr);gap:6px;padding:10px';
 
   history.forEach(entry => {
-    (entry.buffers || []).forEach(buf => {
-      const blob = new Blob([buf], { type: 'image/png' });
-      const url  = URL.createObjectURL(blob);
-      _historyObjectUrls.push(url);
+    const assets = Array.isArray(entry.assets)
+      ? entry.assets
+      : Array.isArray(entry.buffers)
+        ? entry.buffers.map(buf => ({ buffer: buf, type: 'image/png' }))
+        : [];
 
-      const wrap = document.createElement('div');
-      wrap.style.cssText = 'border-radius:8px;overflow:hidden;cursor:pointer;aspect-ratio:1;background:#f0ebe8';
+    if (assets.length === 0) return;
 
-      const img = document.createElement('img');
-      img.src   = url;
-      img.alt   = '';
-      img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block';
-      img.addEventListener('click', () => showPreview(url));
+    const coverBlob = new Blob([assets[0].buffer], { type: assets[0].type || 'image/png' });
+    const coverUrl  = URL.createObjectURL(coverBlob);
+    _historyObjectUrls.push(coverUrl);
 
-      wrap.appendChild(img);
-      grid.appendChild(wrap);
+    const card = document.createElement('article');
+    card.className = 'history-entry';
+    card.innerHTML = `
+      <div class="history-entry-media" data-history-preview="${escAttr(coverUrl)}">
+        <img src="${escAttr(coverUrl)}" alt="">
+        <div class="history-count">${assets.length} image${assets.length !== 1 ? 's' : ''}</div>
+      </div>
+      <div class="history-entry-body">
+        <p class="history-entry-title">${escHtml(entry.subject || 'Untitled generation')}</p>
+        <p class="history-entry-meta">${formatHistoryDate(entry.timestamp)}</p>
+        <div class="history-entry-actions">
+          <button class="history-entry-btn primary" type="button">Generate More in This Style</button>
+          <button class="history-entry-btn secondary" type="button">Preview</button>
+        </div>
+      </div>
+    `;
+
+    card.querySelector('.history-entry-media')?.addEventListener('click', () => showPreview(coverUrl));
+    card.querySelector('.history-entry-btn.secondary')?.addEventListener('click', () => showPreview(coverUrl));
+    card.querySelector('.history-entry-btn.primary')?.addEventListener('click', async () => {
+      await restoreHistoryStyle(entry);
     });
-  });
 
-  listEl.appendChild(grid);
+    listEl.appendChild(card);
+  });
 }
 
 // ── History panel wiring ──────────────────────────────────────────────────────
@@ -1470,14 +1636,284 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ── Image Preview ─────────────────────────────────────────────────────────────
-function showPreview(url) {
+function showPreview(url, filename = 'tack-image.png') {
   const overlay = document.getElementById('preview-overlay');
   const img     = document.getElementById('preview-img');
-  const dlLink  = document.getElementById('preview-download');
+  const dlButton = document.getElementById('preview-download');
   if (!overlay || !img) return;
   img.src = url;
-  if (dlLink) dlLink.href = url;
+  if (dlButton) {
+    dlButton.dataset.url = url;
+    dlButton.dataset.filename = sanitizeFilename(filename);
+  }
   overlay.style.display = 'flex';
+}
+
+function renderScannedImages(images, { isPinterest = false, fromCache = false } = {}) {
+  if (!Array.isArray(images) || images.length === 0) return;
+  imageGrid.innerHTML = '';
+  const src = isPinterest ? 'Pinterest data' : 'page';
+  setStatus(fromCache
+    ? `Showing your last scan from this ${src === 'page' ? 'page' : 'board'} while we refresh…`
+    : `${images.length} image${images.length !== 1 ? 's' : ''} from ${src} — tap to select`);
+  if (isPinterest) setHint('Scroll down to load more pins, then tap ↻ Rescan');
+
+  images.forEach(img => {
+    const item  = document.createElement('div');
+    item.className = 'img-item';
+    if (selectedUrls.has(img.src)) item.classList.add('selected');
+    const thumb = document.createElement('img');
+    thumb.src     = img.src;
+    thumb.loading = 'lazy';
+    thumb.alt     = img.alt || '';
+    thumb.onerror = () => { item.style.display = 'none'; };
+    const check   = document.createElement('div');
+    check.className  = 'img-check';
+    check.textContent = '✓';
+    item.appendChild(thumb);
+    item.appendChild(check);
+    item.addEventListener('click', () => toggleSelect(item, img.src));
+    imageGrid.appendChild(item);
+  });
+}
+
+function renderOnboardingCard() {
+  if (!onboardingCard) return;
+  if (_authToken || _anonUsed) {
+    onboardingCard.classList.add('hidden');
+    return;
+  }
+  chrome.storage.local.get([ONBOARDING_KEY]).then(data => {
+    if (data[ONBOARDING_KEY]) {
+      onboardingCard.classList.add('hidden');
+      return;
+    }
+    onboardingCard.innerHTML = `
+      <h3>Your selected images blend together automatically</h3>
+      <p>Pick any references you like. Tack combines them equally to build one shared style direction.</p>
+      <div class="onboarding-steps">
+        <div class="onboarding-step"><strong>1</strong><span>Select the images that feel right.</span></div>
+        <div class="onboarding-step"><strong>2</strong><span>Describe what you want to make.</span></div>
+        <div class="onboarding-step"><strong>3</strong><span>Generate and refine from there.</span></div>
+      </div>
+      <div class="onboarding-actions">
+        <p>Tip: if a page looks sparse, tap <strong>Rescan</strong> after scrolling.</p>
+        <button type="button" class="onboarding-dismiss" data-onboarding-dismiss>Hide</button>
+      </div>
+    `;
+    onboardingCard.classList.remove('hidden');
+  }).catch(() => {});
+}
+
+function renderStyleMemoryBanner() {
+  if (!styleMemoryBanner) return;
+  if (!_savedStyleMemory?.referenceUrls?.length) {
+    styleMemoryBanner.classList.add('hidden');
+    styleMemoryBanner.innerHTML = '';
+    return;
+  }
+
+  styleMemoryBanner.innerHTML = `
+    <div class="style-memory-copy">
+      <strong>Using a saved style from History</strong>
+      ${_savedStyleMemory.referenceUrls.length} reference image${_savedStyleMemory.referenceUrls.length !== 1 ? 's' : ''} restored.
+      ${_savedStyleMemory.subject ? `Originally: “${escHtml(_savedStyleMemory.subject)}”.` : ''}
+    </div>
+    <button type="button" class="style-memory-clear" data-clear-style-memory>Clear</button>
+  `;
+  styleMemoryBanner.classList.remove('hidden');
+}
+
+function clearSavedStyleMemory() {
+  const memoryUrls = new Set(_savedStyleMemory?.referenceUrls || []);
+  memoryUrls.forEach(url => selectedUrls.delete(url));
+  _savedStyleMemory = null;
+  renderStyleMemoryBanner();
+  updateGenerateBtn();
+  saveWorkspaceState().catch(() => {});
+}
+
+async function restoreHistoryStyle(entry) {
+  const referenceUrls = Array.isArray(entry.referenceUrls) && entry.referenceUrls.length
+    ? entry.referenceUrls
+    : Array.isArray(entry.sourceUrls)
+      ? entry.sourceUrls
+      : [];
+
+  if (referenceUrls.length === 0) return;
+
+  selectedUrls.clear();
+  referenceUrls.forEach(url => selectedUrls.add(url));
+  _savedStyleMemory = {
+    referenceUrls,
+    subject: entry.subject || '',
+    prompt: entry.prompt || '',
+    styleDescriptors: entry.styleDescriptors || '',
+  };
+  if (entry.subject && !subjectInput.value.trim()) subjectInput.value = entry.subject;
+  document.getElementById('history-panel')?.classList.add('hidden');
+  renderStyleMemoryBanner();
+  updateGenerateBtn();
+  await saveWorkspaceState();
+  trackEvent('history_style_restored', { count: referenceUrls.length });
+}
+
+function restoreWorkspaceUI() {
+  if (!_pendingWorkspace) return;
+  if (_pendingWorkspace.subject) subjectInput.value = _pendingWorkspace.subject;
+  _savedStyleMemory = _pendingWorkspace.savedStyleMemory || null;
+  renderStyleMemoryBanner();
+  if (_pendingWorkspace.resultData?.images?.length) {
+    _lastResultData = _pendingWorkspace.resultData;
+    renderResults(_pendingWorkspace.resultData);
+  }
+}
+
+function applyPendingPageSelection() {
+  if (!_pendingWorkspace?.pageUrl || _pendingWorkspace.pageUrl !== _currentPageUrl) return;
+  (_pendingWorkspace.selectedUrls || []).forEach(url => selectedUrls.add(url));
+}
+
+function extractWorkspaceState(store, pageUrl) {
+  const scoped = store?.[getAccountScope()];
+  if (!scoped) return null;
+  if (Date.now() - (scoped.savedAt || 0) > WORKSPACE_TTL_MS) return null;
+  if (scoped.pageUrl && pageUrl && scoped.pageUrl !== pageUrl && !scoped.savedStyleMemory) {
+    return { ...scoped, selectedUrls: [] };
+  }
+  return scoped;
+}
+
+async function saveWorkspaceState() {
+  const storeResp = await chrome.storage.local.get([WORKSPACE_KEY]);
+  const store = storeResp[WORKSPACE_KEY] || {};
+  const scope = getAccountScope();
+  const shouldClear = !subjectInput.value.trim()
+    && !_lastResultData?.images?.length
+    && !_savedStyleMemory?.referenceUrls?.length
+    && selectedUrls.size === 0;
+
+  if (shouldClear) {
+    delete store[scope];
+    await chrome.storage.local.set({ [WORKSPACE_KEY]: store });
+    return;
+  }
+
+  store[scope] = {
+    savedAt: Date.now(),
+    pageUrl: _currentPageUrl || '',
+    subject: subjectInput.value.trim(),
+    selectedUrls: [...selectedUrls],
+    savedStyleMemory: _savedStyleMemory,
+    resultData: _lastResultData,
+  };
+  await chrome.storage.local.set({ [WORKSPACE_KEY]: store });
+}
+
+async function clearWorkspaceState(scope = getAccountScope()) {
+  const storeResp = await chrome.storage.local.get([WORKSPACE_KEY]);
+  const store = storeResp[WORKSPACE_KEY] || {};
+  delete store[scope];
+  await chrome.storage.local.set({ [WORKSPACE_KEY]: store });
+}
+
+async function loadPendingWorkspaceState() {
+  const storedWorkspace = await chrome.storage.local.get([WORKSPACE_KEY]);
+  return extractWorkspaceState(storedWorkspace[WORKSPACE_KEY], _currentPageUrl);
+}
+
+async function getActiveTab() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  return tab;
+}
+
+async function getCachedScan(url) {
+  if (!url) return null;
+  const data = await chrome.storage.local.get([SCAN_CACHE_KEY]);
+  const cache = data[SCAN_CACHE_KEY];
+  if (!cache || cache.url !== url) return null;
+  if (Date.now() - (cache.savedAt || 0) > SCAN_CACHE_TTL_MS) return null;
+  return Array.isArray(cache.images) ? cache.images : null;
+}
+
+async function setCachedScan(url, images) {
+  if (!url || !Array.isArray(images)) return;
+  await chrome.storage.local.set({
+    [SCAN_CACHE_KEY]: {
+      url,
+      images: images.slice(0, 120),
+      savedAt: Date.now(),
+    },
+  });
+}
+
+function renderGeneratingState() {
+  stopGenerationProgress();
+  const steps = [
+    'Reading the visual language of your selections…',
+    'Blending those references into one shared style direction…',
+    'Writing prompts and generating images…',
+    'Finishing the final images…',
+  ];
+  let index = 0;
+  resultsEl.className = '';
+  resultsEl.innerHTML = `
+    <div class="loading-msg">
+      <div class="spinner"></div><br>
+      <span id="generation-progress-copy">${steps[0]}</span><br>
+      <small style="color:var(--ink-muted);margin-top:6px;display:block">Usually ready in 30–60 seconds</small>
+    </div>`;
+  _generationProgressTimer = setInterval(() => {
+    index = Math.min(index + 1, steps.length - 1);
+    const copy = document.getElementById('generation-progress-copy');
+    if (copy) copy.textContent = steps[index];
+  }, 9000);
+}
+
+function stopGenerationProgress() {
+  if (_generationProgressTimer) {
+    clearInterval(_generationProgressTimer);
+    _generationProgressTimer = null;
+  }
+}
+
+function getAccountScope() {
+  return _authEmail ? `user:${_authEmail}` : 'guest';
+}
+
+function formatHistoryDate(timestamp) {
+  if (!timestamp) return 'Saved';
+  return new Date(timestamp).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function trackEvent(name, payload = {}) {
+  _telemetryQueue.push({
+    name,
+    payload,
+    scope: getAccountScope(),
+    pageUrl: _currentPageUrl || '',
+    timestamp: Date.now(),
+  });
+  if (_telemetryFlushTimer) return;
+  _telemetryFlushTimer = setTimeout(flushTelemetryQueue, 1200);
+}
+
+async function flushTelemetryQueue() {
+  _telemetryFlushTimer = null;
+  if (_telemetryQueue.length === 0) return;
+  const batch = _telemetryQueue.splice(0, _telemetryQueue.length);
+  try {
+    const current = await chrome.storage.local.get([EVENT_LOG_KEY]);
+    const merged = [...(current[EVENT_LOG_KEY] || []), ...batch].slice(-100);
+    await chrome.storage.local.set({ [EVENT_LOG_KEY]: merged });
+  } catch {
+    console.info('[tack] telemetry queue dropped', batch);
+  }
 }
 
 function hidePreview() {
@@ -1490,9 +1926,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const overlay      = document.getElementById('preview-overlay');
   const previewImg   = document.getElementById('preview-img');
   const previewClose = document.getElementById('preview-close');
+  const previewDownload = document.getElementById('preview-download');
 
   if (previewClose) previewClose.addEventListener('click', hidePreview);
   if (previewImg)   previewImg.addEventListener('click', hidePreview);
+  if (previewDownload) {
+    previewDownload.addEventListener('click', e => {
+      e.stopPropagation();
+      downloadAsPng(previewDownload.dataset.url, previewDownload.dataset.filename);
+    });
+  }
   if (overlay) {
     overlay.addEventListener('click', e => {
       // Close if clicking the backdrop (not the image or buttons)

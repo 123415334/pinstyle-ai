@@ -1,6 +1,4 @@
 /* ── tack Side Panel ─────────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap');
-
 :root {
   --bg:          #0e0c0a;
   --bg2:         #141210;
@@ -23,7 +21,7 @@
 html { font-size: 14px; }
 
 body {
-  font-family: "DM Sans", -apple-system, sans-serif;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: var(--bg);
   color: var(--ink);
   min-height: 100vh;
@@ -109,7 +107,7 @@ header {
 }
 
 .header-signin-btn {
-  font-family: "DM Sans", sans-serif;
+  font-family: inherit;
   font-size: 11px;
   font-weight: 500;
   color: var(--ink);
@@ -137,7 +135,7 @@ header {
 
 .header-tagline {
   font-size: 20px;
-  font-family: "Cormorant Garamond", Georgia, serif;
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
   font-style: italic;
   font-weight: 300;
   color: var(--ink);
@@ -152,6 +150,70 @@ header {
 /* ── MAIN CONTENT ───────────────────────────────────────────────────────── */
 main { padding: 14px; display: flex; flex-direction: column; gap: 16px; }
 
+.onboarding-card {
+  background:
+    radial-gradient(circle at top right, rgba(143,190,247,0.18), transparent 35%),
+    linear-gradient(180deg, rgba(240,235,227,0.05), rgba(240,235,227,0.02));
+  border: 1px solid rgba(240,235,227,0.09);
+  border-radius: 16px;
+  padding: 16px 16px 14px;
+}
+.onboarding-card.hidden { display: none; }
+.onboarding-card h3 {
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  font-size: 1.1rem;
+  font-weight: 400;
+  margin-bottom: 6px;
+}
+.onboarding-card p {
+  color: var(--ink-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.onboarding-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+}
+.onboarding-step {
+  background: rgba(14,12,10,0.35);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 8px;
+}
+.onboarding-step strong {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent-light);
+  margin-bottom: 6px;
+}
+.onboarding-step span {
+  display: block;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+.onboarding-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+.onboarding-dismiss {
+  background: none;
+  border: none;
+  color: var(--ink-muted);
+  cursor: pointer;
+  font-size: 11px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.onboarding-dismiss:hover { color: var(--ink); }
+
 /* ── SCAN ROW ───────────────────────────────────────────────────────────── */
 .scan-row {
   display: flex;
@@ -161,7 +223,7 @@ main { padding: 14px; display: flex; flex-direction: column; gap: 16px; }
   gap: 8px;
 }
 .btn-scan {
-  font-family: "DM Sans", sans-serif;
+  font-family: inherit;
   font-size: 11px;
   font-weight: 600;
   color: #ffffff;
@@ -234,7 +296,7 @@ main { padding: 14px; display: flex; flex-direction: column; gap: 16px; }
 
 /* ── PROMPT INPUT ───────────────────────────────────────────────────────── */
 .input-label {
-  font-family: "Cormorant Garamond", Georgia, serif;
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
   font-size: 1.3rem;
   font-weight: 400;
   color: var(--ink);
@@ -245,9 +307,44 @@ main { padding: 14px; display: flex; flex-direction: column; gap: 16px; }
 }
 .input-label em { color: var(--accent-light); font-style: italic; }
 
+.style-memory-banner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(143,190,247,0.09);
+  border: 1px solid rgba(143,190,247,0.18);
+}
+.style-memory-banner.hidden { display: none; }
+.style-memory-copy {
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--ink-muted);
+}
+.style-memory-copy strong {
+  display: block;
+  font-size: 11px;
+  color: var(--ink);
+  margin-bottom: 2px;
+}
+.style-memory-clear {
+  background: none;
+  border: none;
+  color: var(--ink-muted);
+  cursor: pointer;
+  font-size: 11px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  padding-top: 1px;
+}
+.style-memory-clear:hover { color: var(--ink); }
+
 textarea#subject-input {
   width: 100%;
-  font-family: "DM Sans", sans-serif;
+  font-family: inherit;
   font-size: 13px;
   font-weight: 300;
   color: var(--ink);
@@ -270,7 +367,7 @@ textarea#subject-input:focus {
 /* ── GENERATE BUTTON ────────────────────────────────────────────────────── */
 #generate-btn {
   width: 100%;
-  font-family: "DM Sans", sans-serif;
+  font-family: inherit;
   font-size: 14px;
   font-weight: 500;
   color: #fff;
@@ -417,7 +514,7 @@ textarea#subject-input:focus {
 }
 
 .auth-modal-title {
-  font-family: "Cormorant Garamond", Georgia, serif;
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
   font-size: 1.6rem;
   font-weight: 400;
   color: var(--ink);
@@ -434,7 +531,7 @@ textarea#subject-input:focus {
 }
 
 .auth-modal-close {
-  font-family: "DM Sans", sans-serif;
+  font-family: inherit;
   font-size: 14px;
   color: var(--ink-muted);
   background: var(--bg3);
@@ -464,7 +561,7 @@ textarea#subject-input:focus {
 }
 .auth-tab {
   flex: 1;
-  font-family: "DM Sans", sans-serif;
+  font-family: inherit;
   font-size: 12px;
   font-weight: 500;
   color: var(--ink-muted);
@@ -485,7 +582,7 @@ textarea#subject-input:focus {
 }
 .auth-input {
   width: 100%;
-  font-family: "DM Sans", sans-serif;
+  font-family: inherit;
   font-size: 13px;
   font-weight: 300;
   color: var(--ink);
@@ -509,7 +606,7 @@ textarea#subject-input:focus {
 }
 .auth-submit-btn {
   width: 100%;
-  font-family: "DM Sans", sans-serif;
+  font-family: inherit;
   font-size: 14px;
   font-weight: 500;
   color: #fff;
@@ -561,7 +658,7 @@ textarea#subject-input:focus {
 }
 
 .overlay-title {
-  font-family: "Cormorant Garamond", Georgia, serif;
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
   font-size: 1.8rem;
   font-weight: 400;
   color: var(--ink);
@@ -587,7 +684,7 @@ textarea#subject-input:focus {
 }
 
 .link-btn {
-  font-family: "DM Sans", sans-serif;
+  font-family: inherit;
   font-size: 11px;
   color: var(--ink-muted);
   background: none;
@@ -635,7 +732,7 @@ textarea#subject-input:focus {
 }
 
 .plan-select-title {
-  font-family: "Cormorant Garamond", Georgia, serif;
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
   font-size: 1.7rem;
   font-weight: 400;
   color: var(--ink);
@@ -658,6 +755,7 @@ textarea#subject-input:focus {
   gap: 6px;
   width: 100%;
 }
+.plan-cards.hidden { display: none; }
 
 .ps-card {
   background: var(--bg2);
@@ -703,7 +801,7 @@ textarea#subject-input:focus {
 .ps-card-featured .ps-name { color: #ffffff; }
 
 .ps-price {
-  font-family: "Cormorant Garamond", Georgia, serif;
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
   font-size: 24px;
   font-weight: 300;
   color: var(--ink);
@@ -711,7 +809,7 @@ textarea#subject-input:focus {
   margin-bottom: 2px;
 }
 .ps-mo {
-  font-family: "DM Sans", sans-serif;
+  font-family: inherit;
   font-size: 10px;
   color: var(--ink-muted);
   font-weight: 300;
@@ -726,7 +824,7 @@ textarea#subject-input:focus {
 
 .ps-btn {
   width: 100%;
-  font-family: "DM Sans", sans-serif;
+  font-family: inherit;
   font-size: 10px;
   font-weight: 500;
   border: none;
@@ -767,7 +865,7 @@ textarea#subject-input:focus {
   color: var(--accent-light);
 }
 .plan-waiting-title {
-  font-family: "Cormorant Garamond", Georgia, serif;
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
   font-size: 1.2rem;
   font-weight: 400;
   color: var(--ink);
@@ -822,7 +920,7 @@ textarea#subject-input:focus {
 }
 
 .upgrade-title {
-  font-family: "Cormorant Garamond", Georgia, serif;
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
   font-size: 2rem;
   font-weight: 400;
   color: var(--ink);
@@ -844,7 +942,7 @@ textarea#subject-input:focus {
   width: 100%;
   background: var(--accent);
   color: #fff;
-  font-family: "DM Sans", sans-serif;
+  font-family: inherit;
   font-size: 14px;
   font-weight: 500;
   text-decoration: none;
@@ -871,7 +969,7 @@ textarea#subject-input:focus {
 .upgrade-secondary-link:hover { color: var(--accent-light); }
 
 .upgrade-dismiss-btn {
-  font-family: "DM Sans", sans-serif;
+  font-family: inherit;
   font-size: 11px;
   color: var(--ink-muted);
   background: none;
@@ -912,7 +1010,7 @@ textarea#subject-input:focus {
   padding: 12px 14px;
 }
 .result-block h3 {
-  font-family: "Cormorant Garamond", Georgia, serif;
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
   font-size: 1rem;
   font-weight: 400;
   color: var(--ink);
@@ -939,7 +1037,7 @@ textarea#subject-input:focus {
 .prompt-text { font-size: 12px; color: var(--ink-muted); line-height: 1.65; margin-bottom: 8px; }
 
 .btn-copy {
-  font-family: "DM Sans", sans-serif;
+  font-family: inherit;
   font-size: 11px;
   font-weight: 500;
   color: var(--ink);
@@ -972,7 +1070,7 @@ textarea#subject-input:focus {
 .download-btn {
   display: inline-block;
   margin-top: 6px;
-  font-family: "DM Sans", sans-serif;
+  font-family: inherit;
   font-size: 11px;
   font-weight: 500;
   color: #fff;
@@ -998,7 +1096,7 @@ textarea#subject-input:focus {
 
 /* ── LOGOUT ─────────────────────────────────────────────────────────────── */
 .logout-btn {
-  font-family: "DM Sans", sans-serif;
+  font-family: inherit;
   font-size: 10px;
   color: var(--ink-muted);
   background: none;
@@ -1030,7 +1128,7 @@ footer a:hover { color: var(--ink); }
   color: var(--ink-muted);
   cursor: pointer;
   padding: 0;
-  font-family: "DM Sans", sans-serif;
+  font-family: inherit;
   letter-spacing: 0.02em;
   transition: color 0.15s;
   display: inline-flex;
@@ -1062,7 +1160,7 @@ footer a:hover { color: var(--ink); }
   top: 0;
 }
 .history-header span {
-  font-family: "Cormorant Garamond", Georgia, serif;
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
   font-size: 1.2rem;
   font-weight: 400;
   color: var(--ink);
@@ -1087,6 +1185,76 @@ footer a:hover { color: var(--ink); }
   margin-top: 40px;
   line-height: 1.6;
 }
+
+.history-entry {
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.history-entry-media {
+  position: relative;
+  aspect-ratio: 1.2;
+  background: var(--bg3);
+  cursor: pointer;
+}
+.history-entry-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.history-count {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  background: rgba(14,12,10,0.75);
+  color: var(--ink);
+  font-size: 10px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(240,235,227,0.1);
+}
+.history-entry-body {
+  padding: 12px;
+}
+.history-entry-title {
+  font-size: 12px;
+  color: var(--ink);
+  line-height: 1.5;
+  margin-bottom: 6px;
+}
+.history-entry-meta {
+  font-size: 10px;
+  color: var(--ink-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.history-entry-actions {
+  display: flex;
+  gap: 8px;
+}
+.history-entry-btn {
+  flex: 1;
+  border-radius: 999px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 11px;
+  font-family: inherit;
+}
+.history-entry-btn.primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: transparent;
+}
+.history-entry-btn.secondary {
+  background: transparent;
+  color: var(--ink-muted);
+}
+.history-entry-btn:hover { opacity: 0.9; }
 
 /* ── Auth form enhancements ──────────────────────────────────────────────── */
 
@@ -1169,7 +1337,7 @@ footer a:hover { color: var(--ink); }
   width: 100%;
   background: var(--accent);
   color: #fff;
-  font-family: 'DM Sans', sans-serif;
+  font-family: inherit;
   font-size: 13px;
   font-weight: 500;
   border: none;
@@ -1192,6 +1360,6 @@ footer a:hover { color: var(--ink); }
   text-decoration: underline;
   text-underline-offset: 2px;
   transition: color 0.15s;
-  font-family: 'DM Sans', sans-serif;
+  font-family: inherit;
 }
 .anon-cta-skip:hover { color: var(--accent-light); }
