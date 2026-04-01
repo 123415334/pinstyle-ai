@@ -13,12 +13,25 @@ const EVENT_LOG_KEY     = 'ps_event_log';
 const ONBOARDING_KEY    = 'ps_onboarding_dismissed';
 const SCAN_CACHE_TTL_MS = 5 * 60 * 1000;
 const WORKSPACE_TTL_MS  = 24 * 60 * 60 * 1000;
+const {
+  clearElement,
+  createEl,
+  createResultBlock,
+  renderInlineActionMessage,
+  escHtml,
+  escAttr,
+  sanitizeFilename,
+  normalizeImageFilename,
+  getUserIdFromToken,
+  formatHistoryDate,
+} = window.TackHelpers;
 
 const selectedUrls = new Set();
 
 // ── Auth state ────────────────────────────────────────────────────────────────
 let _authToken        = null;
 let _authEmail        = null;
+let _authUserId       = null;
 let _generationsUsed  = 0;
 let _monthlyUsed      = 0;
 let _monthlyResetAt   = null;
@@ -49,6 +62,12 @@ let _generationProgressTimer = null;
 let _telemetryFlushTimer   = null;
 let _telemetryQueue        = [];
 let _billingRefreshPending = false;
+let _billingRefreshPromise = null;
+let _lastBillingRefreshAt  = 0;
+let _scanRequestId         = 0;
+let _generateRequestId     = 0;
+let _planRequestId         = 0;
+let _activeGenerationController = null;
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
@@ -201,6 +220,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   await initAuth();
 });
 
+window.addEventListener('beforeunload', () => {
+  stopVerifyPolling();
+  stopGenerationProgress();
+  cancelActiveGeneration();
+  _historyObjectUrls.forEach(url => URL.revokeObjectURL(url));
+  _historyObjectUrls = [];
+});
+
 // ── Auth modal ────────────────────────────────────────────────────────────────
 
 function showAuthModal() {
@@ -263,15 +290,25 @@ function injectAnonCTA() {
   const cta = document.createElement('div');
   cta.id        = 'anon-cta';
   cta.className = 'anon-cta';
-  cta.innerHTML = `
-    <p class="anon-cta-eyebrow">✦ Like what you see?</p>
-    <p class="anon-cta-text">Create a free account to get 3 more generations and save your results.</p>
-    <button class="anon-cta-btn" id="anon-cta-signup">Create free account →</button>
-    <button class="anon-cta-skip" id="anon-cta-login">Already have an account? Sign in</button>
-  `;
+  const eyebrow = createEl('p', { className: 'anon-cta-eyebrow', textContent: '✦ Like what you see?' });
+  const text = createEl('p', {
+    className: 'anon-cta-text',
+    textContent: 'Create a free account to get 3 more generations and save your results.',
+  });
+  const signupBtn = createEl('button', {
+    className: 'anon-cta-btn',
+    textContent: 'Create free account →',
+    attrs: { id: 'anon-cta-signup', type: 'button' },
+  });
+  const loginBtn = createEl('button', {
+    className: 'anon-cta-skip',
+    textContent: 'Already have an account? Sign in',
+    attrs: { id: 'anon-cta-login', type: 'button' },
+  });
+  cta.append(eyebrow, text, signupBtn, loginBtn);
   resultsEl.appendChild(cta);
 
-  document.getElementById('anon-cta-signup').addEventListener('click', () => {
+  signupBtn.addEventListener('click', () => {
     switchAuthTab('signup');
     setAuthModalCopy(
       'Save this &amp; keep <em>creating</em>',
@@ -280,7 +317,7 @@ function injectAnonCTA() {
     showAuthModal();
   });
 
-  document.getElementById('anon-cta-login').addEventListener('click', () => {
+  loginBtn.addEventListener('click', () => {
     switchAuthTab('login');
     showAuthModal();
   });
@@ -333,24 +370,19 @@ function startVerifyPolling() {
         stopVerifyPolling();
         document.getElementById('verify-status-text').textContent = 'Confirmed! Signing you in…';
 
-        _authToken       = data.access_token;
-        _authEmail       = _verifyEmail;
-        _generationsUsed = 0;
-        _monthlyUsed     = 0;
-        _monthlyResetAt  = null;
-        _plan            = 'free';
+        applyAuthSession({
+          token: data.access_token,
+          email: _verifyEmail,
+          userId: getUserIdFromToken(data.access_token),
+          used: 0,
+          monthly: 0,
+          resetAt: null,
+          plan: 'free',
+        });
         _verifyEmail     = null;
         _verifyPassword  = null;
 
-        await chrome.storage.local.set({
-          ps_token:   _authToken,
-          ps_refresh: data.refresh_token || null,
-          ps_email:   _authEmail,
-          ps_used:    0,
-          ps_plan:    'free',
-          ps_monthly: 0,
-          ps_reset:   null,
-        });
+        await persistAuthSession(data.refresh_token || null);
 
         await fetchPlan();
         await saveWorkspaceState();
@@ -421,23 +453,109 @@ function openUpgradeFlow(plan, options = {}) {
   }
 }
 
+function applyAuthSession(session = {}) {
+  _authToken       = session.token || null;
+  _authEmail       = session.email || '';
+  _authUserId      = session.userId || (_authToken ? getUserIdFromToken(_authToken) : null);
+  _generationsUsed = session.used ?? 0;
+  _monthlyUsed     = session.monthly ?? 0;
+  _monthlyResetAt  = session.resetAt || null;
+  _plan            = session.plan || 'free';
+}
+
+async function persistAuthSession(refreshToken = null) {
+  await chrome.storage.local.set({
+    ps_token: _authToken,
+    ps_refresh: refreshToken || null,
+    ps_email: _authEmail,
+    ps_user_id: _authUserId,
+    ps_used: _generationsUsed,
+    ps_plan: _plan,
+    ps_monthly: _monthlyUsed,
+    ps_reset: _monthlyResetAt,
+  });
+}
+
+async function persistUsageState({ used = _generationsUsed, monthly = _monthlyUsed, resetAt = _monthlyResetAt } = {}) {
+  _generationsUsed = used;
+  _monthlyUsed = monthly;
+  _monthlyResetAt = resetAt;
+  await chrome.storage.local.set({
+    ps_used: _generationsUsed,
+    ps_monthly: _monthlyUsed,
+    ps_reset: _monthlyResetAt,
+  });
+}
+
+async function clearStoredAuthSession() {
+  await chrome.storage.local.remove([
+    'ps_token',
+    'ps_refresh',
+    'ps_email',
+    'ps_user_id',
+    'ps_used',
+    'ps_plan',
+    'ps_monthly',
+    'ps_reset',
+  ]);
+}
+
+function resetLocalAuthState() {
+  _authToken = null;
+  _authEmail = null;
+  _authUserId = null;
+  _generationsUsed = 0;
+  _monthlyUsed = 0;
+  _monthlyResetAt = null;
+  _plan = 'free';
+  _lastResultData = null;
+  _savedStyleMemory = null;
+  _billingRefreshPending = false;
+}
+
+function isLatestRequest(type, requestId) {
+  if (type === 'scan') return _scanRequestId === requestId;
+  if (type === 'generate') return _generateRequestId === requestId;
+  if (type === 'plan') return _planRequestId === requestId;
+  return false;
+}
+
+function cancelActiveGeneration() {
+  if (_activeGenerationController) {
+    _activeGenerationController.abort();
+    _activeGenerationController = null;
+  }
+}
+
 // ── Auth init ─────────────────────────────────────────────────────────────────
 
 async function initAuth() {
   const tab = await getActiveTab().catch(() => null);
   _currentPageUrl = tab?.url || '';
 
-  const stored = await chrome.storage.local.get(['ps_token', 'ps_refresh', 'ps_email', 'ps_used', 'ps_plan', 'ps_monthly', 'ps_reset']);
+  const stored = await chrome.storage.local.get([
+    'ps_token',
+    'ps_refresh',
+    'ps_email',
+    'ps_user_id',
+    'ps_used',
+    'ps_plan',
+    'ps_monthly',
+    'ps_reset',
+  ]);
 
   if (stored.ps_token) {
-    const ok = await validateToken(stored.ps_token);
-    if (ok) {
-      _authToken       = stored.ps_token;
-      _authEmail       = stored.ps_email   || '';
-      _generationsUsed = stored.ps_used    || 0;
-      _monthlyUsed     = stored.ps_monthly || 0;
-      _monthlyResetAt  = stored.ps_reset   || null;
-      _plan            = stored.ps_plan    || 'free';
+    const user = await validateToken(stored.ps_token);
+    if (user) {
+      applyAuthSession({
+        token: stored.ps_token,
+        email: user.email || stored.ps_email || '',
+        userId: user.id || stored.ps_user_id || getUserIdFromToken(stored.ps_token),
+        used: stored.ps_used || 0,
+        monthly: stored.ps_monthly || 0,
+        resetAt: stored.ps_reset || null,
+        plan: stored.ps_plan || 'free',
+      });
       _pendingWorkspace = await loadPendingWorkspaceState();
       await fetchPlan();
       showMainUI();
@@ -448,17 +566,18 @@ async function initAuth() {
     if (stored.ps_refresh) {
       const refreshed = await refreshAccessToken(stored.ps_refresh);
       if (refreshed) {
-        _authToken       = refreshed.access_token;
-        _authEmail       = stored.ps_email   || '';
-        _generationsUsed = stored.ps_used    || 0;
-        _monthlyUsed     = stored.ps_monthly || 0;
-        _monthlyResetAt  = stored.ps_reset   || null;
-        _plan            = stored.ps_plan    || 'free';
-        _pendingWorkspace = await loadPendingWorkspaceState();
-        await chrome.storage.local.set({
-          ps_token:   refreshed.access_token,
-          ps_refresh: refreshed.refresh_token,
+        const user = await validateToken(refreshed.access_token);
+        applyAuthSession({
+          token: refreshed.access_token,
+          email: user?.email || stored.ps_email || '',
+          userId: user?.id || stored.ps_user_id || getUserIdFromToken(refreshed.access_token),
+          used: stored.ps_used || 0,
+          monthly: stored.ps_monthly || 0,
+          resetAt: stored.ps_reset || null,
+          plan: stored.ps_plan || 'free',
         });
+        _pendingWorkspace = await loadPendingWorkspaceState();
+        await persistAuthSession(refreshed.refresh_token);
         await fetchPlan();
         showMainUI();
         return;
@@ -466,7 +585,7 @@ async function initAuth() {
     }
 
     // Tokens invalid — clear and boot as guest
-    await chrome.storage.local.remove(['ps_token', 'ps_refresh', 'ps_email', 'ps_used', 'ps_plan', 'ps_monthly', 'ps_reset']);
+    await clearStoredAuthSession();
   }
 
   // Guest mode — show UI immediately, no auth wall
@@ -535,30 +654,31 @@ async function refreshAccessToken(refreshToken) {
 // ── Fetch plan from Supabase ──────────────────────────────────────────────────
 
 async function fetchPlan() {
-  if (!_authToken) return;
+  if (!_authToken) return null;
+  const userId = _authUserId || getUserIdFromToken(_authToken);
+  if (!userId) return null;
+  const requestId = ++_planRequestId;
   try {
     const resp = await fetch(
-      `${SUPABASE_URL}/rest/v1/user_profiles?email=eq.${encodeURIComponent(_authEmail)}&select=plan,generations_used,monthly_generations,monthly_reset_at`,
+      `${SUPABASE_URL}/rest/v1/user_profiles?id=eq.${encodeURIComponent(userId)}&select=plan,generations_used,monthly_generations,monthly_reset_at`,
       { headers: { 'Authorization': `Bearer ${_authToken}`, 'apikey': SUPABASE_ANON_KEY } }
     );
-    if (!resp.ok) return;
+    if (!resp.ok) return null;
     const rows = await resp.json();
-    if (rows?.[0]) {
+    if (rows?.[0] && isLatestRequest('plan', requestId)) {
       _plan            = rows[0].plan               || 'free';
       _generationsUsed = rows[0].generations_used   ?? _generationsUsed;
       _monthlyUsed     = rows[0].monthly_generations ?? 0;
       _monthlyResetAt  = rows[0].monthly_reset_at   || null;
-      await chrome.storage.local.set({
-        ps_plan:    _plan,
-        ps_used:    _generationsUsed,
-        ps_monthly: _monthlyUsed,
-        ps_reset:   _monthlyResetAt,
-      });
+      const { ps_refresh: refreshToken = null } = await chrome.storage.local.get(['ps_refresh']);
+      await persistAuthSession(refreshToken);
       // Keep header badge in sync whenever plan data refreshes
       updateHeaderPlanBadge();
       updateTrialBadge();
+      return rows[0];
     }
   } catch { /* best-effort */ }
+  return null;
 }
 
 async function validateToken(token) {
@@ -566,8 +686,9 @@ async function validateToken(token) {
     const resp = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
       headers: { 'Authorization': `Bearer ${token}`, 'apikey': SUPABASE_ANON_KEY },
     });
-    return resp.ok;
-  } catch { return false; }
+    if (!resp.ok) return null;
+    return await resp.json();
+  } catch { return null; }
 }
 
 // ── Trial / counter badge ─────────────────────────────────────────────────────
@@ -652,16 +773,9 @@ async function logout() {
     });
   } catch { /* best-effort */ }
 
-  _authToken       = null;
-  _authEmail       = null;
-  _generationsUsed = 0;
-  _monthlyUsed     = 0;
-  _monthlyResetAt  = null;
-  _plan            = 'free';
-  _lastResultData  = null;
-  _savedStyleMemory = null;
-  _billingRefreshPending = false;
-  await chrome.storage.local.remove(['ps_token', 'ps_refresh', 'ps_email', 'ps_used', 'ps_plan', 'ps_monthly', 'ps_reset']);
+  cancelActiveGeneration();
+  resetLocalAuthState();
+  await clearStoredAuthSession();
   await clearWorkspaceState(priorScope);
   stopVerifyPolling();
   stopGenerationProgress();
@@ -772,22 +886,16 @@ async function handleGoogleAuth() {
     if (!userResp.ok) throw new Error('Could not load your Google account.');
     const user = await userResp.json();
 
-    _authToken = accessToken;
-    _authEmail = user.email || '';
-    _plan = 'free';
-    _generationsUsed = 0;
-    _monthlyUsed = 0;
-    _monthlyResetAt = null;
-
-    await chrome.storage.local.set({
-      ps_token: accessToken,
-      ps_refresh: refreshToken || null,
-      ps_email: _authEmail,
-      ps_used: 0,
-      ps_plan: 'free',
-      ps_monthly: 0,
-      ps_reset: null,
+    applyAuthSession({
+      token: accessToken,
+      email: user.email || '',
+      userId: user.id || getUserIdFromToken(accessToken),
+      used: 0,
+      monthly: 0,
+      resetAt: null,
+      plan: 'free',
     });
+    await persistAuthSession(refreshToken || null);
 
     await fetchPlan();
     await saveWorkspaceState();
@@ -848,22 +956,23 @@ async function handleAuthSubmit() {
       return;
     }
 
-    _authToken       = data.access_token;
-    _authEmail       = email;
-    _generationsUsed = 0;
-    _monthlyUsed     = 0;
-    _monthlyResetAt  = null;
-    _plan            = 'free';
-
-    await chrome.storage.local.set({
-      ps_token:   _authToken,
-      ps_refresh: data.refresh_token || null,
-      ps_email:   _authEmail,
-      ps_used:    0,
-      ps_plan:    'free',
-      ps_monthly: 0,
-      ps_reset:   null,
+    applyAuthSession({
+      token: data.access_token,
+      email,
+      userId: getUserIdFromToken(data.access_token),
+      used: 0,
+      monthly: 0,
+      resetAt: null,
+      plan: 'free',
     });
+    if (_authMode === 'login') {
+      const user = await validateToken(_authToken);
+      if (user?.id) {
+        _authUserId = user.id;
+        _authEmail = user.email || _authEmail;
+      }
+    }
+    await persistAuthSession(data.refresh_token || null);
 
     await fetchPlan();
     await saveWorkspaceState();
@@ -882,16 +991,14 @@ async function handleAuthSubmit() {
 
     if (_authMode === 'signup' && (lower.includes('already registered') || lower.includes('already exists'))) {
       // Duplicate email caught as an error
-      errorEl.innerHTML = 'An account with that email already exists. <button class="link-btn" id="switch-to-login-btn">Sign in instead →</button>';
-      document.getElementById('switch-to-login-btn')?.addEventListener('click', () => {
+      renderInlineActionMessage(errorEl, 'An account with that email already exists.', 'Sign in instead →', () => {
         switchAuthTab('login');
         errorEl.textContent = '';
       });
     } else if (_authMode === 'login' && lower.includes('email not confirmed')) {
       // They signed up but never confirmed — offer to resend
       const emailVal = document.getElementById('auth-email').value.trim();
-      errorEl.innerHTML = 'Please confirm your email first. <button class="link-btn" id="resend-from-login-btn">Resend confirmation →</button>';
-      document.getElementById('resend-from-login-btn')?.addEventListener('click', async () => {
+      renderInlineActionMessage(errorEl, 'Please confirm your email first.', 'Resend confirmation →', async () => {
         errorEl.textContent = 'Sending…';
         await supabaseResendConfirmation(emailVal);
         showVerifyScreen(emailVal, password);
@@ -961,6 +1068,7 @@ async function supabaseResetPassword(email) {
 // ── Image scanning ────────────────────────────────────────────────────────────
 
 async function loadImages(options = {}) {
+  const requestId = ++_scanRequestId;
   const { forceRefresh = false } = options;
   imageGrid.innerHTML = '';
   setStatus('Scanning page…');
@@ -972,6 +1080,7 @@ async function loadImages(options = {}) {
   updateGenerateBtn();
 
   const tab = await getActiveTab().catch(() => null);
+  if (!isLatestRequest('scan', requestId)) return;
   if (!tab) {
     setStatus('Could not access the current tab.');
     return;
@@ -981,6 +1090,7 @@ async function loadImages(options = {}) {
   const isPinterest = tab.url && tab.url.includes('pinterest.com');
   const canAutoScroll = /^https?:\/\//i.test(tab.url || '');
   const cachedImages = !forceRefresh ? await getCachedScan(tab.url) : null;
+  if (!isLatestRequest('scan', requestId)) return;
   if (cachedImages?.length) {
     renderScannedImages(cachedImages, { isPinterest, fromCache: true });
   }
@@ -1011,6 +1121,7 @@ async function loadImages(options = {}) {
     } catch (_) {}
   }
 
+  if (!isLatestRequest('scan', requestId)) return;
   let results;
   try {
     results = await chrome.scripting.executeScript({
@@ -1019,12 +1130,15 @@ async function loadImages(options = {}) {
       args: [MIN_SIZE],
     });
   } catch (err) {
+    if (!isLatestRequest('scan', requestId)) return;
     setStatus('Cannot scan this page (try a regular http/https page).');
     return;
   }
 
+  if (!isLatestRequest('scan', requestId)) return;
   const images = results?.[0]?.result ?? [];
   await setCachedScan(tab.url, images);
+  if (!isLatestRequest('scan', requestId)) return;
 
   if (images.length === 0) {
     imageGrid.innerHTML = isPinterest
@@ -1190,6 +1304,7 @@ function updateGenerateBtn() {
 
 // ── Generate ──────────────────────────────────────────────────────────────────
 async function generate() {
+  const requestId = ++_generateRequestId;
   const subject = subjectInput.value.trim();
   if (!subject || selectedUrls.size === 0) return;
   trackEvent('generate_started', { count: selectedUrls.size, source: _savedStyleMemory ? 'history_memory' : 'page' });
@@ -1222,6 +1337,9 @@ async function generate() {
   generateBtn.disabled    = true;
   generateBtn.textContent = 'Generating…';
   renderGeneratingState();
+  cancelActiveGeneration();
+  const controller = new AbortController();
+  _activeGenerationController = controller;
 
   let pageUrl = '';
   const activeTab = await getActiveTab().catch(() => null);
@@ -1235,20 +1353,17 @@ async function generate() {
     const resp = await fetch(API_URL, {
       method: 'POST',
       headers,
+      signal: controller.signal,
       body: JSON.stringify({ imageUrls: [...selectedUrls], subject, pageUrl }),
     });
 
     const data = await resp.json().catch(() => ({}));
+    if (!isLatestRequest('generate', requestId) || controller.signal.aborted) return;
 
     if (resp.status === 401) {
       // Session expired
-      _authToken = null;
-      _authEmail = null;
-      _generationsUsed = 0;
-      _monthlyUsed = 0;
-      _monthlyResetAt = null;
-      _plan = 'free';
-      await chrome.storage.local.remove(['ps_token', 'ps_refresh', 'ps_email', 'ps_used', 'ps_plan', 'ps_monthly', 'ps_reset']);
+      resetLocalAuthState();
+      await clearStoredAuthSession();
       document.getElementById('header-account').classList.add('hidden');
       document.getElementById('header-signin-btn').classList.remove('hidden');
       trialBadge.classList.add('hidden');
@@ -1263,12 +1378,12 @@ async function generate() {
       const errData = data || {};
       if (errData.error === 'pro_limit_reached') {
         _monthlyUsed = PRO_MONTHLY_LIMIT;
-        await chrome.storage.local.set({ ps_monthly: PRO_MONTHLY_LIMIT });
+        await persistUsageState({ monthly: PRO_MONTHLY_LIMIT });
         updateTrialBadge();
         showUpgradeMoment('pro_limit');
       } else {
         _generationsUsed = FREE_TRIAL_LIMIT;
-        await chrome.storage.local.set({ ps_used: FREE_TRIAL_LIMIT });
+        await persistUsageState({ used: FREE_TRIAL_LIMIT });
         updateTrialBadge();
         showUpgradeMoment('trial');
       }
@@ -1295,7 +1410,7 @@ async function generate() {
       if (data.usage) {
         _generationsUsed = data.usage.used;
         if (data.usage.monthly_used !== undefined) _monthlyUsed = data.usage.monthly_used;
-        await chrome.storage.local.set({ ps_used: _generationsUsed, ps_monthly: _monthlyUsed });
+        await persistUsageState({ used: _generationsUsed, monthly: _monthlyUsed });
         updateTrialBadge();
       }
 
@@ -1313,15 +1428,20 @@ async function generate() {
     trackEvent('generate_succeeded', { count: data.images?.length || 0 });
 
   } catch (err) {
+    if (controller.signal.aborted || !isLatestRequest('generate', requestId)) return;
     stopGenerationProgress();
     const msg = err.message || '';
     const friendly = msg.includes('fetch') || msg.includes('network') || msg.includes('Failed')
       ? 'Connection error — check your internet and try again.'
       : msg || 'Something went wrong. Please try again.';
-    resultsEl.innerHTML = `<p class="error-msg">⚠ ${friendly}</p>`;
+    clearElement(resultsEl);
+    resultsEl.appendChild(createEl('p', { className: 'error-msg', textContent: `⚠ ${friendly}` }));
     resultsEl.className = '';
     trackEvent('generate_failed', { message: friendly });
   } finally {
+    const isCurrentController = _activeGenerationController === controller;
+    if (isCurrentController) _activeGenerationController = null;
+    if (!isCurrentController && !isLatestRequest('generate', requestId)) return;
     stopGenerationProgress();
     generateBtn.textContent = 'Generate Images';
     updateGenerateBtn();
@@ -1331,74 +1451,75 @@ async function generate() {
 // ── Render results ────────────────────────────────────────────────────────────
 function renderResults(data) {
   const { styleDescriptors, prompt, images } = data;
-  let html = '';
+  clearElement(resultsEl);
 
-  if (styleDescriptors) {
-    html += `
-      <div class="result-block">
-        <h3>Style Analysis</h3>
-        <p class="style-descriptors">${escHtml(styleDescriptors)}</p>
-      </div>`;
-  }
-
-  if (prompt) {
-    html += `
-      <div class="result-block">
-        <h3>Image Prompt</h3>
-        <p class="prompt-text">${escHtml(prompt)}</p>
-        <button class="btn-copy" data-prompt="${escAttr(prompt)}">Copy prompt</button>
-      </div>`;
-  }
-
-  if (images && images.length > 0) {
-    html += `
-      <div class="result-block">
-        <h3>Generated Images</h3>
-        <div class="gen-images">
-          ${images.map((url, i) => `
-            <div class="gen-img-wrap" data-preview-url="${escAttr(url)}" data-preview-filename="tack-${i+1}.png">
-              <img src="${escAttr(url)}" alt="Generated image" loading="lazy">
-              <div class="img-actions">
-                <button class="download-btn" data-url="${escAttr(url)}" data-filename="tack-${i+1}.png">
-                  ↓ Download
-                </button>
-              </div>
-            </div>`).join('')}
-        </div>
-      </div>`;
-  }
-
-  if (!html) {
-    resultsEl.innerHTML = '<p class="error-msg">No results returned — please try again.</p>';
+  if (!styleDescriptors && !prompt && (!images || images.length === 0)) {
+    resultsEl.appendChild(createEl('p', { className: 'error-msg', textContent: 'No results returned — please try again.' }));
     return;
   }
 
-  resultsEl.innerHTML = html;
-  saveWorkspaceState().catch(() => {});
+  if (styleDescriptors) {
+    const block = createResultBlock('Style Analysis');
+    block.appendChild(createEl('p', { className: 'style-descriptors', textContent: styleDescriptors }));
+    resultsEl.appendChild(block);
+  }
 
-  // Wire up generated image clicks via data attribute (safe, no inline JS)
-  resultsEl.querySelectorAll('.gen-img-wrap').forEach(wrap => {
-    wrap.addEventListener('click', e => {
-      if (!e.target.closest('.img-actions')) {
-        showPreview(wrap.dataset.previewUrl, wrap.dataset.previewFilename);
-      }
+  if (prompt) {
+    const block = createResultBlock('Image Prompt');
+    block.appendChild(createEl('p', { className: 'prompt-text', textContent: prompt }));
+    const copyBtn = createEl('button', {
+      className: 'btn-copy',
+      textContent: 'Copy prompt',
+      attrs: { type: 'button' },
+      dataset: { prompt },
     });
-  });
-
-  resultsEl.querySelectorAll('.download-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      downloadAsPng(btn.dataset.url, btn.dataset.filename);
-    });
-  });
-  resultsEl.querySelectorAll('.btn-copy').forEach(btn => {
-    btn.addEventListener('click', () => {
-      navigator.clipboard.writeText(btn.dataset.prompt || '').then(() => {
-        btn.textContent = 'Copied!';
-        setTimeout(() => { btn.textContent = 'Copy prompt'; }, 2000);
+    copyBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(copyBtn.dataset.prompt || '').then(() => {
+        copyBtn.textContent = 'Copied!';
+        setTimeout(() => { copyBtn.textContent = 'Copy prompt'; }, 2000);
       });
     });
-  });
+    block.appendChild(copyBtn);
+    resultsEl.appendChild(block);
+  }
+
+  if (images && images.length > 0) {
+    const block = createResultBlock('Generated Images');
+    const imageWrap = createEl('div', { className: 'gen-images' });
+    images.forEach((url, i) => {
+      const filename = `tack-${i + 1}.png`;
+      const wrap = createEl('div', {
+        className: 'gen-img-wrap',
+        dataset: { previewUrl: url, previewFilename: filename },
+      });
+      const img = createEl('img', {
+        attrs: { src: url, alt: 'Generated image', loading: 'lazy' },
+      });
+      const actions = createEl('div', { className: 'img-actions' });
+      const downloadBtn = createEl('button', {
+        className: 'download-btn',
+        textContent: '↓ Download',
+        attrs: { type: 'button' },
+        dataset: { url, filename },
+      });
+      wrap.addEventListener('click', e => {
+        if (!e.target.closest('.img-actions')) {
+          showPreview(url, filename);
+        }
+      });
+      downloadBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        downloadAsPng(url, filename);
+      });
+      actions.appendChild(downloadBtn);
+      wrap.append(img, actions);
+      imageWrap.appendChild(wrap);
+    });
+    block.appendChild(imageWrap);
+    resultsEl.appendChild(block);
+  }
+
+  saveWorkspaceState().catch(() => {});
 }
 
 // ── Download as PNG ───────────────────────────────────────────────────────────
@@ -1462,42 +1583,7 @@ function setHint(msg) {
   hint.textContent = msg;
 }
 
-function escHtml(str) {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-function escAttr(str) {
-  return str.replace(/"/g, '&quot;');
-}
-
-function sanitizeFilename(name) {
-  const safe = (name || 'tack-image.png')
-    .replace(/[\\/:*?"<>|]+/g, '-')
-    .replace(/\s+/g, ' ')
-    .trim();
-  return safe || 'tack-image.png';
-}
-
-function normalizeImageFilename(filename, mimeType) {
-  const extension = mimeTypeToExtension(mimeType);
-  if (!extension) return filename;
-  return filename.replace(/\.[a-z0-9]+$/i, '') + extension;
-}
-
-function mimeTypeToExtension(mimeType) {
-  const normalized = (mimeType || '').split(';')[0].trim().toLowerCase();
-  if (normalized === 'image/jpeg') return '.jpg';
-  if (normalized === 'image/png') return '.png';
-  if (normalized === 'image/webp') return '.webp';
-  if (normalized === 'image/gif') return '.gif';
-  return '';
-}
-
 // ── Supabase cloud history sync ───────────────────────────────────────────────
-function getUserIdFromToken(token) {
-  try {
-    return JSON.parse(atob(token.split('.')[1])).sub || null;
-  } catch { return null; }
-}
 
 async function saveToSupabase(buffers, subject) {
   if (!_authToken) return;
@@ -1778,19 +1864,42 @@ function renderOnboardingCard() {
       onboardingCard.classList.add('hidden');
       return;
     }
-    onboardingCard.innerHTML = `
-      <h3>Your selected images blend together automatically</h3>
-      <p>Pick any references you like. Tack combines them equally to build one shared style direction.</p>
-      <div class="onboarding-steps">
-        <div class="onboarding-step"><strong>1</strong><span>Select the images that feel right.</span></div>
-        <div class="onboarding-step"><strong>2</strong><span>Describe what you want to make.</span></div>
-        <div class="onboarding-step"><strong>3</strong><span>Generate and refine from there.</span></div>
-      </div>
-      <div class="onboarding-actions">
-        <p>Tip: if a page looks sparse, tap <strong>Rescan</strong> after scrolling.</p>
-        <button type="button" class="onboarding-dismiss" data-onboarding-dismiss>Hide</button>
-      </div>
-    `;
+    clearElement(onboardingCard);
+    onboardingCard.appendChild(createEl('h3', { textContent: 'Your selected images blend together automatically' }));
+    onboardingCard.appendChild(createEl('p', {
+      textContent: 'Pick any references you like. Tack combines them equally to build one shared style direction.',
+    }));
+
+    const steps = createEl('div', { className: 'onboarding-steps' });
+    [
+      'Select the images that feel right.',
+      'Describe what you want to make.',
+      'Generate and refine from there.',
+    ].forEach((copy, index) => {
+      const step = createEl('div', { className: 'onboarding-step' });
+      step.append(
+        createEl('strong', { textContent: String(index + 1) }),
+        createEl('span', { textContent: copy }),
+      );
+      steps.appendChild(step);
+    });
+
+    const actions = createEl('div', { className: 'onboarding-actions' });
+    const tip = createEl('p');
+    tip.append(
+      document.createTextNode('Tip: if a page looks sparse, tap '),
+      createEl('strong', { textContent: 'Rescan' }),
+      document.createTextNode(' after scrolling.'),
+    );
+    const dismissBtn = createEl('button', {
+      className: 'onboarding-dismiss',
+      textContent: 'Hide',
+      attrs: { type: 'button' },
+      dataset: { onboardingDismiss: '1' },
+    });
+    actions.append(tip, dismissBtn);
+
+    onboardingCard.append(steps, actions);
     onboardingCard.classList.remove('hidden');
   }).catch(() => {});
 }
@@ -1799,32 +1908,51 @@ function renderStyleMemoryBanner() {
   if (!styleMemoryBanner) return;
   if (!_savedStyleMemory?.referenceUrls?.length) {
     styleMemoryBanner.classList.add('hidden');
-    styleMemoryBanner.innerHTML = '';
+    clearElement(styleMemoryBanner);
     return;
   }
 
-  styleMemoryBanner.innerHTML = `
-    <div class="style-memory-copy">
-      <strong>Using a saved style from History</strong>
-      ${_savedStyleMemory.referenceUrls.length} reference image${_savedStyleMemory.referenceUrls.length !== 1 ? 's' : ''} restored.
-      ${_savedStyleMemory.subject ? `Originally: “${escHtml(_savedStyleMemory.subject)}”.` : ''}
-    </div>
-    <button type="button" class="style-memory-clear" data-clear-style-memory>Clear</button>
-  `;
+  clearElement(styleMemoryBanner);
+  const copy = createEl('div', { className: 'style-memory-copy' });
+  copy.append(
+    createEl('strong', { textContent: 'Using a saved style from History' }),
+    document.createTextNode(` ${_savedStyleMemory.referenceUrls.length} reference image${_savedStyleMemory.referenceUrls.length !== 1 ? 's' : ''} restored.`),
+  );
+  if (_savedStyleMemory.subject) {
+    copy.append(document.createTextNode(` Originally: “${_savedStyleMemory.subject}”.`));
+  }
+  const clearBtn = createEl('button', {
+    className: 'style-memory-clear',
+    textContent: 'Clear',
+    attrs: { type: 'button' },
+    dataset: { clearStyleMemory: '1' },
+  });
+  styleMemoryBanner.append(copy, clearBtn);
   styleMemoryBanner.classList.remove('hidden');
 }
 
 async function refreshBillingStateIfNeeded() {
   if (!_authToken || !_billingRefreshPending) return;
+  const now = Date.now();
+  if (_billingRefreshPromise) return _billingRefreshPromise;
+  if (now - _lastBillingRefreshAt < 2000) return;
+  _lastBillingRefreshAt = now;
   const previousPlan = _plan;
-  await fetchPlan();
-  if (previousPlan !== _plan) {
-    hidePlanScreen();
-    hideUpgradeMoment();
-    showMainUI();
-    setStatus(`Plan updated to ${_plan === 'unlimited' ? 'Unlimited' : _plan === 'pro' ? 'Pro' : 'Free'}.`);
+  _billingRefreshPromise = (async () => {
+    await fetchPlan();
+    if (previousPlan !== _plan) {
+      hidePlanScreen();
+      hideUpgradeMoment();
+      showMainUI();
+      setStatus(`Plan updated to ${_plan === 'unlimited' ? 'Unlimited' : _plan === 'pro' ? 'Pro' : 'Free'}.`);
+    }
+    if (_plan !== 'free') _billingRefreshPending = false;
+  })();
+  try {
+    await _billingRefreshPromise;
+  } finally {
+    _billingRefreshPromise = null;
   }
-  if (_plan !== 'free') _billingRefreshPending = false;
 }
 
 function clearSavedStyleMemory() {
@@ -1932,7 +2060,7 @@ async function getActiveTab() {
 
 async function getCachedScan(url) {
   if (!url) return null;
-  const data = await chrome.storage.local.get([SCAN_CACHE_KEY]);
+  const data = await getSessionStorageArea().get([SCAN_CACHE_KEY]);
   const cache = data[SCAN_CACHE_KEY];
   if (!cache || cache.url !== url) return null;
   if (Date.now() - (cache.savedAt || 0) > SCAN_CACHE_TTL_MS) return null;
@@ -1941,7 +2069,7 @@ async function getCachedScan(url) {
 
 async function setCachedScan(url, images) {
   if (!url || !Array.isArray(images)) return;
-  await chrome.storage.local.set({
+  await getSessionStorageArea().set({
     [SCAN_CACHE_KEY]: {
       url,
       images: images.slice(0, 120),
@@ -1981,17 +2109,12 @@ function stopGenerationProgress() {
 }
 
 function getAccountScope() {
+  if (_authUserId) return `user:${_authUserId}`;
   return _authEmail ? `user:${_authEmail}` : 'guest';
 }
 
-function formatHistoryDate(timestamp) {
-  if (!timestamp) return 'Saved';
-  return new Date(timestamp).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+function getSessionStorageArea() {
+  return chrome.storage.session || chrome.storage.local;
 }
 
 function trackEvent(name, payload = {}) {
