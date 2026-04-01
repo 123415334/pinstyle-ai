@@ -29,6 +29,11 @@
       </div>
 
       <div class="auth-form">
+        <button id="auth-google-btn" class="auth-google-btn" type="button">
+          <span class="auth-google-mark" aria-hidden="true">G</span>
+          <span id="auth-google-copy">Continue with Google</span>
+        </button>
+        <div class="auth-divider"><span>or use email</span></div>
         <input type="email"    id="auth-email"    class="auth-input" placeholder="Email address" autocomplete="email" spellcheck="false">
         <div class="auth-password-wrap">
           <input type="password" id="auth-password" class="auth-input" placeholder="Password" autocomplete="current-password">
@@ -135,6 +140,7 @@
             <span id="header-email" class="header-email"></span>
             <span id="header-plan-badge" class="header-plan-badge"></span>
           </div>
+          <button id="manage-plan-btn" class="manage-plan-btn">Manage plan</button>
           <button id="logout-btn" class="logout-btn">Sign out</button>
         </div>
         <!-- Shown when guest -->

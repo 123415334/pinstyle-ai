@@ -16,6 +16,7 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST')   return res.status(405).json({ error: 'Method not allowed' });
 
   const { email, plan = 'pro' } = req.body || {};
+  const origin = `${req.headers['x-forwarded-proto'] || 'https'}://${req.headers.host}`;
 
   // Route to the correct Stripe price ID based on plan
   const priceId = plan === 'unlimited'
@@ -28,20 +29,32 @@ module.exports = async function handler(req, res) {
   }
 
   try {
+    let customerId = null;
+    if (email) {
+      const existing = await stripe.customers.list({ email, limit: 1 });
+      if (existing.data.length > 0) {
+        customerId = existing.data[0].id;
+      }
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
 
       // Pre-fill the email if passed from the extension
-      ...(email ? { customer_email: email } : {}),
+      ...(customerId ? { customer: customerId } : {}),
+      ...(!customerId && email ? { customer_email: email } : {}),
 
       line_items: [{ price: priceId, quantity: 1 }],
 
       // After payment: redirect back to the upgrade page with success state
-      success_url: `https://tack.co/upgrade?success=true&plan=${plan}&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url:  'https://tack.co/upgrade',
+      success_url: `${origin}/upgrade?success=true&plan=${plan}&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url:  `${origin}/upgrade?canceled=true&plan=${plan}`,
 
       // Pass email + plan in metadata so the webhook can upgrade the right user
       metadata: { email: email || '', plan },
+      subscription_data: {
+        metadata: { email: email || '', plan },
+      },
 
       // Allow promo codes
       allow_promotion_codes: true,

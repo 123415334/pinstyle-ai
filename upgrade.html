@@ -162,6 +162,41 @@
       animation: fadeUp 0.7s ease 0.4s forwards;
     }
 
+    .account-bar {
+      margin-top: 24px;
+      padding: 12px 16px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(240,235,227,0.03);
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--ink-muted);
+      font-size: 12px;
+      position: relative;
+      z-index: 1;
+      opacity: 0;
+      animation: fadeUp 0.7s ease 0.48s forwards;
+    }
+    .account-bar strong { color: var(--ink); font-weight: 500; }
+
+    .manage-note {
+      margin-top: 30px;
+      max-width: 640px;
+      width: 100%;
+      padding: 18px 20px;
+      border-radius: 18px;
+      background: rgba(240,235,227,0.03);
+      border: 1px solid var(--border);
+      color: var(--ink-muted);
+      line-height: 1.7;
+      font-size: 13px;
+      display: none;
+      position: relative;
+      z-index: 1;
+    }
+    .manage-note strong { color: var(--ink); font-weight: 500; }
+
     /* ── 3-column pricing grid ── */
     .pricing {
       display: grid;
@@ -364,6 +399,24 @@
       border-radius: 100px;
       letter-spacing: 0.03em;
     }
+    .manage-link {
+      display: block;
+      width: 100%;
+      margin-top: 14px;
+      padding: 13px 18px;
+      text-align: center;
+      border-radius: 100px;
+      border: 1px solid var(--border);
+      color: var(--ink);
+      text-decoration: none;
+      font-size: 12px;
+      letter-spacing: 0.03em;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .manage-link:hover {
+      background: rgba(240,235,227,0.05);
+      border-color: rgba(240,235,227,0.16);
+    }
 
     /* Spinner */
     .spinner {
@@ -518,6 +571,8 @@
     <p class="subtitle">
       Start free, then upgrade when you're ready. Every plan includes the same powerful style analysis and image generation.
     </p>
+    <div class="account-bar" id="account-bar" style="display:none;"></div>
+    <div class="manage-note" id="manage-note"></div>
 
     <div class="pricing">
 
@@ -665,6 +720,16 @@
     const currentPlan = params.get('current') || 'free'; // 'free' | 'pro'
     const isSuccess  = params.get('success') === 'true';
     const successPlan = params.get('plan')   || 'pro';
+    const manageMode = params.get('manage') === '1';
+    const wasCanceled = params.get('canceled') === 'true';
+
+    const accountBar = document.getElementById('account-bar');
+    const manageNote = document.getElementById('manage-note');
+
+    if (email) {
+      accountBar.style.display = 'inline-flex';
+      accountBar.innerHTML = `Signed in as <strong>${email}</strong>`;
+    }
 
     // ── Success state ──
     if (isSuccess) {
@@ -677,6 +742,14 @@
       }
     }
 
+    if (wasCanceled) {
+      manageNote.style.display = 'block';
+      manageNote.innerHTML = '<strong>Checkout canceled.</strong> Nothing changed on your account. You can pick up right where you left off whenever you are ready.';
+    } else if (manageMode) {
+      manageNote.style.display = 'block';
+      manageNote.innerHTML = '<strong>Manage your plan.</strong> Upgrade, switch tiers, or update your payment method here. If you already have an active subscription, use the billing portal link on your account page for invoices and card changes.';
+    }
+
     // ── Hide CTA for current plan ──
     if (currentPlan === 'pro') {
       // Already Pro — hide pro button, show "current plan" note
@@ -686,6 +759,29 @@
           textContent: 'Your current plan',
         })
       );
+      const unlimitedCard = document.querySelector('.plan-unlimited');
+      if (unlimitedCard) {
+        const manage = document.createElement('a');
+        manage.className = 'manage-link';
+        manage.href = `/account`;
+        manage.textContent = 'Need invoices or payment updates? Manage billing →';
+        unlimitedCard.appendChild(manage);
+      }
+    } else if (currentPlan === 'unlimited') {
+      document.getElementById('unlimited-btn').replaceWith(
+        Object.assign(document.createElement('span'), {
+          className: 'current-plan-note',
+          textContent: 'Your current plan',
+        })
+      );
+      const proBtn = document.getElementById('pro-btn');
+      if (proBtn) {
+        const manage = document.createElement('a');
+        manage.className = 'manage-link';
+        manage.href = `/account`;
+        manage.textContent = 'Manage billing, invoices, or payment method →';
+        proBtn.parentNode.appendChild(manage);
+      }
     }
 
     // ── Checkout handlers ──

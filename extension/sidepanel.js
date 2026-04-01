@@ -48,6 +48,7 @@ let _lastResultData        = null;
 let _generationProgressTimer = null;
 let _telemetryFlushTimer   = null;
 let _telemetryQueue        = [];
+let _billingRefreshPending = false;
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
@@ -66,6 +67,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Logout
   document.getElementById('logout-btn').addEventListener('click', logout);
+  document.getElementById('manage-plan-btn').addEventListener('click', () => openUpgradeFlow(_plan, { manage: true }));
 
   // Auth modal controls
   document.getElementById('auth-modal-close').addEventListener('click', hideAuthModal);
@@ -74,6 +76,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     tab.addEventListener('click', () => switchAuthTab(tab.dataset.tab));
   });
   document.getElementById('auth-submit').addEventListener('click', handleAuthSubmit);
+  document.getElementById('auth-google-btn').addEventListener('click', handleGoogleAuth);
   document.getElementById('auth-email').addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('auth-password').focus();
   });
@@ -172,6 +175,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Upgrade moment dismiss
   document.getElementById('upgrade-dismiss').addEventListener('click', hideUpgradeMoment);
+  window.addEventListener('focus', () => {
+    refreshBillingStateIfNeeded().catch(() => {});
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') refreshBillingStateIfNeeded().catch(() => {});
+  });
 
   if (onboardingCard) {
     onboardingCard.addEventListener('click', async e => {
@@ -395,11 +404,21 @@ function hidePlanScreen() {
   planScreen.classList.add('hidden');
 }
 
-function openUpgradeFlow(plan) {
-  const upgradeUrl = `https://tack.design/upgrade?email=${encodeURIComponent(_authEmail)}&plan=${plan}`;
+function openUpgradeFlow(plan, options = {}) {
+  const params = new URLSearchParams();
+  if (_authEmail) params.set('email', _authEmail);
+  if (plan) params.set('plan', plan);
+  if (_plan) params.set('current', _plan);
+  params.set('source', 'extension');
+  if (options.manage) params.set('manage', '1');
+  const upgradeUrl = `https://tack.design/upgrade?${params.toString()}`;
   chrome.tabs.create({ url: upgradeUrl });
-  document.getElementById('plan-cards').classList.add('hidden');
-  document.getElementById('plan-waiting').classList.remove('hidden');
+  _billingRefreshPending = true;
+  trackEvent(options.manage ? 'billing_manage_opened' : 'upgrade_flow_opened', { requestedPlan: plan || _plan });
+  if (!options.manage) {
+    document.getElementById('plan-cards').classList.add('hidden');
+    document.getElementById('plan-waiting').classList.remove('hidden');
+  }
 }
 
 // ── Auth init ─────────────────────────────────────────────────────────────────
@@ -537,6 +556,7 @@ async function fetchPlan() {
       });
       // Keep header badge in sync whenever plan data refreshes
       updateHeaderPlanBadge();
+      updateTrialBadge();
     }
   } catch { /* best-effort */ }
 }
@@ -640,6 +660,7 @@ async function logout() {
   _plan            = 'free';
   _lastResultData  = null;
   _savedStyleMemory = null;
+  _billingRefreshPending = false;
   await chrome.storage.local.remove(['ps_token', 'ps_refresh', 'ps_email', 'ps_used', 'ps_plan', 'ps_monthly', 'ps_reset']);
   await clearWorkspaceState(priorScope);
   stopVerifyPolling();
@@ -700,6 +721,7 @@ function switchAuthTab(tab) {
     const subEl   = document.querySelector('.auth-modal-sub');
     if (titleEl) titleEl.innerHTML = 'Welcome <em>back</em>';
     if (subEl)   subEl.textContent = 'Sign in to continue generating.';
+    document.getElementById('auth-google-copy').textContent = 'Continue with Google';
   } else {
     submitBtn.textContent = 'Create Account';
     if (forgotLink) forgotLink.classList.add('hidden');
@@ -709,8 +731,76 @@ function switchAuthTab(tab) {
     const subEl   = document.querySelector('.auth-modal-sub');
     if (titleEl) titleEl.innerHTML = 'Sign up to <em>generate</em>';
     if (subEl)   subEl.textContent = '3 free images included with every new account';
+    document.getElementById('auth-google-copy').textContent = 'Continue with Google';
   }
   document.getElementById('auth-error').textContent = '';
+}
+
+async function handleGoogleAuth() {
+  const errorEl = document.getElementById('auth-error');
+  const googleBtn = document.getElementById('auth-google-btn');
+  const googleCopy = document.getElementById('auth-google-copy');
+  const originalLabel = googleCopy.textContent;
+  errorEl.textContent = '';
+  googleBtn.disabled = true;
+  googleCopy.textContent = 'Opening Google…';
+
+  try {
+    const redirectUrl = chrome.identity.getRedirectURL('supabase-google');
+    const authUrl = new URL(`${SUPABASE_URL}/auth/v1/authorize`);
+    authUrl.searchParams.set('provider', 'google');
+    authUrl.searchParams.set('redirect_to', redirectUrl);
+    authUrl.searchParams.set('prompt', 'select_account');
+    authUrl.searchParams.set('access_type', 'offline');
+
+    const responseUrl = await chrome.identity.launchWebAuthFlow({
+      url: authUrl.toString(),
+      interactive: true,
+    });
+
+    if (!responseUrl) throw new Error('Google sign-in was cancelled.');
+
+    const parsed = new URL(responseUrl);
+    const hash = new URLSearchParams(parsed.hash.replace(/^#/, ''));
+    const accessToken = hash.get('access_token');
+    const refreshToken = hash.get('refresh_token');
+    if (!accessToken) throw new Error('Google sign-in did not return a session.');
+
+    const userResp = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { 'Authorization': `Bearer ${accessToken}`, 'apikey': SUPABASE_ANON_KEY },
+    });
+    if (!userResp.ok) throw new Error('Could not load your Google account.');
+    const user = await userResp.json();
+
+    _authToken = accessToken;
+    _authEmail = user.email || '';
+    _plan = 'free';
+    _generationsUsed = 0;
+    _monthlyUsed = 0;
+    _monthlyResetAt = null;
+
+    await chrome.storage.local.set({
+      ps_token: accessToken,
+      ps_refresh: refreshToken || null,
+      ps_email: _authEmail,
+      ps_used: 0,
+      ps_plan: 'free',
+      ps_monthly: 0,
+      ps_reset: null,
+    });
+
+    await fetchPlan();
+    await saveWorkspaceState();
+    showMainUI();
+    hideAuthModal();
+    trackEvent('google_auth_success', { mode: _authMode });
+  } catch (err) {
+    errorEl.textContent = err.message || 'Google sign-in did not complete.';
+    trackEvent('google_auth_failed', { message: err.message || 'unknown' });
+  } finally {
+    googleBtn.disabled = false;
+    googleCopy.textContent = originalLabel;
+  }
 }
 
 async function handleAuthSubmit() {
@@ -1722,6 +1812,19 @@ function renderStyleMemoryBanner() {
     <button type="button" class="style-memory-clear" data-clear-style-memory>Clear</button>
   `;
   styleMemoryBanner.classList.remove('hidden');
+}
+
+async function refreshBillingStateIfNeeded() {
+  if (!_authToken || !_billingRefreshPending) return;
+  const previousPlan = _plan;
+  await fetchPlan();
+  if (previousPlan !== _plan) {
+    hidePlanScreen();
+    hideUpgradeMoment();
+    showMainUI();
+    setStatus(`Plan updated to ${_plan === 'unlimited' ? 'Unlimited' : _plan === 'pro' ? 'Pro' : 'Free'}.`);
+  }
+  if (_plan !== 'free') _billingRefreshPending = false;
 }
 
 function clearSavedStyleMemory() {

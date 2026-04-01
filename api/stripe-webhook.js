@@ -58,6 +58,11 @@ async function storeSubscriptionId(email, subscriptionId) {
   });
 }
 
+function getPlanFromPriceId(priceId) {
+  if (priceId === process.env.STRIPE_PRICE_ID_UNLIMITED) return 'unlimited';
+  return 'pro';
+}
+
 // Downgrade to free (called on subscription cancellation)
 async function downgradeToFree(subscriptionId) {
   const url = `${process.env.SUPABASE_URL}/rest/v1/user_profiles?stripe_subscription_id=eq.${subscriptionId}`;
@@ -119,6 +124,19 @@ module.exports = async function handler(req, res) {
           await storeSubscriptionId(email, session.subscription);
         }
         console.log(`Upgraded to ${plan}: ${email}`);
+        break;
+      }
+
+      case 'customer.subscription.updated':
+      case 'customer.subscription.created': {
+        const sub = event.data.object;
+        const email = sub.metadata?.email || sub.customer_email || null;
+        const priceId = sub.items?.data?.[0]?.price?.id;
+        if (!email || !priceId) break;
+        const plan = getPlanFromPriceId(priceId);
+        await upgradePlan(email, plan);
+        await storeSubscriptionId(email, sub.id);
+        console.log(`Synced subscription ${sub.id} to ${plan}`);
         break;
       }
 
