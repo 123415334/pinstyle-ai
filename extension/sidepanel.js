@@ -1927,6 +1927,7 @@ function toggleHistoryComposer(entryId, composerEl, triggerBtn) {
   const isOpen = !composerEl.classList.contains('hidden');
   document.querySelectorAll('.history-inline-composer').forEach(el => el.classList.add('hidden'));
   document.querySelectorAll('.history-entry-btn.primary').forEach(btn => {
+    btn.classList.remove('secondary');
     if (!btn.disabled) btn.textContent = 'Generate More in This Style';
   });
 
@@ -1937,6 +1938,7 @@ function toggleHistoryComposer(entryId, composerEl, triggerBtn) {
 
   composerEl.classList.remove('hidden');
   _openHistoryComposerId = entryId;
+  triggerBtn.classList.add('secondary');
   triggerBtn.textContent = 'Hide Composer';
   composerEl.querySelector('.history-inline-textarea')?.focus();
 }
@@ -2051,6 +2053,7 @@ async function generateHistoryInline(entry, subjectInputEl, mountEl, generateBtn
       generateBtn.disabled = false;
       generateBtn.textContent = 'Generate';
       triggerBtn.textContent = 'Hide Composer';
+      triggerBtn.classList.add('secondary');
     }
   }
 }

@@ -1510,21 +1510,32 @@ footer {
   width: 100%;
   border-radius: 999px;
   padding: 9px 12px;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(240,235,227,0.08);
   cursor: pointer;
   font-size: 11px;
   font-family: inherit;
+  font-weight: 500;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s;
 }
 .history-entry-btn.primary {
   background: var(--accent);
   color: #fff;
   border-color: transparent;
+  box-shadow: 0 6px 18px rgba(1,63,244,0.22);
 }
 .history-entry-btn.secondary {
-  background: transparent;
+  background: rgba(240,235,227,0.04);
   color: var(--ink-muted);
 }
-.history-entry-btn:hover { opacity: 0.9; }
+.history-entry-btn.primary:hover {
+  opacity: 0.92;
+  box-shadow: 0 8px 22px rgba(1,63,244,0.26);
+}
+.history-entry-btn.secondary:hover {
+  background: rgba(240,235,227,0.07);
+  border-color: rgba(240,235,227,0.12);
+  color: var(--ink);
+}
 .history-inline-composer {
   margin-top: 10px;
   padding: 12px;
@@ -1581,10 +1592,12 @@ footer {
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
+  box-shadow: 0 6px 18px rgba(1,63,244,0.22);
 }
 .history-inline-generate:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+  box-shadow: none;
 }
 .history-inline-results {
   margin-top: 10px;
@@ -1649,11 +1662,17 @@ footer {
   font-size: 11px;
   font-family: inherit;
   cursor: pointer;
+  font-weight: 500;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 .history-inline-btn.primary {
-  background: var(--accent);
-  border-color: transparent;
-  color: #fff;
+  background: rgba(240,235,227,0.04);
+  border-color: rgba(240,235,227,0.1);
+  color: var(--ink);
+}
+.history-inline-btn.primary:hover {
+  background: rgba(240,235,227,0.07);
+  border-color: rgba(240,235,227,0.14);
 }
 .history-inline-state.error-state {
   color: var(--error);
