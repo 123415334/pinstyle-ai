@@ -186,7 +186,7 @@
 
     /* ══ EDITORIAL ══ */
     .editorial-wrap {
-      max-width: 1240px; margin: 0 auto;
+      max-width: 1360px; margin: 0 auto;
       padding: 160px 52px 100px;
     }
     .section-label {
@@ -194,8 +194,8 @@
       color: var(--accent-light); margin-bottom: 120px;
     }
     .ed-step {
-      display: grid; grid-template-columns: 1fr 1fr;
-      gap: 80px; align-items: center; margin-bottom: 160px;
+      display: grid; grid-template-columns: minmax(300px, 0.84fr) minmax(560px, 1.16fr);
+      gap: 56px; align-items: center; margin-bottom: 160px;
     }
     .ed-step:last-child { margin-bottom: 0; }
     .ed-step.flip { direction: rtl; }
@@ -218,53 +218,84 @@
     .ed-visual { position: relative; }
 
 
-    /* ── Context mock ── */
-    .context-mock {
-      width: 100%; aspect-ratio: 4/3;
-      border-radius: 20px; overflow: hidden;
-      box-shadow: 0 48px 96px rgba(0,0,0,0.64);
-      border: 1px solid var(--border); display: flex;
+    /* ── Product showcase shots ── */
+    .showcase-shot {
+      width: 100%;
+      position: relative;
+      isolation: isolate;
     }
-    .ctx-browser { flex: 1; min-width: 0; display: flex; flex-direction: column; background: #111; }
-    .ctx-bar { height: 30px; background: #1a1a1a; border-bottom: 1px solid #2a2a2a; display: flex; align-items: center; gap: 6px; padding: 0 10px; flex-shrink: 0; }
-    .ctx-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-    .ctx-url { flex: 1; background: #252525; border-radius: 100px; height: 17px; display: flex; align-items: center; padding: 0 8px; gap: 4px; font-size: 9px; color: #666; font-family: 'DM Sans', sans-serif; }
-    .ctx-url-p { color: #E60023; font-weight: 700; font-size: 10px; }
-    .ctx-pins { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; padding: 6px; overflow: hidden; align-content: start; }
-    .ctx-pin { border-radius: 7px; overflow: hidden; background: #222; }
-    .ctx-pin img { width: 100%; display: block; object-fit: cover; }
-    .ctx-pin:nth-child(1) { aspect-ratio: 2/3; }
-    .ctx-pin:nth-child(2) { aspect-ratio: 3/4; }
-    .ctx-pin:nth-child(3) { aspect-ratio: 2/3; }
-    .ctx-pin:nth-child(4) { aspect-ratio: 1/1; }
-    .ctx-pin:nth-child(5) { aspect-ratio: 3/4; }
-    .ctx-pin:nth-child(6) { aspect-ratio: 4/3; }
-    .ctx-ext { width: 198px; flex-shrink: 0; background: #111009; border-left: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; padding: 10px 8px; gap: 5px; }
-    .ce-header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; }
-    .ce-logo { height: 13px; width: auto; }
-    .ce-badge { font-size: 7px; padding: 2px 5px; background: rgba(143,190,247,0.10); border: 1px solid rgba(143,190,247,0.18); color: #8FBEF7; border-radius: 100px; letter-spacing: 0.05em; text-transform: uppercase; font-family: 'DM Sans', sans-serif; }
-    .ce-tagline { font-family: 'Cormorant Garamond', serif; font-size: 9.5px; color: #f0ebe3; text-align: center; opacity: 0.65; flex-shrink: 0; font-style: italic; }
-    .ce-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; flex: 1; min-height: 0; }
-    .ce-cell { border-radius: 3px; overflow: hidden; position: relative; min-height: 0; }
-    .ce-cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .ce-cell.on { outline: 1.5px solid #8FBEF7; outline-offset: 1px; }
-    .ce-cell.on::after { content: '✓'; position: absolute; bottom: 2px; right: 2px; width: 11px; height: 11px; background: #8FBEF7; color: #111; border-radius: 50%; font-size: 6px; font-weight: 700; display: flex; align-items: center; justify-content: center; line-height: 11px; text-align: center; font-family: 'DM Sans', sans-serif; }
-    .ce-label { font-family: 'Cormorant Garamond', serif; font-size: 8.5px; color: var(--ink); text-align: center; flex-shrink: 0; }
-    .ce-label em { font-style: italic; color: var(--accent-light); }
-    .ce-input { background: rgba(255,255,255,0.03); flex-shrink: 0; border: 1px solid rgba(255,255,255,0.07); border-radius: 4px; padding: 5px 6px; font-size: 7.5px; color: #666; line-height: 1.5; font-family: 'DM Sans', sans-serif; }
-    .ce-btn { background: var(--accent); color: white; border: none; border-radius: 4px; padding: 7px 6px; font-size: 8px; font-weight: 500; text-align: center; font-family: 'DM Sans', sans-serif; cursor: default; flex-shrink: 0; }
-    .ce-footer { font-size: 7px; color: #3a3a3a; text-align: center; flex-shrink: 0; font-family: 'DM Sans', sans-serif; }
-    .ce-footer span { color: #8FBEF7; opacity: 0.4; }
-
-    /* ── Product frames ── */
-    .product-frame { background: var(--bg-card); border-radius: 20px; border: 1px solid var(--border); overflow: hidden; box-shadow: 0 48px 96px rgba(0,0,0,0.64); aspect-ratio: 4/3; }
-    .product-frame img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
-    .output-mock { width: 100%; aspect-ratio: 4/3; background: var(--bg-card); border-radius: 20px; border: 1px solid var(--border); box-shadow: 0 48px 96px rgba(0,0,0,0.64); padding: 18px; display: grid; grid-template-columns: 1.4fr 1fr; grid-template-rows: repeat(2, 1fr); gap: 10px; }
-    .out-thumb { border-radius: 8px; overflow: hidden; }
-    .out-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .out-thumb:first-child { grid-row: span 2; }
-
-
+    .showcase-stage {
+      position: relative;
+      border-radius: 28px;
+      padding: 14px;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.02)),
+        radial-gradient(circle at top left, rgba(143,190,247,0.18), transparent 38%),
+        #090909;
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow:
+        0 52px 120px rgba(0,0,0,0.62),
+        0 0 0 1px rgba(255,255,255,0.02) inset;
+      overflow: hidden;
+    }
+    .showcase-stage::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 14% 18%, rgba(255,255,255,0.14), transparent 22%),
+        radial-gradient(circle at 84% 10%, rgba(1,63,244,0.16), transparent 28%);
+      mix-blend-mode: screen;
+      pointer-events: none;
+      z-index: 2;
+    }
+    .showcase-stage::after {
+      content: '';
+      position: absolute;
+      inset: -16%;
+      background: linear-gradient(110deg, transparent 34%, rgba(255,255,255,0.11) 50%, transparent 63%);
+      opacity: 0.22;
+      transform: translateX(0) rotate(7deg);
+      pointer-events: none;
+      z-index: 3;
+    }
+    .showcase-window {
+      position: relative;
+      overflow: hidden;
+      border-radius: 22px;
+      background: #060606;
+      box-shadow:
+        0 24px 52px rgba(0,0,0,0.34),
+        0 0 0 1px rgba(255,255,255,0.05) inset;
+    }
+    .showcase-shot.step-1 .showcase-window { aspect-ratio: 3456 / 1858; }
+    .showcase-shot.step-2 .showcase-window { aspect-ratio: 3416 / 1708; }
+    .showcase-shot.step-3 .showcase-window { aspect-ratio: 3456 / 1908; }
+    .showcase-shot img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      filter: saturate(1.03) contrast(1.03);
+    }
+    .showcase-overlay {
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg, rgba(8,8,8,0.00), rgba(8,8,8,0.12)),
+        radial-gradient(circle at center, transparent 58%, rgba(0,0,0,0.2) 100%);
+      pointer-events: none;
+      z-index: 1;
+    }
+    .showcase-noise {
+      position: absolute;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.12'/%3E%3C/svg%3E");
+      mix-blend-mode: soft-light;
+      opacity: 0.3;
+      pointer-events: none;
+      z-index: 2;
+    }
     /* ══ FEATURES ══ */
     .features-wrap { max-width: 1240px; margin: 0 auto; padding: 0 52px 180px; }
     .features-header { margin-bottom: 52px; }
@@ -379,137 +410,7 @@
     .dl-actions { display: flex; flex-direction: column; align-items: center; gap: 14px; }
     .free-note { font-size: 12px; color: var(--ink-muted); letter-spacing: 0.05em; }
 
-
-    /* ── Prompt panel mock (Step 02) ── */
-    .prompt-mock {
-      width: 100%; aspect-ratio: 4/3;
-      background: #0e0c0a; border-radius: 20px;
-      border: 1px solid var(--border);
-      box-shadow: 0 48px 96px rgba(0,0,0,0.64);
-      padding: 20px 22px 18px;
-      display: flex; flex-direction: column; gap: 13px;
-    }
-    .pm-header {
-      display: flex; align-items: center; justify-content: space-between;
-      flex-shrink: 0;
-    }
-    .pm-logo { height: 14px; width: auto; }
-    .pm-sel-badge {
-      font-size: 9px; padding: 3px 8px;
-      background: rgba(143,190,247,0.10);
-      border: 1px solid rgba(143,190,247,0.18);
-      color: var(--accent-light); border-radius: 100px;
-      letter-spacing: 0.06em; text-transform: uppercase;
-      font-family: 'DM Sans', sans-serif;
-    }
-    .pm-refgrid {
-      display: grid; grid-template-columns: repeat(4, 1fr);
-      gap: 4px; flex-shrink: 0;
-    }
-    .pm-cell {
-      border-radius: 4px; overflow: hidden; aspect-ratio: 1;
-      background: #222; position: relative;
-    }
-    .pm-cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .pm-cell.sel { outline: 1.5px solid var(--accent-light); outline-offset: 1px; }
-    .pm-cell.sel::after {
-      content: '✓'; position: absolute; bottom: 2px; right: 2px;
-      width: 11px; height: 11px; background: var(--accent-light); color: #111009;
-      border-radius: 50%; font-size: 6px; font-weight: 700;
-      display: flex; align-items: center; justify-content: center;
-      line-height: 11px; text-align: center; font-family: 'DM Sans', sans-serif;
-    }
-    .pm-divider {
-      font-family: 'Cormorant Garamond', serif; font-size: 12px;
-      color: rgba(240,235,227,0.30); text-align: center; font-style: italic;
-      border-top: 1px solid var(--border); padding-top: 10px;
-      flex-shrink: 0;
-    }
-    .pm-textarea {
-      flex: 1; background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 8px; padding: 14px 16px;
-      font-size: 15px; color: var(--ink); line-height: 1.6;
-      font-family: 'DM Sans', sans-serif; font-weight: 300;
-      display: flex; align-items: flex-start; min-height: 0;
-    }
-    .pm-cursor {
-      display: inline-block; width: 1.5px; height: 1.1em;
-      background: var(--accent-light); margin-left: 1px;
-      animation: blink 1s step-end infinite;
-      vertical-align: text-bottom; flex-shrink: 0;
-    }
-    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
-    .pm-generate {
-      background: var(--accent); color: white; border: none;
-      border-radius: 6px; padding: 13px 16px;
-      font-size: 13px; font-weight: 500; letter-spacing: 0.01em;
-      font-family: 'DM Sans', sans-serif; cursor: default;
-      flex-shrink: 0; display: flex; align-items: center;
-      justify-content: center; gap: 8px;
-    }
-
-
-    /* ── Results / download mock (Step 03) ── */
-    .results-mock {
-      width: 100%; aspect-ratio: 4/3;
-      background: #0e0c0a; border-radius: 20px;
-      border: 1px solid var(--border);
-      box-shadow: 0 48px 96px rgba(0,0,0,0.64);
-      padding: 20px 22px 18px;
-      display: flex; flex-direction: column; gap: 12px;
-    }
-    .rm-header {
-      display: flex; align-items: center; justify-content: space-between;
-      flex-shrink: 0;
-    }
-    .rm-logo { height: 14px; width: auto; }
-    .rm-done {
-      font-size: 9px; padding: 3px 8px;
-      background: rgba(143,190,247,0.10);
-      border: 1px solid rgba(143,190,247,0.18);
-      color: var(--accent-light); border-radius: 100px;
-      letter-spacing: 0.06em; text-transform: uppercase;
-      font-family: 'DM Sans', sans-serif;
-    }
-    .rm-prompt {
-      font-size: 11px; color: rgba(240,235,227,0.35);
-      font-family: 'DM Sans', sans-serif; font-style: italic;
-      flex-shrink: 0;
-    }
-    .rm-grid {
-      flex: 1; display: grid; grid-template-columns: 1fr 1fr;
-      gap: 10px; min-height: 0;
-    }
-    .rm-card {
-      display: flex; flex-direction: column; gap: 6px; min-height: 0;
-    }
-    .rm-img {
-      flex: 1; border-radius: 7px; overflow: hidden; min-height: 0;
-    }
-    .rm-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .rm-dl {
-      background: rgba(1,63,244,0.10); border: 1px solid rgba(1,63,244,0.22);
-      color: var(--accent-light); border-radius: 5px; padding: 8px 10px;
-      font-size: 11px; font-weight: 500; font-family: 'DM Sans', sans-serif;
-      cursor: default; display: flex; align-items: center;
-      justify-content: center; gap: 6px; flex-shrink: 0;
-      transition: background 0.2s;
-    }
-    .rm-footer {
-      display: flex; gap: 8px; flex-shrink: 0;
-    }
-    .rm-dl-all {
-      flex: 1; background: var(--accent); color: white; border: none;
-      border-radius: 5px; padding: 10px 14px;
-      font-size: 12px; font-weight: 500; font-family: 'DM Sans', sans-serif;
-      cursor: default; text-align: center;
-    }
-    .rm-again {
-      background: transparent; border: 1px solid var(--border);
-      color: var(--ink-muted); border-radius: 5px; padding: 10px 14px;
-      font-size: 12px; font-family: 'DM Sans', sans-serif; cursor: default;
-    }
+    @keyframes sheenSweep { 0%,100% { transform: translateX(0) rotate(7deg); } }
 
 
     /* ══ FOOTER ══ */
@@ -532,92 +433,6 @@
     .reveal-left.visible,.reveal-right.visible { opacity:1; transform:none; }
     @keyframes fadeUp { from{opacity:0;transform:translateY(22px)} to{opacity:1;transform:translateY(0)} }
 
-
-    /* ══ ANIMATED CURSOR ══ */
-    .tack-cursor {
-      position: absolute;
-      pointer-events: none;
-      z-index: 30;
-      opacity: 0;
-      transition: left 0.6s cubic-bezier(0.25,0.46,0.45,0.94),
-                  top  0.6s cubic-bezier(0.25,0.46,0.45,0.94),
-                  opacity 0.25s;
-      transform-origin: 4px 4px;
-      will-change: left, top;
-      filter: drop-shadow(0 3px 8px rgba(0,0,0,0.6));
-    }
-    .tack-cursor.cur-visible { opacity: 1; }
-    .tack-cursor.cur-click { animation: cur-tap 0.22s ease; }
-    @keyframes cur-tap { 40% { transform: scale(0.76); } }
-
-    /* Pin hover ring when cursor clicks */
-    .ctx-pin { position: relative; }
-    .ctx-pin.pin-active::after {
-      content: '';
-      position: absolute; inset: 0;
-      border: 2px solid var(--accent-light);
-      border-radius: 7px;
-      pointer-events: none; z-index: 5;
-      animation: pin-ring 0.28s ease both;
-    }
-    @keyframes pin-ring { from { opacity: 0; inset: 10px; } }
-
-    /* Checkmark pop when a cell becomes selected */
-    .ce-cell.pop-on::after {
-      animation: check-bounce 0.44s cubic-bezier(0.34,1.56,0.64,1) both !important;
-    }
-    @keyframes check-bounce { from { transform: scale(0); opacity: 0; } }
-
-    /* Step 02: generate button states */
-    .pm-generate { position: relative; transition: transform 0.15s; }
-    .pm-generate.gen-pressed { transform: scale(0.96); }
-    .pm-generate.gen-loading { color: transparent !important; }
-    .pm-generate.gen-loading::after {
-      content: '';
-      position: absolute; width: 14px; height: 14px;
-      border: 2px solid rgba(255,255,255,0.25); border-top-color: #fff;
-      border-radius: 50%;
-      animation: spin-btn 0.65s linear infinite;
-      top: 50%; left: 50%; transform: translate(-50%,-50%);
-    }
-    @keyframes spin-btn { to { transform: translate(-50%,-50%) rotate(360deg); } }
-
-    /* Step 03: image card entrance */
-    .rm-card {
-      opacity: 0;
-      transform: translateY(14px) scale(0.96);
-      transition: opacity 0.52s cubic-bezier(0.16,1,0.3,1),
-                  transform 0.52s cubic-bezier(0.16,1,0.3,1);
-    }
-    .rm-card.rm-visible { opacity: 1; transform: none; }
-
-    /* Step 03: Style Analysis section */
-    .rm-analysis {
-      background: rgba(255,255,255,0.028);
-      border: 1px solid rgba(255,255,255,0.07);
-      border-radius: 7px; padding: 9px 12px; flex-shrink: 0;
-    }
-    .rm-analysis-title {
-      font-size: 10.5px; font-weight: 500; color: var(--ink);
-      margin-bottom: 4px; font-family: 'DM Sans', sans-serif;
-    }
-    .rm-analysis-body {
-      font-size: 9px; color: rgba(240,235,227,0.38);
-      font-family: 'DM Sans', sans-serif; line-height: 1.55;
-      display: -webkit-box; -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical; overflow: hidden;
-    }
-    .rm-analysis-link {
-      font-size: 9px; color: var(--accent-light);
-      font-family: 'DM Sans', sans-serif; margin-top: 5px;
-      display: inline-block; cursor: default;
-    }
-    .rm-section-label {
-      font-size: 10px; font-weight: 500;
-      color: rgba(240,235,227,0.45);
-      font-family: 'DM Sans', sans-serif; flex-shrink: 0;
-    }
-
     /* ══ RESPONSIVE ══ */
     @media (max-width: 900px) {
       nav { padding: 0 24px; }
@@ -630,8 +445,8 @@
       .section-label { margin-bottom: 60px; }
       .ed-step { grid-template-columns: 1fr; gap: 48px; margin-bottom: 100px; }
       .ed-step.flip { direction: ltr; }
-      .context-mock { flex-direction: column; aspect-ratio: auto; height: 340px; }
-      .ctx-ext { width: 100%; height: 160px; }
+      .showcase-stage { padding: 10px; }
+      .ed-visual { max-width: none; }
       .features-wrap { padding: 0 24px 100px; }
       .feature-grid { grid-template-columns: 1fr; }
       .fcard { padding: 40px 28px 36px; }
@@ -639,6 +454,9 @@
       .dl-tiles { display: none; }
       .dl-cta { padding: 80px 0 72px; }
       footer { flex-direction: column; gap: 16px; text-align: center; padding: 24px; }
+    }
+    @media (max-width: 560px) {
+      .showcase-stage { padding: 8px; }
     }
   </style>
 </head>
@@ -802,56 +620,14 @@
           <p class="ed-body">Open tack from your Chrome toolbar on any page — Pinterest, Behance, Instagram, anywhere. Click the images that catch your eye directly on the page. tack highlights each selection as you build your reference set.</p>
         </div>
         <div class="ed-visual reveal reveal-right" id="s1-visual">
-          <div class="context-mock" id="s1-mock">
-            <div class="ctx-browser">
-              <div class="ctx-bar">
-                <span class="ctx-dot" style="background:#ff5f57"></span>
-                <span class="ctx-dot" style="background:#febc2e"></span>
-                <span class="ctx-dot" style="background:#28c840"></span>
-                <div class="ctx-url"><span class="ctx-url-p">P</span> pinterest.com</div>
-              </div>
-              <div class="ctx-pins" id="s1-pins">
-                <div class="ctx-pin"><img src="images/photo_08.jpg" loading="lazy" alt=""></div>
-                <div class="ctx-pin"><img src="images/photo_14.jpg" loading="lazy" alt=""></div>
-                <div class="ctx-pin"><img src="images/photo_10.jpg" loading="lazy" alt=""></div>
-                <div class="ctx-pin"><img src="images/photo_11.jpg" loading="lazy" alt=""></div>
-                <div class="ctx-pin"><img src="images/photo_04.jpg" loading="lazy" alt=""></div>
-                <div class="ctx-pin"><img src="images/photo_17.jpg" loading="lazy" alt=""></div>
+          <div class="showcase-shot step-1" id="s1-mock">
+            <div class="showcase-stage">
+              <div class="showcase-window">
+                <img src="images/marketing/select-workspace.png" loading="lazy" alt="Pinterest board beside the tack side panel with selected reference images">
+                <div class="showcase-overlay" aria-hidden="true"></div>
+                <div class="showcase-noise" aria-hidden="true"></div>
               </div>
             </div>
-            <div class="ctx-ext">
-              <div class="ce-header">
-                <img src="tack_logo.svg" class="ce-logo" alt="tack">
-                <span class="ce-badge" id="s1-badge">Unlimited</span>
-              </div>
-              <p class="ce-tagline">Select images. Generate their style.</p>
-              <div class="ce-grid" id="s1-cells">
-                <div class="ce-cell"><img src="images/photo_08.jpg" alt="" loading="lazy"></div>
-                <div class="ce-cell"><img src="images/photo_14.jpg" alt="" loading="lazy"></div>
-                <div class="ce-cell"><img src="images/photo_10.jpg" alt="" loading="lazy"></div>
-                <div class="ce-cell"><img src="images/photo_11.jpg" alt="" loading="lazy"></div>
-                <div class="ce-cell"><img src="images/photo_04.jpg" alt="" loading="lazy"></div>
-                <div class="ce-cell"><img src="images/photo_17.jpg" alt="" loading="lazy"></div>
-                <div class="ce-cell"><img src="images/photo_09.jpg" alt="" loading="lazy"></div>
-                <div class="ce-cell"><img src="images/photo_21.jpg" alt="" loading="lazy"></div>
-                <div class="ce-cell"><img src="images/photo_01.jpg" alt="" loading="lazy"></div>
-                <div class="ce-cell"><img src="images/photo_15.jpg" alt="" loading="lazy"></div>
-                <div class="ce-cell"><img src="images/photo_06.jpg" alt="" loading="lazy"></div>
-                <div class="ce-cell"><img src="images/photo_22.jpg" alt="" loading="lazy"></div>
-              </div>
-              <p class="ce-label">What do you want to <em>create?</em></p>
-              <div class="ce-input">a flat style illustration of a cowboy hat with warm gradient and grain</div>
-              <div class="ce-btn">Generate Images</div>
-              <p class="ce-footer"><span>✦</span> Unlimited plan · no monthly limit</p>
-            </div>
-          </div>
-          <!-- Animated cursor overlay -->
-          <div class="tack-cursor" id="s1-cursor" aria-hidden="true">
-            <svg width="26" height="34" viewBox="0 0 26 34" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M3 3L3 27L9.5 20.5L13.5 31L17 29.5L13 19L21.5 19L3 3Z"
-                    fill="#1a1a18" stroke="white" stroke-width="1.9"
-                    stroke-linejoin="round" stroke-linecap="round"/>
-            </svg>
           </div>
         </div>
       </div>
@@ -864,35 +640,14 @@
           <p class="ed-body">Type what you want to create — "a perfume bottle", "a living room", "a brand logo". Just the subject. Claude AI reads the visual DNA from your references and generates images that look like they belong in the same collection.</p>
         </div>
         <div class="ed-visual reveal reveal-left" id="s2-visual">
-          <!-- Prompt panel mock: user mid-typing a prompt after selecting references -->
-          <div class="prompt-mock" id="s2-mock">
-
-            <div class="pm-header">
-              <img src="tack_logo.svg" class="pm-logo" alt="tack">
-              <span class="pm-sel-badge" id="s2-badge">5 selected</span>
+          <div class="showcase-shot step-2" id="s2-mock">
+            <div class="showcase-stage">
+              <div class="showcase-window">
+                <img src="images/marketing/prompt-workspace.png" loading="lazy" alt="tack showing selected references and a prompt ready to generate images">
+                <div class="showcase-overlay" aria-hidden="true"></div>
+                <div class="showcase-noise" aria-hidden="true"></div>
+              </div>
             </div>
-
-            <!-- Reference thumbnails: 5 selected -->
-            <div class="pm-refgrid">
-              <div class="pm-cell sel"><img src="images/photo_09.jpg" loading="lazy" alt=""></div>
-              <div class="pm-cell sel"><img src="images/photo_01.jpg" loading="lazy" alt=""></div>
-              <div class="pm-cell sel"><img src="images/photo_14.jpg" loading="lazy" alt=""></div>
-              <div class="pm-cell sel"><img src="images/photo_10.jpg" loading="lazy" alt=""></div>
-              <div class="pm-cell">   <img src="images/photo_04.jpg" loading="lazy" alt=""></div>
-              <div class="pm-cell sel"><img src="images/photo_16.jpg" loading="lazy" alt=""></div>
-              <div class="pm-cell">   <img src="images/photo_11.jpg" loading="lazy" alt=""></div>
-              <div class="pm-cell">   <img src="images/photo_05.jpg" loading="lazy" alt=""></div>
-            </div>
-
-            <p class="pm-divider">References captured. Describe what to create.</p>
-
-            <!-- Prompt input: typed by JS animation -->
-            <div class="pm-textarea">
-              <span id="s2-typed"></span><span class="pm-cursor"></span>
-            </div>
-
-            <div class="pm-generate" id="s2-btn" data-text="a perfume bottle in morning light">Generate Images</div>
-
           </div>
         </div>
       </div>
@@ -905,54 +660,14 @@
           <p class="ed-body">Four generated images arrive in seconds, each styled to your exact references. Save what works. Go again with a new subject. Your moodboard just became a production tool.</p>
         </div>
         <div class="ed-visual reveal reveal-right" id="s3-visual">
-          <!-- Results mock: style analysis + 2 generated images -->
-          <div class="results-mock" id="s3-mock">
-
-            <div class="rm-header">
-              <img src="tack_logo.svg" class="rm-logo" alt="tack">
-              <span class="rm-done">2 images generated</span>
-            </div>
-
-            <!-- Style Analysis -->
-            <div class="rm-analysis">
-              <p class="rm-analysis-title">Style Analysis</p>
-              <p class="rm-analysis-body">Soft editorial photography with warm morning light, muted ivory and blush tones. Shallow depth of field, hazy atmosphere, organic textures with a quiet luxury feel.</p>
-              <span class="rm-analysis-link">Show full text</span>
-            </div>
-
-            <p class="rm-section-label">Generated Images</p>
-
-            <!-- 2 generated images — start hidden, JS fades them in -->
-            <div class="rm-grid">
-              <div class="rm-card" id="s3-card1">
-                <div class="rm-img"><img src="images/photo_22.jpg" alt="" loading="lazy"></div>
-                <div class="rm-dl">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="7 10 12 15 17 10"/>
-                    <line x1="12" y1="15" x2="12" y2="3"/>
-                  </svg>
-                  Download
-                </div>
-              </div>
-              <div class="rm-card" id="s3-card2">
-                <div class="rm-img"><img src="images/photo_07.jpg" alt="" loading="lazy"></div>
-                <div class="rm-dl">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="7 10 12 15 17 10"/>
-                    <line x1="12" y1="15" x2="12" y2="3"/>
-                  </svg>
-                  Download
-                </div>
+          <div class="showcase-shot step-3" id="s3-mock">
+            <div class="showcase-stage">
+              <div class="showcase-window">
+                <img src="images/marketing/results-workspace.png" loading="lazy" alt="tack showing style analysis, image prompt, and generated results ready to download">
+                <div class="showcase-overlay" aria-hidden="true"></div>
+                <div class="showcase-noise" aria-hidden="true"></div>
               </div>
             </div>
-
-            <div class="rm-footer">
-              <div class="rm-dl-all">Download all</div>
-              <div class="rm-again">Generate more</div>
-            </div>
-
           </div>
         </div>
       </div>
@@ -1186,159 +901,6 @@
       });
     }, { threshold: 0.12 });
     document.querySelectorAll('.reveal, .reveal-left, .reveal-right').forEach(el => obs.observe(el));
-
-
-    // ── Step 01: cursor selects images ─────────────────────
-    (function() {
-      const visual  = document.getElementById('s1-visual');
-      const cursor  = document.getElementById('s1-cursor');
-      const pins    = Array.from(document.querySelectorAll('#s1-pins .ctx-pin'));
-      const cells   = Array.from(document.querySelectorAll('#s1-cells .ce-cell'));
-      if (!visual || !cursor || !pins.length) return;
-
-      // [pinIndex, cellIndex] pairs to animate
-      const seq = [[1,1],[3,4],[0,2],[4,7],[2,10]];
-      let loopId = null;
-
-      function moveTo(pin, cb) {
-        const vr = visual.getBoundingClientRect();
-        const pr = pin.getBoundingClientRect();
-        cursor.style.left = (pr.left - vr.left + pr.width * 0.25) + 'px';
-        cursor.style.top  = (pr.top  - vr.top  + pr.height * 0.25) + 'px';
-        setTimeout(cb, 640);
-      }
-
-      function doClick(pin, cell) {
-        cursor.classList.add('cur-click');
-        pin.classList.add('pin-active');
-        cell.classList.add('on', 'pop-on');
-        setTimeout(() => {
-          cursor.classList.remove('cur-click');
-          cell.classList.remove('pop-on');
-        }, 450);
-      }
-
-      function runLoop() {
-        // reset
-        cells.forEach(c => c.classList.remove('on', 'pop-on'));
-        pins.forEach(p  => p.classList.remove('pin-active'));
-        cursor.classList.remove('cur-visible');
-
-        // Snap cursor to first pin, then fade in
-        const vr = visual.getBoundingClientRect();
-        const pr = pins[seq[0][0]].getBoundingClientRect();
-        cursor.style.transition = 'none';
-        cursor.style.left = (pr.left - vr.left + pr.width * 0.25) + 'px';
-        cursor.style.top  = (pr.top  - vr.top  + pr.height * 0.25) + 'px';
-
-        setTimeout(() => {
-          cursor.style.transition = '';
-          cursor.classList.add('cur-visible');
-
-          let delay = 200;
-          seq.forEach(([pIdx, cIdx]) => {
-            setTimeout(() => {
-              moveTo(pins[pIdx], () => doClick(pins[pIdx], cells[cIdx]));
-            }, delay);
-            delay += 1350;
-          });
-
-          // restart after pause
-          loopId = setTimeout(runLoop, delay + 1800);
-        }, 260);
-      }
-
-      const obs1 = new IntersectionObserver(entries => {
-        entries.forEach(e => {
-          if (e.isIntersecting) { obs1.disconnect(); runLoop(); }
-        });
-      }, { threshold: 0.45 });
-      obs1.observe(visual);
-    })();
-
-
-    // ── Step 02: typing + generate click ───────────────────
-    (function() {
-      const mock   = document.getElementById('s2-mock');
-      const typed  = document.getElementById('s2-typed');
-      const btn    = document.getElementById('s2-btn');
-      if (!mock || !typed || !btn) return;
-
-      const fullText = btn.dataset.text || 'a perfume bottle in morning light';
-      let started = false;
-
-      function typeIn(text, el, done) {
-        el.textContent = '';
-        let i = 0;
-        function next() {
-          if (i < text.length) {
-            el.textContent += text[i++];
-            setTimeout(next, 48 + Math.random() * 32);
-          } else { done && done(); }
-        }
-        next();
-      }
-
-      function runLoop() {
-        typed.textContent = '';
-        btn.classList.remove('gen-loading', 'gen-pressed');
-
-        setTimeout(() => {
-          typeIn(fullText, typed, () => {
-            // pause after typing, then click generate
-            setTimeout(() => {
-              btn.classList.add('gen-pressed');
-              setTimeout(() => {
-                btn.classList.remove('gen-pressed');
-                btn.classList.add('gen-loading');
-                // loading spinner shows, then reset and loop
-                setTimeout(() => {
-                  btn.classList.remove('gen-loading');
-                  setTimeout(runLoop, 1000);
-                }, 1600);
-              }, 180);
-            }, 750);
-          });
-        }, 700);
-      }
-
-      const obs2 = new IntersectionObserver(entries => {
-        entries.forEach(e => {
-          if (e.isIntersecting && !started) { started = true; obs2.disconnect(); runLoop(); }
-        });
-      }, { threshold: 0.5 });
-      obs2.observe(mock);
-    })();
-
-
-    // ── Step 03: generated images fade in ──────────────────
-    (function() {
-      const mock  = document.getElementById('s3-mock');
-      const card1 = document.getElementById('s3-card1');
-      const card2 = document.getElementById('s3-card2');
-      if (!mock || !card1 || !card2) return;
-
-      let started = false;
-
-      function runLoop() {
-        card1.classList.remove('rm-visible');
-        card2.classList.remove('rm-visible');
-
-        setTimeout(() => { card1.classList.add('rm-visible'); }, 500);
-        setTimeout(() => { card2.classList.add('rm-visible'); }, 950);
-
-        // after showing, fade out and loop
-        setTimeout(runLoop, 950 + 3800);
-      }
-
-      const obs3 = new IntersectionObserver(entries => {
-        entries.forEach(e => {
-          if (e.isIntersecting && !started) { started = true; obs3.disconnect(); runLoop(); }
-        });
-      }, { threshold: 0.4 });
-      obs3.observe(mock);
-    })();
-
 
     // ── Editorial visual subtle parallax ───────────────────
     const visuals = document.querySelectorAll('.ed-visual');
