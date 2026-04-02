@@ -53,6 +53,8 @@ const planScreen   = document.getElementById('plan-screen');
 const upgradeMoment = document.getElementById('upgrade-moment');
 const onboardingCard = document.getElementById('onboarding-card');
 const styleMemoryBanner = document.getElementById('style-memory-banner');
+const accountMenuTrigger = document.getElementById('account-menu-trigger');
+const accountMenuPanel = document.getElementById('account-menu-panel');
 
 let _currentPageUrl        = '';
 let _pendingWorkspace      = null;
@@ -80,13 +82,28 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Header sign-in button (shown in guest mode)
   document.getElementById('header-signin-btn').addEventListener('click', () => {
+    closeAccountMenu();
     switchAuthTab('login');
     showAuthModal();
   });
 
   // Logout
-  document.getElementById('logout-btn').addEventListener('click', logout);
-  document.getElementById('manage-plan-btn').addEventListener('click', () => openUpgradeFlow(_plan, { manage: true }));
+  document.getElementById('logout-btn').addEventListener('click', () => {
+    closeAccountMenu();
+    logout();
+  });
+  document.getElementById('manage-plan-btn').addEventListener('click', () => {
+    closeAccountMenu();
+    openUpgradeFlow(_plan, { manage: true });
+  });
+  accountMenuTrigger?.addEventListener('click', e => {
+    e.stopPropagation();
+    const shouldOpen = accountMenuPanel.classList.contains('hidden');
+    setAccountMenuOpen(shouldOpen);
+  });
+  document.addEventListener('click', e => {
+    if (!e.target.closest('#account-menu')) closeAccountMenu();
+  });
 
   // Auth modal controls
   document.getElementById('auth-modal-close').addEventListener('click', hideAuthModal);
@@ -596,9 +613,10 @@ async function initAuth() {
 }
 
 function showGuestUI() {
-  // Show header sign-in button
   document.getElementById('header-account').classList.add('hidden');
   document.getElementById('header-signin-btn').classList.remove('hidden');
+  updateAccountMenuTrigger();
+  closeAccountMenu();
   // Hide counter (no account yet)
   trialBadge.classList.add('hidden');
   restoreWorkspaceUI();
@@ -610,11 +628,12 @@ function showGuestUI() {
 function showMainUI() {
   hideAuthModal();
   hidePlanScreen();
-  // Show account area in header
-  document.getElementById('header-signin-btn').classList.add('hidden');
   document.getElementById('header-account').classList.remove('hidden');
+  document.getElementById('header-signin-btn').classList.add('hidden');
   document.getElementById('header-email').textContent = _authEmail;
   updateHeaderPlanBadge();
+  updateAccountMenuTrigger();
+  closeAccountMenu();
   updateTrialBadge();
   restoreWorkspaceUI();
   onboardingCard?.classList.add('hidden');
@@ -634,6 +653,32 @@ function updateHeaderPlanBadge() {
     badge.textContent  = 'Free';
     badge.className    = 'header-plan-badge plan-free';
   }
+}
+
+function updateAccountMenuTrigger() {
+  const avatar = document.getElementById('account-trigger-avatar');
+  const label = document.getElementById('account-trigger-label');
+  if (!avatar || !label) return;
+
+  if (_authToken && _authEmail) {
+    avatar.textContent = _authEmail.trim().charAt(0).toUpperCase() || 'T';
+    label.textContent = '';
+    label.classList.add('hidden');
+  } else {
+    avatar.textContent = 'T';
+    label.textContent = 'Sign in';
+    label.classList.remove('hidden');
+  }
+}
+
+function setAccountMenuOpen(isOpen) {
+  if (!accountMenuPanel || !accountMenuTrigger) return;
+  accountMenuPanel.classList.toggle('hidden', !isOpen);
+  accountMenuTrigger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+}
+
+function closeAccountMenu() {
+  setAccountMenuOpen(false);
 }
 
 // ── Refresh token ─────────────────────────────────────────────────────────────
@@ -804,6 +849,8 @@ async function logout() {
   // Return to guest mode
   document.getElementById('header-account').classList.add('hidden');
   document.getElementById('header-signin-btn').classList.remove('hidden');
+  updateAccountMenuTrigger();
+  closeAccountMenu();
   trialBadge.classList.add('hidden');
   renderStyleMemoryBanner();
   renderOnboardingCard();
@@ -1275,6 +1322,13 @@ function collectImages(minSize) {
 
 // ── Select / deselect ─────────────────────────────────────────────────────────
 function toggleSelect(item, src) {
+  if (_savedStyleMemory) {
+    const memoryUrls = new Set(_savedStyleMemory.referenceUrls || []);
+    if (!memoryUrls.has(src)) {
+      clearSavedStyleMemory({ clearSelections: true, skipSave: true });
+      syncImageGridSelectionState();
+    }
+  }
   if (selectedUrls.has(src)) {
     selectedUrls.delete(src);
     item.classList.remove('selected');
@@ -1459,14 +1513,13 @@ function renderResults(data) {
   }
 
   if (styleDescriptors) {
-    const block = createResultBlock('Style Analysis');
-    block.appendChild(createEl('p', { className: 'style-descriptors', textContent: styleDescriptors }));
+    const block = createCompactTextBlock('Style Analysis', styleDescriptors);
     resultsEl.appendChild(block);
   }
 
   if (prompt) {
-    const block = createResultBlock('Image Prompt');
-    block.appendChild(createEl('p', { className: 'prompt-text', textContent: prompt }));
+    const block = createCompactTextBlock('Image Prompt', prompt, { copyValue: prompt });
+    const actions = block.querySelector('.compact-copy-actions');
     const copyBtn = createEl('button', {
       className: 'btn-copy',
       textContent: 'Copy prompt',
@@ -1479,7 +1532,7 @@ function renderResults(data) {
         setTimeout(() => { copyBtn.textContent = 'Copy prompt'; }, 2000);
       });
     });
-    block.appendChild(copyBtn);
+    actions?.appendChild(copyBtn);
     resultsEl.appendChild(block);
   }
 
@@ -1495,6 +1548,8 @@ function renderResults(data) {
       const img = createEl('img', {
         attrs: { src: url, alt: 'Generated image', loading: 'lazy' },
       });
+      const previewOverlay = createEl('div', { className: 'gen-img-overlay' });
+      previewOverlay.appendChild(createEl('span', { className: 'gen-img-preview-pill', textContent: 'Preview full image' }));
       const actions = createEl('div', { className: 'img-actions' });
       const downloadBtn = createEl('button', {
         className: 'download-btn',
@@ -1512,7 +1567,7 @@ function renderResults(data) {
         downloadAsPng(url, filename);
       });
       actions.appendChild(downloadBtn);
-      wrap.append(img, actions);
+      wrap.append(img, previewOverlay, actions);
       imageWrap.appendChild(wrap);
     });
     block.appendChild(imageWrap);
@@ -1577,10 +1632,45 @@ function setHint(msg) {
   if (!hint) {
     hint = document.createElement('p');
     hint.id = 'scan-hint';
-    hint.style.cssText = 'font-size:11px;color:var(--ink-muted);margin-top:5px;line-height:1.5';
     statusEl.insertAdjacentElement('afterend', hint);
   }
   hint.textContent = msg;
+}
+
+function syncImageGridSelectionState() {
+  imageGrid.querySelectorAll('.img-item').forEach(item => {
+    const src = item.dataset.src;
+    item.classList.toggle('selected', !!src && selectedUrls.has(src));
+  });
+}
+
+function createCompactTextBlock(title, text, options = {}) {
+  const { copyValue = '' } = options;
+  const block = createResultBlock(title);
+  block.classList.add('compact-copy-block');
+  const content = createEl('div', { className: 'compact-copy-content is-collapsed' });
+  const paragraph = createEl('p', {
+    className: title === 'Image Prompt' ? 'prompt-text compact-copy-text' : 'style-descriptors compact-copy-text',
+    textContent: text,
+  });
+  content.appendChild(paragraph);
+
+  const actions = createEl('div', { className: 'compact-copy-actions' });
+  const toggleBtn = createEl('button', {
+    className: 'compact-copy-toggle',
+    textContent: 'Show full text',
+    attrs: { type: 'button' },
+  });
+  toggleBtn.addEventListener('click', () => {
+    const expanded = content.classList.toggle('is-expanded');
+    content.classList.toggle('is-collapsed', !expanded);
+    toggleBtn.textContent = expanded ? 'Show less' : 'Show full text';
+  });
+  actions.appendChild(toggleBtn);
+  if (copyValue) actions.dataset.copyValue = copyValue;
+
+  block.append(content, actions);
+  return block;
 }
 
 // ── Supabase cloud history sync ───────────────────────────────────────────────
@@ -1725,6 +1815,8 @@ async function loadHistory() {
 }
 
 let _historyObjectUrls = [];
+let _historyInlineGenerationToken = 0;
+let _openHistoryComposerId = null;
 
 async function renderHistory() {
   const listEl = document.getElementById('history-list');
@@ -1760,30 +1852,269 @@ async function renderHistory() {
     const coverUrl  = URL.createObjectURL(coverBlob);
     _historyObjectUrls.push(coverUrl);
 
-    const card = document.createElement('article');
-    card.className = 'history-entry';
-    card.innerHTML = `
-      <div class="history-entry-media" data-history-preview="${escAttr(coverUrl)}">
-        <img src="${escAttr(coverUrl)}" alt="">
-        <div class="history-count">${assets.length} image${assets.length !== 1 ? 's' : ''}</div>
-      </div>
-      <div class="history-entry-body">
-        <p class="history-entry-title">${escHtml(entry.subject || 'Untitled generation')}</p>
-        <p class="history-entry-meta">${formatHistoryDate(entry.timestamp)}</p>
-        <div class="history-entry-actions">
-          <button class="history-entry-btn primary" type="button">Generate More in This Style</button>
-          <button class="history-entry-btn secondary" type="button">Preview</button>
-        </div>
-      </div>
-    `;
+    const card = createEl('article', { className: 'history-entry' });
+    const media = createEl('div', { className: 'history-entry-media' });
+    const img = createEl('img', { attrs: { src: coverUrl, alt: entry.subject || 'Saved generation preview' } });
+    const count = createEl('div', {
+      className: 'history-count',
+      textContent: `${assets.length} image${assets.length !== 1 ? 's' : ''}`,
+    });
+    media.append(img, count);
 
-    card.querySelector('.history-entry-media')?.addEventListener('click', () => showPreview(coverUrl));
-    card.querySelector('.history-entry-btn.secondary')?.addEventListener('click', () => showPreview(coverUrl));
-    card.querySelector('.history-entry-btn.primary')?.addEventListener('click', async () => {
-      await restoreHistoryStyle(entry);
+    const body = createEl('div', { className: 'history-entry-body' });
+    body.append(
+      createEl('p', { className: 'history-entry-title', textContent: entry.subject || 'Untitled generation' }),
+      createEl('p', { className: 'history-entry-meta', textContent: formatHistoryDate(entry.timestamp) }),
+    );
+    const actions = createEl('div', { className: 'history-entry-actions' });
+    const useStyleBtn = createEl('button', {
+      className: 'history-entry-btn primary',
+      textContent: 'Generate More in This Style',
+      attrs: { type: 'button' },
+    });
+    actions.append(useStyleBtn);
+    body.appendChild(actions);
+    const composer = createHistoryInlineComposer(entry, useStyleBtn);
+    body.appendChild(composer);
+    card.append(media, body);
+
+    media.addEventListener('click', () => showPreview(coverUrl));
+    useStyleBtn.addEventListener('click', () => {
+      toggleHistoryComposer(entry.id, composer, useStyleBtn);
     });
 
     listEl.appendChild(card);
+  });
+}
+
+function createHistoryInlineComposer(entry, triggerBtn) {
+  const composer = createEl('div', { className: 'history-inline-composer hidden' });
+  const label = createEl('label', {
+    className: 'history-inline-prompt-label',
+    textContent: 'What would you like to create in this style?',
+  });
+  const textarea = createEl('textarea', {
+    className: 'history-inline-textarea',
+    attrs: {
+      rows: '3',
+      placeholder: entry.subject
+        ? `e.g. ${entry.subject}`
+        : 'Describe a new subject in this same style…',
+    },
+  });
+  const actions = createEl('div', { className: 'history-inline-composer-actions' });
+  const helper = createEl('p', {
+    className: 'history-inline-helper',
+    textContent: 'This creates one compact variation here in History.',
+  });
+  const generateBtn = createEl('button', {
+    className: 'history-inline-generate',
+    textContent: 'Generate',
+    attrs: { type: 'button' },
+  });
+  const results = createEl('div', { className: 'history-inline-results hidden' });
+  label.setAttribute('for', `history-inline-textarea-${entry.id}`);
+  textarea.id = `history-inline-textarea-${entry.id}`;
+  generateBtn.addEventListener('click', async () => {
+    await generateHistoryInline(entry, textarea, results, generateBtn, triggerBtn);
+  });
+  actions.append(helper, generateBtn);
+  composer.append(label, textarea, actions, results);
+  return composer;
+}
+
+function toggleHistoryComposer(entryId, composerEl, triggerBtn) {
+  const isOpen = !composerEl.classList.contains('hidden');
+  document.querySelectorAll('.history-inline-composer').forEach(el => el.classList.add('hidden'));
+  document.querySelectorAll('.history-entry-btn.primary').forEach(btn => {
+    if (!btn.disabled) btn.textContent = 'Generate More in This Style';
+  });
+
+  if (isOpen && _openHistoryComposerId === entryId) {
+    _openHistoryComposerId = null;
+    return;
+  }
+
+  composerEl.classList.remove('hidden');
+  _openHistoryComposerId = entryId;
+  triggerBtn.textContent = 'Hide Composer';
+  composerEl.querySelector('.history-inline-textarea')?.focus();
+}
+
+async function generateHistoryInline(entry, subjectInputEl, mountEl, generateBtn, triggerBtn) {
+  if (!_authToken) {
+    switchAuthTab('login');
+    showAuthModal();
+    return;
+  }
+
+  const referenceUrls = Array.isArray(entry.referenceUrls) && entry.referenceUrls.length
+    ? entry.referenceUrls
+    : Array.isArray(entry.sourceUrls)
+      ? entry.sourceUrls
+      : [];
+  const subject = (subjectInputEl?.value || '').trim();
+
+  if (referenceUrls.length === 0) {
+    renderHistoryInlineError(mountEl, 'This saved generation does not have enough style data to regenerate from.');
+    return;
+  }
+
+  if (!subject) {
+    renderHistoryInlineError(mountEl, 'Add a new subject before generating.');
+    return;
+  }
+
+  const token = ++_historyInlineGenerationToken;
+  generateBtn.disabled = true;
+  generateBtn.textContent = 'Generating…';
+  renderHistoryInlineLoading(mountEl);
+
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (_authToken) headers.Authorization = `Bearer ${_authToken}`;
+
+    const resp = await fetch(API_URL, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        imageUrls: referenceUrls,
+        subject,
+        pageUrl: entry.sourcePageUrl || '',
+        outputCount: 1,
+      }),
+    });
+
+    const data = await resp.json().catch(() => ({}));
+    if (token !== _historyInlineGenerationToken) return;
+
+    if (resp.status === 401) {
+      resetLocalAuthState();
+      await clearStoredAuthSession();
+      document.getElementById('header-account').classList.add('hidden');
+      document.getElementById('header-signin-btn').classList.remove('hidden');
+      updateAccountMenuTrigger();
+      closeAccountMenu();
+      trialBadge.classList.add('hidden');
+      switchAuthTab('login');
+      showAuthModal();
+      renderHistoryInlineError(mountEl, 'Your session expired. Sign in again to generate more in this style.');
+      return;
+    }
+
+    if (resp.status === 402) {
+      const errData = data || {};
+      if (errData.error === 'pro_limit_reached') {
+        _monthlyUsed = PRO_MONTHLY_LIMIT;
+        await persistUsageState({ monthly: PRO_MONTHLY_LIMIT });
+        updateTrialBadge();
+        showUpgradeMoment('pro_limit');
+      } else {
+        _generationsUsed = FREE_TRIAL_LIMIT;
+        await persistUsageState({ used: FREE_TRIAL_LIMIT });
+        updateTrialBadge();
+        showUpgradeMoment('trial');
+      }
+      renderHistoryInlineError(mountEl, 'You’ve hit your current generation limit. Upgrade to keep creating.');
+      return;
+    }
+
+    if (!resp.ok) throw new Error(data.error || `API returned ${resp.status}`);
+
+    if (data.usage) {
+      _generationsUsed = data.usage.used;
+      if (data.usage.monthly_used !== undefined) _monthlyUsed = data.usage.monthly_used;
+      await persistUsageState({ used: _generationsUsed, monthly: _monthlyUsed });
+      updateTrialBadge();
+    }
+
+    if (data.images?.length) {
+      saveToHistory(data.images, {
+        subject,
+        pageUrl: entry.sourcePageUrl || '',
+        styleDescriptors: data.styleDescriptors || entry.styleDescriptors || '',
+        prompt: data.prompt || entry.prompt || '',
+        referenceUrls,
+      }).catch(e => console.warn('[tack] history inline save failed:', e));
+    }
+
+    renderHistoryInlineResults(mountEl, data.images || []);
+  } catch (err) {
+    if (token !== _historyInlineGenerationToken) return;
+    const msg = err.message || '';
+    const friendly = msg.includes('fetch') || msg.includes('network') || msg.includes('Failed')
+      ? 'Connection error — check your internet and try again.'
+      : msg || 'Something went wrong. Please try again.';
+    renderHistoryInlineError(mountEl, friendly);
+  } finally {
+    if (token === _historyInlineGenerationToken) {
+      generateBtn.disabled = false;
+      generateBtn.textContent = 'Generate';
+      triggerBtn.textContent = 'Hide Composer';
+    }
+  }
+}
+
+function renderHistoryInlineLoading(mountEl) {
+  clearElement(mountEl);
+  mountEl.classList.remove('hidden');
+  const state = createEl('div', { className: 'history-inline-state' });
+  state.innerHTML = `
+    <div>
+      <div class="brand-loader" aria-hidden="true">
+        <span class="brand-loader-dot"></span>
+        <span class="brand-loader-dot"></span>
+        <span class="brand-loader-dot"></span>
+        <span class="brand-loader-dot"></span>
+      </div>
+      Generating fresh variations in this same style family…
+    </div>
+  `;
+  mountEl.appendChild(state);
+}
+
+function renderHistoryInlineError(mountEl, message) {
+  clearElement(mountEl);
+  mountEl.classList.remove('hidden');
+  mountEl.appendChild(createEl('div', {
+    className: 'history-inline-state error-state',
+    textContent: message,
+  }));
+}
+
+function renderHistoryInlineResults(mountEl, imageUrls) {
+  clearElement(mountEl);
+  mountEl.classList.remove('hidden');
+  if (!Array.isArray(imageUrls) || imageUrls.length === 0) {
+    renderHistoryInlineError(mountEl, 'No images came back. Please try again.');
+    return;
+  }
+
+  imageUrls.slice(0, 1).forEach((url, index) => {
+    const card = createEl('article', { className: 'history-inline-card' });
+    const media = createEl('div', { className: 'history-inline-media' });
+    const img = createEl('img', {
+      attrs: { src: url, alt: `New variation ${index + 1}`, loading: 'lazy' },
+    });
+    media.appendChild(img);
+    media.addEventListener('click', () => showPreview(url, `history-variation-${index + 1}.png`));
+
+    const body = createEl('div', { className: 'history-inline-body' });
+    body.appendChild(createEl('p', {
+      className: 'history-inline-label',
+      textContent: index === 0 ? 'New variation' : 'Another variation',
+    }));
+    const actions = createEl('div', { className: 'history-inline-actions' });
+    const downloadBtn = createEl('button', {
+      className: 'history-inline-btn primary',
+      textContent: 'Download',
+      attrs: { type: 'button' },
+    });
+    downloadBtn.addEventListener('click', () => downloadAsPng(url, `history-variation-${index + 1}.png`));
+    actions.append(downloadBtn);
+    body.appendChild(actions);
+    card.append(media, body);
+    mountEl.appendChild(card);
   });
 }
 
@@ -1837,6 +2168,7 @@ function renderScannedImages(images, { isPinterest = false, fromCache = false } 
   images.forEach(img => {
     const item  = document.createElement('div');
     item.className = 'img-item';
+    item.dataset.src = img.src;
     if (selectedUrls.has(img.src)) item.classList.add('selected');
     const thumb = document.createElement('img');
     thumb.src     = img.src;
@@ -1855,53 +2187,8 @@ function renderScannedImages(images, { isPinterest = false, fromCache = false } 
 
 function renderOnboardingCard() {
   if (!onboardingCard) return;
-  if (_authToken || _anonUsed) {
-    onboardingCard.classList.add('hidden');
-    return;
-  }
-  chrome.storage.local.get([ONBOARDING_KEY]).then(data => {
-    if (data[ONBOARDING_KEY]) {
-      onboardingCard.classList.add('hidden');
-      return;
-    }
-    clearElement(onboardingCard);
-    onboardingCard.appendChild(createEl('h3', { textContent: 'Your selected images blend together automatically' }));
-    onboardingCard.appendChild(createEl('p', {
-      textContent: 'Pick any references you like. Tack combines them equally to build one shared style direction.',
-    }));
-
-    const steps = createEl('div', { className: 'onboarding-steps' });
-    [
-      'Select the images that feel right.',
-      'Describe what you want to make.',
-      'Generate and refine from there.',
-    ].forEach((copy, index) => {
-      const step = createEl('div', { className: 'onboarding-step' });
-      step.append(
-        createEl('strong', { textContent: String(index + 1) }),
-        createEl('span', { textContent: copy }),
-      );
-      steps.appendChild(step);
-    });
-
-    const actions = createEl('div', { className: 'onboarding-actions' });
-    const tip = createEl('p');
-    tip.append(
-      document.createTextNode('Tip: if a page looks sparse, tap '),
-      createEl('strong', { textContent: 'Rescan' }),
-      document.createTextNode(' after scrolling.'),
-    );
-    const dismissBtn = createEl('button', {
-      className: 'onboarding-dismiss',
-      textContent: 'Hide',
-      attrs: { type: 'button' },
-      dataset: { onboardingDismiss: '1' },
-    });
-    actions.append(tip, dismissBtn);
-
-    onboardingCard.append(steps, actions);
-    onboardingCard.classList.remove('hidden');
-  }).catch(() => {});
+  onboardingCard.classList.add('hidden');
+  clearElement(onboardingCard);
 }
 
 function renderStyleMemoryBanner() {
@@ -1915,12 +2202,13 @@ function renderStyleMemoryBanner() {
   clearElement(styleMemoryBanner);
   const copy = createEl('div', { className: 'style-memory-copy' });
   copy.append(
-    createEl('strong', { textContent: 'Using a saved style from History' }),
+    createEl('strong', { textContent: 'Using only this saved history style' }),
     document.createTextNode(` ${_savedStyleMemory.referenceUrls.length} reference image${_savedStyleMemory.referenceUrls.length !== 1 ? 's' : ''} restored.`),
   );
   if (_savedStyleMemory.subject) {
     copy.append(document.createTextNode(` Originally: “${_savedStyleMemory.subject}”.`));
   }
+  copy.append(document.createTextNode(' Clear it to go back to page selections.'));
   const clearBtn = createEl('button', {
     className: 'style-memory-clear',
     textContent: 'Clear',
@@ -1955,13 +2243,16 @@ async function refreshBillingStateIfNeeded() {
   }
 }
 
-function clearSavedStyleMemory() {
+function clearSavedStyleMemory(options = {}) {
+  const { clearSelections = false, skipSave = false } = options;
   const memoryUrls = new Set(_savedStyleMemory?.referenceUrls || []);
-  memoryUrls.forEach(url => selectedUrls.delete(url));
+  if (clearSelections) selectedUrls.clear();
+  else memoryUrls.forEach(url => selectedUrls.delete(url));
   _savedStyleMemory = null;
   renderStyleMemoryBanner();
+  syncImageGridSelectionState();
   updateGenerateBtn();
-  saveWorkspaceState().catch(() => {});
+  if (!skipSave) saveWorkspaceState().catch(() => {});
 }
 
 async function restoreHistoryStyle(entry) {
@@ -1984,7 +2275,9 @@ async function restoreHistoryStyle(entry) {
   if (entry.subject && !subjectInput.value.trim()) subjectInput.value = entry.subject;
   document.getElementById('history-panel')?.classList.add('hidden');
   renderStyleMemoryBanner();
+  syncImageGridSelectionState();
   updateGenerateBtn();
+  setStatus('Using saved history style. Clear it to return to page selections.');
   await saveWorkspaceState();
   trackEvent('history_style_restored', { count: referenceUrls.length });
 }
@@ -2090,7 +2383,12 @@ function renderGeneratingState() {
   resultsEl.className = '';
   resultsEl.innerHTML = `
     <div class="loading-msg">
-      <div class="spinner"></div><br>
+      <div class="brand-loader" aria-hidden="true">
+        <span class="brand-loader-dot"></span>
+        <span class="brand-loader-dot"></span>
+        <span class="brand-loader-dot"></span>
+        <span class="brand-loader-dot"></span>
+      </div>
       <span id="generation-progress-copy">${steps[0]}</span><br>
       <small style="color:var(--ink-muted);margin-top:6px;display:block">Usually ready in 30–60 seconds</small>
     </div>`;
@@ -2171,5 +2469,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeAccountMenu();
   if (e.key === 'Escape') hidePreview();
 });

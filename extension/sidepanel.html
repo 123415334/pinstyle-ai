@@ -134,17 +134,24 @@
     <div class="header-top">
       <img src="tack_logo.svg" alt="tack" style="height:26px;width:auto;">
       <div class="header-right">
-        <!-- Shown when logged in -->
-        <div id="header-account" class="header-account hidden">
-          <div class="header-user">
-            <span id="header-email" class="header-email"></span>
-            <span id="header-plan-badge" class="header-plan-badge"></span>
+        <div id="account-menu" class="account-menu">
+          <button id="account-menu-trigger" class="account-menu-trigger" type="button" aria-expanded="false" aria-haspopup="menu">
+            <span id="account-trigger-avatar" class="account-trigger-avatar">T</span>
+            <span id="account-trigger-label" class="account-trigger-label">Sign in</span>
+            <span class="account-trigger-caret">⌄</span>
+          </button>
+          <div id="account-menu-panel" class="account-menu-panel hidden" role="menu">
+            <div id="header-account" class="header-account hidden">
+              <div class="header-user">
+                <span id="header-email" class="header-email"></span>
+                <span id="header-plan-badge" class="header-plan-badge"></span>
+              </div>
+              <button id="manage-plan-btn" class="menu-action-btn" type="button">Manage plan</button>
+              <button id="logout-btn" class="menu-action-btn menu-action-btn-muted" type="button">Sign out</button>
+            </div>
+            <button id="header-signin-btn" class="header-signin-btn hidden" type="button">Sign in</button>
           </div>
-          <button id="manage-plan-btn" class="manage-plan-btn">Manage plan</button>
-          <button id="logout-btn" class="logout-btn">Sign out</button>
         </div>
-        <!-- Shown when guest -->
-        <button id="header-signin-btn" class="header-signin-btn hidden">Sign in</button>
       </div>
     </div>
     <p class="header-tagline">Select images. <span class="accent">Generate their style.</span></p>
@@ -201,8 +208,11 @@
   </div>
 
   <footer>
-    <button id="history-btn" class="history-toggle">🕓 History</button>
-    <a href="https://tack.design" target="_blank" rel="noopener" style="font-size:10px;color:var(--ink-muted);text-decoration:none;">tack.design</a>
+    <button id="history-btn" class="history-toggle">
+      <span class="history-toggle-mark">•</span>
+      <span class="history-toggle-copy"><strong>History</strong></span>
+    </button>
+    <a href="https://tack.design" target="_blank" rel="noopener" class="footer-site-link">tack.design</a>
   </footer>
 
   <!-- Image preview overlay -->

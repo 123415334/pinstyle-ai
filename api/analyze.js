@@ -430,7 +430,8 @@ module.exports = async function handler(req, res) {
   }
 
   // ── Input validation ──────────────────────────────────────────────────────
-  const { imageUrls, subject } = req.body;
+  const { imageUrls, subject, outputCount } = req.body;
+  const requestedOutputCount = Math.max(1, Math.min(2, Number(outputCount) || 2));
   if (!subject || !subject.trim()) {
     return res.status(400).json({ error: 'Missing subject — please describe what you want to create.' });
   }
@@ -469,29 +470,32 @@ module.exports = async function handler(req, res) {
     let id1, id2;
     try {
       id1 = await startFluxPrediction(prompt1, conditioningUrls, { aspectRatio: 'match_input_image' });
-      await sleep(3000);
-      id2 = await startFluxPrediction(prompt2, conditioningUrls, { aspectRatio: 'match_input_image' });
+      if (requestedOutputCount > 1) {
+        await sleep(3000);
+        id2 = await startFluxPrediction(prompt2, conditioningUrls, { aspectRatio: 'match_input_image' });
+      }
     } catch (err) {
       console.error('[tack] prediction start failed:', err.message);
       throw new Error(`Could not start generation: ${err.message}`);
     }
 
     // ── Step 5: Wait for results ──────────────────────────────────────────
-    const [result1, result2] = await Promise.allSettled([
+    const settledResults = await Promise.allSettled([
       waitForResult(id1),
-      waitForResult(id2),
+      ...(id2 ? [waitForResult(id2)] : []),
     ]);
+    const [result1, result2] = settledResults;
 
     if (result1.status === 'rejected') console.error('[tack] prediction 1 failed:', result1.reason?.message);
-    if (result2.status === 'rejected') console.error('[tack] prediction 2 failed:', result2.reason?.message);
+    if (result2?.status === 'rejected') console.error('[tack] prediction 2 failed:', result2.reason?.message);
 
     const images = [
       result1.status === 'fulfilled' ? (Array.isArray(result1.value) ? result1.value[0] : result1.value) : null,
-      result2.status === 'fulfilled' ? (Array.isArray(result2.value) ? result2.value[0] : result2.value) : null,
+      result2?.status === 'fulfilled' ? (Array.isArray(result2.value) ? result2.value[0] : result2.value) : null,
     ].filter(Boolean);
 
     if (images.length === 0) {
-      throw new Error('Both generations failed. Please try again.');
+      throw new Error(requestedOutputCount > 1 ? 'Both generations failed. Please try again.' : 'Generation failed. Please try again.');
     }
 
     // ── Step 6: Increment usage ───────────────────────────────────────────
