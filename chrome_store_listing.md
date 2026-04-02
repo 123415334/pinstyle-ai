@@ -6,7 +6,7 @@
 tack
 
 ## Short Description (132 chars max)
-Select images from any website and generate new AI images in the same visual style.
+Select reference images from supported webpages and generate new AI images in the same visual style.
 
 *(89 chars — within limit)*
 
@@ -21,10 +21,10 @@ Select images from any website and generate new AI images in the same visual sty
 
 tack turns visual references from around the web into new images with the same aesthetic.
 
-Open tack on any page with images. Select the references whose style you want to borrow. Type what you want to make. tack analyzes the shared look of your selections and generates original images in that same visual family.
+Open tack on supported webpages with images. Select the references whose style you want to borrow. Type what you want to make. tack analyzes the shared look of your selections and generates original images in that same visual family.
 
 **How it works:**
-1. Open tack from your Chrome toolbar on any page
+1. Open tack from your Chrome toolbar on a supported webpage
 2. Select images whose style you want to capture
 3. Type a subject (e.g. "a coffee mug", "a pair of sneakers")
 4. Hit Generate and tack creates original images in that aesthetic
@@ -33,7 +33,7 @@ Open tack on any page with images. Select the references whose style you want to
 tack does more than apply a filter. It reads the shared visual language of your references, including composition, palette, rendering style, and mood, then uses that analysis to generate something new that still feels stylistically coherent.
 
 **Works everywhere:**
-Select images from Pinterest boards, Behance, design portfolios, editorial sites — any page with images works.
+Select images from Pinterest boards, Behance, design portfolios, editorial sites, and other supported image-based webpages.
 
 **What gets sent:**
 When you generate, tack sends only the image URLs you select and the prompt you type so it can analyze style and create results. It does not send the rest of the page for generation.
@@ -45,7 +45,7 @@ Sign up for a free account to save your generations and access them at tack.desi
 
 ## Why tack needs access to all websites
 
-tack's core function is to let users select reference images from any website they're browsing — not just a fixed set of domains. Whether you're on Pinterest, a design blog, an editorial site, or anywhere else on the web, tack needs to be able to read the images on that page so you can choose them as style references. The extension only scans the current tab after the user opens tack, and it only sends the image URLs the user selects plus the prompt they type in order to generate results.
+tack's core function is to let users select reference images from the supported webpage they are actively viewing. Whether you're on Pinterest, a design blog, or an editorial site, tack reads the images on that current page so you can choose them as style references. The extension only scans the current tab after the user opens tack, and it only sends the image URLs the user selects plus the prompt they type in order to generate results.
 
 ---
 
