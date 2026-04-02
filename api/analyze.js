@@ -331,7 +331,7 @@ async function startFluxPrediction(prompt, imageUrls = [], { retries = 3, backof
             prompt,
             input_images:      imageUrls.slice(0, MAX_REFERENCE_IMAGES),
             aspect_ratio:      imageUrls.length > 0 ? aspectRatio : '1:1',
-            output_format:     'webp',
+            output_format:     'png',
             output_quality:    95,
             safety_tolerance:  5,
           },

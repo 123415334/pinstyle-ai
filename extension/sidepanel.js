@@ -1658,12 +1658,12 @@ async function saveToSupabase(buffers, subject) {
 
   for (let i = 0; i < buffers.length; i++) {
     try {
-      const path = `${userId}/${timestamp}_${i}.webp`;
+      const path = `${userId}/${timestamp}_${i}.png`;
       const resp = await fetch(`${SUPABASE_URL}/storage/v1/object/generated-images/${path}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${_authToken}`,
-          'Content-Type':  'image/webp',
+          'Content-Type':  'image/png',
           'x-upsert':      'false',
         },
         body: buffers[i],
