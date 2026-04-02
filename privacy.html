@@ -12,6 +12,7 @@
     --ink-soft: #5C5650;
     --ink-muted: #9C978F;
     --red: #E03D2A;
+    --accent-light: #013FF4;
     --red-soft: #F5E8E5;
     --gold: #C8A96E;
     --border: rgba(26,22,18,0.12);
@@ -87,39 +88,42 @@
   <div class="content">
     <div class="eyebrow">Legal</div>
     <h1>Privacy Policy</h1>
-    <p class="meta">Last updated: March 20, 2025 &nbsp;&middot;&nbsp; tack &nbsp;&middot;&nbsp; <a href="https://tack.co">tack.co</a></p>
+    <p class="meta">Last updated: April 2, 2026 &nbsp;&middot;&nbsp; tack &nbsp;&middot;&nbsp; <a href="https://tack.design">tack.design</a></p>
 
     <div class="section">
       <h2>Overview</h2>
-      <p>tack ("we", "us", or "our") operates the website at <a href="https://tack.co">tack.co</a>. This Privacy Policy explains what information we handle when you use the service and how it is used.</p>
+      <p>tack ("we", "us", or "our") operates the website and Chrome extension at <a href="https://tack.design">tack.design</a>. This Privacy Policy explains what information we handle when you use tack and how it is used.</p>
       <p>By using tack, you agree to the practices described in this policy.</p>
     </div>
 
     <div class="section">
       <h2>Information We Process</h2>
-      <p>We do not create user accounts or store personal data on our servers. When you use tack, the following information is temporarily processed to deliver the service:</p>
+      <p>When you use tack, we process the information needed to run the product, authenticate your account, and save your usage history when that feature is enabled.</p>
       <ul>
-        <li><strong>Pinterest board URL</strong> — the URL you paste into the tool, used to analyze the board's visual style.</li>
-        <li><strong>Your prompt</strong> — the description of what you want to create, passed to our AI providers.</li>
-        <li><strong>Generated images</strong> — AI-generated images are hosted by OpenAI and served directly to your browser. We do not store copies of generated images.</li>
+        <li><strong>Account information</strong> — if you create an account, we process your email address, authentication details, and plan status.</li>
+        <li><strong>Reference image data</strong> — image URLs and related image content selected in the extension are processed so tack can analyze the shared visual style.</li>
+        <li><strong>Your prompt</strong> — the subject or request you type is processed to generate new images in the selected style.</li>
+        <li><strong>Generated images and history</strong> — if you are signed in, generated images and related metadata may be stored so they can appear in your history across devices.</li>
+        <li><strong>Billing information</strong> — if you upgrade, billing is processed by Stripe. We do not store full payment card details on our own servers.</li>
       </ul>
-      <p>No input or output data is stored in a database or retained after your session ends.</p>
+      <p>We keep only the information needed to operate the service, support your account, enforce plan limits, and provide features like saved history and billing management.</p>
     </div>
 
     <div class="section">
       <h2>Third-Party Services</h2>
       <p>tack is built on third-party AI and hosting services. Your inputs are sent to these providers to generate results:</p>
       <ul>
-        <li><strong>Anthropic (Claude AI)</strong> — processes your board URL and prompt to extract visual style and generate image prompts. <a href="https://www.anthropic.com/privacy" target="_blank" rel="noopener">Anthropic Privacy Policy</a></li>
-        <li><strong>OpenAI (DALL-E 3)</strong> — generates images from the style prompt. <a href="https://openai.com/policies/privacy-policy" target="_blank" rel="noopener">OpenAI Privacy Policy</a></li>
-        <li><strong>Pinterest</strong> — board URLs you provide may be fetched to extract visual style information. Pinterest's own privacy policy governs their platform.</li>
+        <li><strong>Anthropic</strong> — used for style analysis and prompt construction. <a href="https://www.anthropic.com/privacy" target="_blank" rel="noopener">Anthropic Privacy Policy</a></li>
+        <li><strong>Replicate / Black Forest Labs</strong> — used to generate images from the prepared prompt and style direction. <a href="https://replicate.com/privacy" target="_blank" rel="noopener">Replicate Privacy Policy</a></li>
+        <li><strong>Supabase</strong> — used for authentication, account data, and saved history. <a href="https://supabase.com/privacy" target="_blank" rel="noopener">Supabase Privacy Policy</a></li>
+        <li><strong>Stripe</strong> — used for checkout, subscriptions, and billing portal access. <a href="https://stripe.com/privacy" target="_blank" rel="noopener">Stripe Privacy Policy</a></li>
         <li><strong>Vercel</strong> — hosts this website and its serverless functions. Vercel may log standard request metadata such as IP address and timestamp. <a href="https://vercel.com/legal/privacy-policy" target="_blank" rel="noopener">Vercel Privacy Policy</a></li>
       </ul>
     </div>
 
     <div class="section">
       <h2>Cookies &amp; Tracking</h2>
-      <p>tack does not use cookies, analytics trackers, or any form of user tracking. We do not use Google Analytics or similar tools.</p>
+      <p>tack does not use advertising trackers on the marketing site. We may use essential browser storage or authentication state to keep you signed in and provide account features. Third-party services we use, such as Stripe or Supabase, may also use technically necessary cookies or storage in the course of providing their services.</p>
     </div>
 
     <div class="section">
@@ -143,7 +147,7 @@
   </div>
 
   <footer>
-    <strong>tack</strong> — Turn Pinterest boards into AI image style guides<br>
+    <strong>tack</strong> — Select references. Generate new images in the same style.<br>
     <span><a href="/">Home</a> &nbsp;&middot;&nbsp; <a href="/privacy">Privacy Policy</a></span>
   </footer>
 

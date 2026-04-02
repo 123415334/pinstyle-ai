@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>tack — Style Any Image. Generate Any Image.</title>
-  <meta name="description" content="Select images from any website. Generate AI images that match their exact visual style. The Chrome extension that turns inspiration into creation.">
+  <title>tack — Select a style. Generate something new.</title>
+  <meta name="description" content="Select reference images on any website and generate new images in the same visual style with tack for Chrome.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
@@ -467,7 +467,7 @@
   <nav id="main-nav">
     <a href="/" class="nav-logo"><img src="tack_logo.svg" alt="tack"></a>
     <div style="display:flex;align-items:center;gap:20px;">
-      <a href="/account.html" style="color:var(--ink-muted);font-size:13px;text-decoration:none;font-family:'DM Sans',sans-serif;font-weight:400;transition:color 0.2s;" onmouseover="this.style.color='var(--ink)'" onmouseout="this.style.color='var(--ink-muted)'">My Account</a>
+      <a href="/account" style="color:var(--ink-muted);font-size:13px;text-decoration:none;font-family:'DM Sans',sans-serif;font-weight:400;transition:color 0.2s;" onmouseover="this.style.color='var(--ink)'" onmouseout="this.style.color='var(--ink-muted)'">My Account</a>
       <a href="#download" class="nav-cta">Add to Chrome</a>
     </div>
   </nav>
@@ -594,9 +594,9 @@
 
       <div class="hero-content">
         <img src="tack_square.svg" class="hero-app-icon" alt="tack Chrome extension">
-        <p class="eyebrow">Chrome Extension &nbsp;·&nbsp; <span>Free</span> &nbsp;·&nbsp; Powered by Claude AI</p>
-        <h1>The whole internet<br>is your <em>moodboard.</em></h1>
-        <p class="hero-sub">Select images from any website. Generate AI images that match their exact visual style — in seconds.</p>
+        <p class="eyebrow">Chrome Extension &nbsp;·&nbsp; <span>Free to try</span></p>
+        <h1>Select a style.<br>Make something <em>new.</em></h1>
+        <p class="hero-sub">Pick reference images on any site. tack turns them into new images in the same visual style.</p>
         <div class="hero-actions">
           <a href="#download" class="btn-primary">Add to Chrome — It's Free</a>
           <a href="#how" class="btn-ghost">See how it works ↓</a>
@@ -616,14 +616,14 @@
       <div class="ed-step">
         <div class="reveal reveal-left">
           <span class="ed-ghost">01</span>
-          <h2 class="ed-title">Browse any site.<br><em>Select what moves you.</em></h2>
-          <p class="ed-body">Open tack from your Chrome toolbar on any page — Pinterest, Behance, Instagram, anywhere. Click the images that catch your eye directly on the page. tack highlights each selection as you build your reference set.</p>
+          <h2 class="ed-title">Browse anywhere.<br><em>Select what fits.</em></h2>
+          <p class="ed-body">Open tack on Pinterest, Behance, design blogs, shop pages, or anywhere else you find visual inspiration. Select the images you want to use as references right on the page.</p>
         </div>
         <div class="ed-visual reveal reveal-right" id="s1-visual">
           <div class="showcase-shot step-1" id="s1-mock">
             <div class="showcase-stage">
               <div class="showcase-window">
-                <img src="images/marketing/select-workspace.png" loading="lazy" alt="Pinterest board beside the tack side panel with selected reference images">
+                <img src="images/marketing/select-workspace.png" loading="lazy" alt="A Pinterest-style board beside the tack side panel with selected reference images">
                 <div class="showcase-overlay" aria-hidden="true"></div>
                 <div class="showcase-noise" aria-hidden="true"></div>
               </div>
@@ -636,8 +636,8 @@
       <div class="ed-step flip">
         <div class="reveal reveal-right">
           <span class="ed-ghost">02</span>
-          <h2 class="ed-title">Describe your<br><em>subject.</em> We do the rest.</h2>
-          <p class="ed-body">Type what you want to create — "a perfume bottle", "a living room", "a brand logo". Just the subject. Claude AI reads the visual DNA from your references and generates images that look like they belong in the same collection.</p>
+          <h2 class="ed-title">Name the new<br><em>subject.</em></h2>
+          <p class="ed-body">Type what you want to make: a product shot, a room, a character, a campaign visual. tack keeps the style from your references and applies it to something new.</p>
         </div>
         <div class="ed-visual reveal reveal-left" id="s2-visual">
           <div class="showcase-shot step-2" id="s2-mock">
@@ -656,8 +656,8 @@
       <div class="ed-step">
         <div class="reveal reveal-left">
           <span class="ed-ghost">03</span>
-          <h2 class="ed-title"><em>Download</em> and use<br>immediately.</h2>
-          <p class="ed-body">Four generated images arrive in seconds, each styled to your exact references. Save what works. Go again with a new subject. Your moodboard just became a production tool.</p>
+          <h2 class="ed-title"><em>Download</em> what works.</h2>
+          <p class="ed-body">Review the style analysis, copy the prompt if you want it, and save the results that fit. Then run a new subject in the same style whenever you need more.</p>
         </div>
         <div class="ed-visual reveal reveal-right" id="s3-visual">
           <div class="showcase-shot step-3" id="s3-mock">
@@ -681,7 +681,7 @@
     <div class="features-wrap">
       <div class="features-header reveal">
         <p class="features-tag">Built for</p>
-        <h2 class="features-headline">Every creative who<br><em>saves</em> inspiration.</h2>
+        <h2 class="features-headline">For anyone who<br><em>collects</em> references.</h2>
       </div>
       <div class="feature-grid">
 
@@ -700,8 +700,8 @@
             </svg>
           </div>
           <p class="fcard-tag">Brands &amp; Agencies</p>
-          <h3>Pitch in your client's aesthetic</h3>
-          <p>Select images from their existing brand or reference folder. Generate concept images that already feel on-brand before a single brief is written.</p>
+          <h3>Pitch in the right visual language</h3>
+          <p>Select brand references, campaign tears, or product shots and generate concepts that already feel on-brand.</p>
         </div>
 
         <!-- Card 02: Product Designers — icon: stacked layers (NP style, filled) -->
@@ -723,8 +723,8 @@
             </svg>
           </div>
           <p class="fcard-tag">Product Designers</p>
-          <h3>Prototype visual directions fast</h3>
-          <p>Pull references from competitor products or design systems. Generate product concepts in that exact visual language — in seconds, not hours.</p>
+          <h3>Explore directions faster</h3>
+          <p>Pull references from products, systems, or competitors and test new visual directions without rebuilding the style from scratch.</p>
         </div>
 
         <!-- Card 03: Content Creators — icon: camera (NP style, filled) -->
@@ -741,8 +741,8 @@
             </svg>
           </div>
           <p class="fcard-tag">Content Creators</p>
-          <h3>Match your visual identity</h3>
-          <p>Select your best-performing posts as references. Generate new content that matches your established aesthetic — consistently, endlessly.</p>
+          <h3>Stay visually consistent</h3>
+          <p>Use your best posts, campaigns, or boards as references and generate new work that still feels like you.</p>
         </div>
 
         <!-- Card 04: Art Directors — icon: thumbtack / pushpin (NP style, filled) -->
@@ -757,8 +757,8 @@
             </svg>
           </div>
           <p class="fcard-tag">Art Directors</p>
-          <h3>Turn mood boards into assets</h3>
-          <p>Stop screenshotting references and struggling to describe them in prompts. Select them directly and generate usable assets in seconds.</p>
+          <h3>Turn references into output</h3>
+          <p>Skip the long prompt-writing step. Select the style you want, describe the subject, and generate usable images right away.</p>
         </div>
 
       </div>
@@ -827,10 +827,10 @@
         <div class="app-tile-wrap">
           <img src="tack_square.svg" alt="tack" class="app-tile">
         </div>
-        <h2>Your inspiration,<br><em>finally made real.</em></h2>
-        <p class="sub">Free to install. Works on every website. No board URLs needed.</p>
+        <h2>Reference in.<br><em>Results out.</em></h2>
+        <p class="sub">Free to install. Works on the sites you already use. No copy-pasting board links required.</p>
         <div class="dl-actions">
-          <a href="#" class="btn-primary" style="font-size:15px;padding:17px 38px;">
+          <a href="#download" class="btn-primary" style="font-size:15px;padding:17px 38px;">
             Add tack to Chrome
           </a>
           <p class="free-note">Free · Chrome Web Store · No account required to start</p>

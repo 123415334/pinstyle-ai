@@ -5,6 +5,7 @@
     "api/stripe-webhook.js": { "maxDuration": 30 }
   },
   "rewrites": [
+    { "source": "/account",   "destination": "/account.html" },
     { "source": "/privacy",   "destination": "/privacy.html" },
     { "source": "/upgrade",   "destination": "/upgrade.html" },
     { "source": "/confirmed", "destination": "/confirmed.html" }
