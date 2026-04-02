@@ -1135,37 +1135,10 @@ async function loadImages(options = {}) {
   _currentPageUrl = tab.url || '';
 
   const isPinterest = tab.url && tab.url.includes('pinterest.com');
-  const canAutoScroll = /^https?:\/\//i.test(tab.url || '');
   const cachedImages = !forceRefresh ? await getCachedScan(tab.url) : null;
   if (!isLatestRequest('scan', requestId)) return;
   if (cachedImages?.length) {
     renderScannedImages(cachedImages, { isPinterest, fromCache: true });
-  }
-
-  if (!isPinterest && canAutoScroll) {
-    try {
-      await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        func: () => {
-          return new Promise(resolve => {
-            const startY = window.scrollY;
-            let scrolls = 0;
-            const maxScrolls = 3;
-            const interval = setInterval(() => {
-              window.scrollBy(0, window.innerHeight);
-              scrolls++;
-              if (scrolls >= maxScrolls) {
-                clearInterval(interval);
-                setTimeout(() => {
-                  window.scrollTo({ top: startY, behavior: 'instant' });
-                  setTimeout(resolve, 100);
-                }, 800);
-              }
-            }, 400);
-          });
-        },
-      });
-    } catch (_) {}
   }
 
   if (!isLatestRequest('scan', requestId)) return;
@@ -1408,7 +1381,7 @@ async function generate() {
       method: 'POST',
       headers,
       signal: controller.signal,
-      body: JSON.stringify({ imageUrls: [...selectedUrls], subject, pageUrl }),
+      body: JSON.stringify({ imageUrls: [...selectedUrls], subject }),
     });
 
     const data = await resp.json().catch(() => ({}));

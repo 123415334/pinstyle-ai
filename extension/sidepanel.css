@@ -294,6 +294,13 @@ main { padding: 14px; display: flex; flex-direction: column; gap: 16px; }
   margin-bottom: 6px;
   gap: 8px;
 }
+.scan-disclosure {
+  margin-top: 8px;
+  max-width: 390px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--ink-muted);
+}
 .btn-scan {
   font-family: inherit;
   font-size: 11px;

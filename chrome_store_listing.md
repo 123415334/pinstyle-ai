@@ -6,7 +6,7 @@
 tack
 
 ## Short Description (132 chars max)
-Select images from any website and generate AI images that match their exact visual style.
+Select images from any website and generate new AI images in the same visual style.
 
 *(89 chars — within limit)*
 
@@ -19,30 +19,33 @@ Select images from any website and generate AI images that match their exact vis
 
 ## Long Description
 
-tack turns your visual inspiration into AI-generated images — in seconds.
+tack turns visual references from around the web into new images with the same aesthetic.
 
-Browse Pinterest, design blogs, or anywhere on the web. Select the images whose style you love. Type what you want to create. tack analyzes the visual style of your selections and generates images that match it precisely.
+Open tack on any page with images. Select the references whose style you want to borrow. Type what you want to make. tack analyzes the shared look of your selections and generates original images in that same visual family.
 
 **How it works:**
 1. Open tack from your Chrome toolbar on any page
 2. Select images whose style you want to capture
 3. Type a subject (e.g. "a coffee mug", "a pair of sneakers")
-4. Hit Generate — tack's AI analyzes the style and creates two original images in that aesthetic
+4. Hit Generate and tack creates original images in that aesthetic
 
 **What makes tack different:**
-tack doesn't just apply a filter. It uses Claude AI to read the visual language of your reference images — the rendering technique, color palette, texture, and mood — and translates that into a generation prompt for FLUX, one of the most capable AI image models available. The result is images that genuinely feel like they belong in the same visual world as your inspiration.
+tack does more than apply a filter. It reads the shared visual language of your references, including composition, palette, rendering style, and mood, then uses that analysis to generate something new that still feels stylistically coherent.
 
 **Works everywhere:**
 Select images from Pinterest boards, Behance, design portfolios, editorial sites — any page with images works.
 
+**What gets sent:**
+When you generate, tack sends only the image URLs you select and the prompt you type so it can analyze style and create results. It does not send the rest of the page for generation.
+
 **Your account:**
-Sign up for a free account to save your generations and access them at tack.design. Free plan includes 3 generations. Pro plan available for unlimited monthly generations.
+Sign up for a free account to save your generations and access them at tack.design. Free includes 3 generations. Pro includes 120 generations per month. Unlimited removes the cap.
 
 ---
 
 ## Why tack needs access to all websites
 
-tack's core function is to let users select reference images from any website they're browsing — not just a fixed set of domains. Whether you're on Pinterest, a design blog, an editorial site, or anywhere else on the web, tack needs to be able to scan the images on that page so you can select them as style references. The `scripting` permission is used solely to detect and collect image elements on the active tab. No data is collected from pages except the image URLs you explicitly select.
+tack's core function is to let users select reference images from any website they're browsing — not just a fixed set of domains. Whether you're on Pinterest, a design blog, an editorial site, or anywhere else on the web, tack needs to be able to read the images on that page so you can choose them as style references. The extension only scans the current tab after the user opens tack, and it only sends the image URLs the user selects plus the prompt they type in order to generate results.
 
 ---
 
@@ -53,7 +56,7 @@ https://tack.design/privacy
 
 ## Single Purpose Description
 *(Required field in the Chrome Web Store — one sentence)*
-tack lets users select images from any webpage and use them as style references to generate AI images that match that visual aesthetic.
+tack lets users select images from any webpage and use them as style references to generate new AI images in the same aesthetic.
 
 ---
 
@@ -72,12 +75,16 @@ tack lets users select images from any webpage and use them as style references 
 
 ## Permissions Justification (for Google's review form)
 
-**activeTab:** Used to get the URL of the current tab to determine page type (e.g. Pinterest vs. other sites) and to inject the image-scanning script only on the tab the user is actively viewing.
+**activeTab:** Used to access only the tab the user is actively viewing when they open tack, so the extension can scan that page for selectable reference images.
 
-**scripting:** Used to scan the active page for images so the user can select them as style references. The injected function only reads image element attributes (src, width, height, alt) — it does not modify the page, collect user data, or run any remote code.
+**scripting:** Used to scan the active page for images so the user can select them as style references. The injected function only reads image element attributes (src, width, height, alt) and page-embedded Pinterest image data. It does not run remote code.
 
-**storage:** Used to store the user's authentication token and generation count locally so they remain logged in between sessions.
+**storage:** Used to keep the user signed in, remember plan and usage state, and preserve local workspace/history state between sessions.
 
 **sidePanel:** Used to display the tack interface as a side panel within Chrome, allowing users to select images and generate without leaving the page they're browsing.
 
-**Host permissions (<all_urls>):** tack's value is that it works on any website — users collect visual inspiration from Pinterest, design blogs, editorial sites, and countless other domains. Restricting to specific domains would break the core use case. The scripting injection only occurs when the user explicitly clicks the tack toolbar button and only reads image elements from the current active tab.
+**downloads:** Used only when the user chooses to download a generated image.
+
+**identity:** Used only for optional Google sign-in through Supabase authentication.
+
+**Host permissions (<all_urls>):** tack is designed to work on the specific page the user is viewing, regardless of site. Users gather references from many different domains, so limiting site access to a small allowlist would break the product. The extension scans only the current tab after the user opens tack, and generation uses only the references the user selects.
