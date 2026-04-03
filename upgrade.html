@@ -212,6 +212,22 @@
     }
     .billing-toolbar-btn.primary:hover { background: #0f49ff; }
 
+    /* Ghost downgrade button — de-emphasised, still interactive */
+    .btn-downgrade {
+      background: transparent;
+      border: 1px solid rgba(240,235,227,0.10);
+      color: var(--ink-muted);
+      box-shadow: none;
+      font-weight: 300;
+    }
+    .btn-downgrade:hover {
+      background: rgba(240,235,227,0.04);
+      border-color: rgba(240,235,227,0.18);
+      color: var(--ink);
+      transform: none;
+      opacity: 1;
+    }
+
     /* Inline manage-billing text link under current-plan card */
     .manage-billing-link {
       display: block;
@@ -944,12 +960,12 @@
         unlimitedCard?.classList.add('current-plan-card');
         if (freeNote) freeNote.textContent = 'Free plan';
 
-        // Pro button: visible but routes to portal to switch down
+        // Pro button: ghost style — available but not encouraged
         if (proBtn) {
           proBtn.style.display    = '';
           proBtn.disabled         = false;
           proBtn.textContent      = 'Switch to Pro';
-          proBtn.className        = 'upgrade-btn btn-manage';
+          proBtn.className        = 'upgrade-btn btn-downgrade';
           proBtn.dataset.action   = 'portal';
         }
         if (unlimitedBtn) {
