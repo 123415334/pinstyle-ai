@@ -406,6 +406,25 @@
     }
     .btn-red:hover { box-shadow: 0 10px 32px rgba(1,63,244,0.30); }
 
+    /* Current plan — ghost style, no hover lift */
+    .btn-current {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--ink-muted);
+      box-shadow: none;
+      cursor: default;
+    }
+    .btn-current:hover { opacity: 1 !important; transform: none !important; box-shadow: none !important; }
+
+    /* Manage — subtle filled, portal action */
+    .btn-manage {
+      background: rgba(240,235,227,0.05);
+      border: 1px solid rgba(240,235,227,0.14);
+      color: var(--ink);
+      box-shadow: none;
+    }
+    .btn-manage:hover { background: rgba(240,235,227,0.09); transform: translateY(-1px); }
+
     .current-plan-note {
       display: block;
       width: 100%;
@@ -421,21 +440,20 @@
     .manage-link {
       display: block;
       width: 100%;
-      margin-top: 14px;
-      padding: 13px 18px;
+      margin-top: 10px;
+      padding: 11px 18px;
       text-align: center;
       border-radius: 100px;
-      border: 1px solid var(--border);
-      color: var(--ink);
-      text-decoration: none;
+      border: none;
+      background: none;
+      color: var(--ink-muted);
+      font-family: 'DM Sans', sans-serif;
       font-size: 12px;
       letter-spacing: 0.03em;
-      transition: background 0.2s, border-color 0.2s;
+      cursor: pointer;
+      transition: color 0.2s;
     }
-    .manage-link:hover {
-      background: rgba(240,235,227,0.05);
-      border-color: rgba(240,235,227,0.16);
-    }
+    .manage-link:hover { color: var(--ink); }
 
     /* Spinner */
     .spinner {
@@ -846,45 +864,69 @@
     }
 
     function renderPlanState() {
-      if (currentPlan !== 'free' && freeNote) freeNote.textContent = 'Free plan';
+      // ── Reset card highlights and any previously injected manage links ──
       proCard?.classList.remove('current-plan-card');
       unlimitedCard?.classList.remove('current-plan-card');
+      document.querySelectorAll('.manage-link').forEach(el => el.remove());
 
-      const proBtn = document.getElementById('pro-btn');
+      const proBtn       = document.getElementById('pro-btn');
       const unlimitedBtn = document.getElementById('unlimited-btn');
 
+      // ── Reset both buttons to a clean visible state ──
+      [proBtn, unlimitedBtn].forEach(btn => {
+        if (!btn) return;
+        btn.style.display  = '';
+        btn.disabled       = false;
+        btn.className      = 'upgrade-btn btn-accent';
+        delete btn.dataset.action;
+      });
+      // Unlimited button keeps its red accent by default
+      if (unlimitedBtn) unlimitedBtn.className = 'upgrade-btn btn-red';
+
       if (currentPlan === 'pro') {
+        // ── Pro subscriber ──
         proCard?.classList.add('current-plan-card');
+        if (freeNote) freeNote.textContent = 'Free plan';
+
         if (proBtn) {
-          proBtn.textContent = 'Current plan';
-          proBtn.disabled = true;
+          proBtn.textContent = '✓ Current plan';
+          proBtn.disabled    = true;
+          proBtn.className   = 'upgrade-btn btn-current';
         }
         if (unlimitedBtn) {
           unlimitedBtn.textContent = 'Upgrade to Unlimited →';
-          unlimitedBtn.disabled = false;
+          unlimitedBtn.className   = 'upgrade-btn btn-red';
         }
-        attachManageLink(proCard, 'Manage Pro billing');
+        // Subtle portal link inside the current-plan card
+        attachManageLink(proCard, 'Manage billing');
+
       } else if (currentPlan === 'unlimited') {
+        // ── Unlimited subscriber ──
         unlimitedCard?.classList.add('current-plan-card');
+        if (freeNote) freeNote.textContent = 'Free plan';
+
+        // Hide the Pro card button entirely — no downgrade nudge
+        if (proBtn) {
+          proBtn.style.display = 'none';
+          proBtn.disabled      = true;
+        }
+        // Unlimited button becomes a portal management action
         if (unlimitedBtn) {
-          unlimitedBtn.textContent = 'Manage Unlimited billing';
-          unlimitedBtn.disabled = false;
+          unlimitedBtn.textContent   = 'Manage billing';
+          unlimitedBtn.className     = 'upgrade-btn btn-manage';
           unlimitedBtn.dataset.action = 'portal';
         }
-        if (proBtn) {
-          proBtn.textContent = 'Switch to Pro in billing portal';
-          proBtn.disabled = false;
-          proBtn.dataset.action = 'portal';
-        }
-        attachManageLink(unlimitedCard, 'Open billing portal');
+        // billing toolbar (setAccountBar) already surfaces portal — no attachManageLink needed
+
       } else {
+        // ── Free plan — both upgrade buttons active ──
         if (proBtn) {
           proBtn.textContent = 'Upgrade to Pro →';
-          proBtn.disabled = false;
+          proBtn.className   = 'upgrade-btn btn-accent';
         }
         if (unlimitedBtn) {
           unlimitedBtn.textContent = 'Go Unlimited →';
-          unlimitedBtn.disabled = false;
+          unlimitedBtn.className   = 'upgrade-btn btn-red';
         }
       }
     }
@@ -906,13 +948,14 @@
     async function startCheckout(plan) {
       const btnId = plan === 'unlimited' ? 'unlimited-btn' : 'pro-btn';
       const btn   = document.getElementById(btnId);
-      if (!btn || btn.disabled) return;
+      if (!btn || btn.disabled || btn.style.display === 'none') return;
 
       if (btn.dataset.action === 'portal') {
         openBillingPortal();
         return;
       }
 
+      const originalText = btn.textContent;
       btn.disabled = true;
       btn.innerHTML = `<span class="spinner"></span> Preparing checkout…`;
 
@@ -933,7 +976,7 @@
 
       } catch (err) {
         btn.disabled = false;
-        btn.textContent = plan === 'unlimited' ? 'Go Unlimited →' : 'Upgrade to Pro →';
+        btn.textContent = originalText;
         alert(err.message);
       }
     }
