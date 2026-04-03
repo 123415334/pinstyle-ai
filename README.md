@@ -1,58 +1,53 @@
-# PinStyle AI — Vercel Deployment Guide
+# Tack — Vercel Deployment Guide
 
 ## What's in this folder
 
-- `index.html` — the clean frontend (no API keys visible to users)
-- `api/analyze.js` — the server-side function that calls Claude + OpenAI
+- `index.html` — the marketing site frontend
+- `upgrade.html` — plans & pricing / billing page
+- `api/analyze.js` — server-side function that calls Claude + Replicate
+- `api/create-checkout.js` — Stripe Checkout session creation
+- `api/create-portal-session.js` — Stripe Customer Portal session
+- `api/stripe-webhook.js` — Stripe webhook handler (updates Supabase on payment events)
 - `vercel.json` — tells Vercel how to run everything
 - `README.md` — this guide
 
 ---
 
-## How to deploy (10 minutes, no coding)
+## How to deploy
 
-### Step 1 — Create a free Vercel account
-Go to vercel.com and sign up with your GitHub, Google, or email.
+### Step 1 — Push to GitHub
+The project is connected to GitHub. Push changes and Vercel auto-deploys.
 
-### Step 2 — Upload your project
-1. On your Vercel dashboard, click **"Add New Project"**
-2. Click **"Upload"** (you don't need GitHub)
-3. Drag and drop the entire `pinstyle-ai` folder onto the upload area
-4. Click **Deploy**
+### Step 2 — Environment Variables
+In Vercel → your project → Settings → Environment Variables, ensure these are set:
 
-Vercel will build and deploy automatically. You'll get a live URL like:
-`https://pinstyle-ai.vercel.app`
+| Name | Where to find it |
+|------|-----------------|
+| `ANTHROPIC_API_KEY` | console.anthropic.com/keys |
+| `OPENAI_API_KEY` | platform.openai.com/api-keys |
+| `REPLICATE_API_KEY` | replicate.com/account/api-tokens |
+| `STRIPE_SECRET_KEY` | Stripe Dashboard → Developers → API keys |
+| `STRIPE_WEBHOOK_SECRET` | Stripe Dashboard → Developers → Webhooks |
+| `STRIPE_PRICE_ID_PRO` | Stripe Dashboard → Product catalog → Tack Pro |
+| `STRIPE_PRICE_ID_UNLIMITED` | Stripe Dashboard → Product catalog → Tack Unlimited |
+| `SUPABASE_URL` | Supabase → Project Settings → API |
+| `SUPABASE_ANON_KEY` | Supabase → Project Settings → API |
+| `SUPABASE_SERVICE_KEY` | Supabase → Project Settings → API → service_role |
 
-### Step 3 — Add your API keys (secret, server-side)
-This is the important step. Your keys live on Vercel's servers — users never see them.
-
-1. In Vercel, go to your project → **Settings** → **Environment Variables**
-2. Add these two variables:
-
-| Name | Value |
-|------|-------|
-| `ANTHROPIC_API_KEY` | your key from console.anthropic.com/keys |
-| `OPENAI_API_KEY` | your key from platform.openai.com/api-keys |
-
-3. Click **Save** for each one
-4. Go to **Deployments** → click the three dots on your latest deployment → **Redeploy**
-
-### Step 4 — Test it
-Open your live URL. Paste a Pinterest board URL, describe what you want, click generate.
-Images will generate and display directly in the app — no CORS errors, no key fields.
+After adding or changing env vars, redeploy: Vercel → Deployments → ⋯ → Redeploy.
 
 ---
 
-## Your live URL
-Once deployed, your site URL is shareable with anyone. This is your product.
-You can connect a custom domain (like pinstyleai.com) in Vercel → Settings → Domains.
+## Stripe webhook
+The webhook endpoint is: `https://www.tack.design/api/stripe-webhook`
+
+Listens for:
+- `checkout.session.completed` — upgrades user plan in Supabase after payment
+- `customer.subscription.created` — syncs new subscription to Supabase
+- `customer.subscription.updated` — syncs plan changes (including portal switches)
+- `customer.subscription.deleted` — downgrades user to free on cancellation
 
 ---
 
-## Costs to run
-- Vercel hosting: **Free** (hobby tier covers this easily)
-- Anthropic (Claude): ~$0.003 per analysis
-- OpenAI (DALL-E): ~$0.04 per image, $0.08 for two images
-- Total per user run: **~$0.08–0.10**
-
-At $29/month per customer, your margin is extremely healthy.
+## Live URL
+`https://www.tack.design`
