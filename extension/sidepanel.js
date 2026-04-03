@@ -36,7 +36,7 @@ let _generationsUsed  = 0;
 let _monthlyUsed      = 0;
 let _monthlyResetAt   = null;
 let _plan             = 'free';
-let _anonUsed         = false;  // has the guest used their one free preview generation?
+let _anonCount        = 0;  // how many anonymous generations the guest has used (max 3)
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 const imageGrid    = document.getElementById('image-grid');
@@ -325,14 +325,14 @@ function injectAnonCTA() {
   const cta = document.createElement('div');
   cta.id        = 'anon-cta';
   cta.className = 'anon-cta';
-  const eyebrow = createEl('p', { className: 'anon-cta-eyebrow', textContent: '✦ Like what you see?' });
+  const eyebrow = createEl('p', { className: 'anon-cta-eyebrow', textContent: '✦ That\'s your 3 free generations' });
   const text = createEl('p', {
     className: 'anon-cta-text',
-    textContent: 'Create a free account to get 3 more generations and save your results.',
+    textContent: 'Create an account to keep going and save your results.',
   });
   const signupBtn = createEl('button', {
     className: 'anon-cta-btn',
-    textContent: 'Create free account →',
+    textContent: 'Create account →',
     attrs: { id: 'anon-cta-signup', type: 'button' },
   });
   const loginBtn = createEl('button', {
@@ -346,8 +346,8 @@ function injectAnonCTA() {
   signupBtn.addEventListener('click', () => {
     switchAuthTab('signup');
     setAuthModalCopy(
-      'Save this &amp; keep <em>creating</em>',
-      '3 free images with every new account — no card required.',
+      'Keep <em>creating</em>',
+      'Create an account to continue — your results will be saved.',
     );
     showAuthModal();
   });
@@ -623,8 +623,8 @@ async function initAuth() {
   }
 
   // Guest mode — show UI immediately, no auth wall
-  const anonData = await chrome.storage.local.get(['ps_anon_used']);
-  _anonUsed = !!anonData.ps_anon_used;
+  const anonData = await chrome.storage.local.get(['ps_anon_count']);
+  _anonCount = parseInt(anonData.ps_anon_count || 0, 10);
   _pendingWorkspace = await loadPendingWorkspaceState();
   showGuestUI();
 }
@@ -1353,19 +1353,18 @@ async function generate() {
   if (!subject || selectedUrls.size === 0) return;
   trackEvent('generate_started', { count: selectedUrls.size, source: _savedStyleMemory ? 'history_memory' : 'page' });
 
-  // Guest → allow first generation as anonymous preview; gate the second one
+  // Guest → allow 3 anonymous generations, then gate
   if (!_authToken) {
-    if (_anonUsed) {
-      // They've seen the magic — now invite them to create an account
+    if (_anonCount >= 3) {
       switchAuthTab('signup');
       setAuthModalCopy(
-        'Keep <em>creating</em>',
-        'Create a free account to keep going — 3 more generations included.',
+        'Save your work & keep <em>creating</em>',
+        'You\'ve used your 3 free generations. Create an account to continue — it\'s free.',
       );
       showAuthModal();
       return;
     }
-    // First time: fall through and generate (API accepts no-token as anon preview)
+    // Under the limit — fall through and generate
   }
 
   // Limit guards
@@ -1446,10 +1445,13 @@ async function generate() {
     renderResults(data);
 
     if (!_authToken) {
-      // Anonymous preview just completed — mark it used and invite sign-up
-      _anonUsed = true;
-      await chrome.storage.local.set({ ps_anon_used: true });
-      injectAnonCTA();
+      // Anonymous generation completed — increment counter
+      _anonCount++;
+      await chrome.storage.local.set({ ps_anon_count: _anonCount });
+      if (_anonCount >= 3) {
+        // They've hit the limit — show a gentle CTA after their last generation
+        injectAnonCTA();
+      }
     } else {
       if (data.usage) {
         _generationsUsed = data.usage.used;
