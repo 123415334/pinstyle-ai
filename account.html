@@ -510,7 +510,8 @@
           <span id="user-email" style="font-size:12px;color:var(--ink-muted);font-family:'DM Sans',sans-serif;"></span>
           <div class="account-controls">
             <span class="plan-pill" id="plan-pill">Free</span>
-            <button class="manage-btn" id="manage-billing-btn">Manage billing</button>
+            <button class="manage-btn" id="change-plan-btn">Change plan</button>
+            <button class="manage-btn" id="billing-portal-btn">Billing portal</button>
             <button class="signout-btn" id="signout-btn">Sign out</button>
           </div>
         </div>
@@ -534,6 +535,45 @@
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiZG93Y2llbGd0Y2Zob2xmeXJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2NjkwNzMsImV4cCI6MjA5MDI0NTA3M30.3dUuwXB8kcAbKvEWWMpvyrXhcdLx1x8x4wKxp3UY4Kk';
 
     let _session = null;
+
+    function getSafeNextPath() {
+      const raw = new URLSearchParams(window.location.search).get('next') || '';
+      if (!raw || !raw.startsWith('/')) return '';
+      if (raw.startsWith('//')) return '';
+      return raw;
+    }
+
+    function normalizePlan(plan) {
+      return ['free', 'pro', 'unlimited'].includes((plan || '').toLowerCase())
+        ? plan.toLowerCase()
+        : 'free';
+    }
+
+    function buildSessionHash() {
+      if (!_session?.access_token) return '';
+      const hash = new URLSearchParams();
+      hash.set('access_token', _session.access_token);
+      if (_session.refresh_token) hash.set('refresh_token', _session.refresh_token);
+      if (_session.token_type) hash.set('token_type', _session.token_type);
+      return hash.toString() ? `#${hash.toString()}` : '';
+    }
+
+    function buildUpgradeUrl() {
+      const params = new URLSearchParams();
+      const email = getSessionEmail();
+      if (email) params.set('email', email);
+      const currentPlan = normalizePlan(document.getElementById('plan-pill')?.dataset.plan || 'free');
+      params.set('current', currentPlan);
+      params.set('manage', '1');
+      return `/upgrade?${params.toString()}${buildSessionHash()}`;
+    }
+
+    function maybeRedirectAfterAuth() {
+      const next = getSafeNextPath();
+      if (!next) return false;
+      window.location.href = `${next}${buildSessionHash()}`;
+      return true;
+    }
 
     // ── Supabase helpers ──────────────────────────────────────────────────────
     async function sbFetch(path, opts = {}) {
@@ -595,7 +635,7 @@
     }
 
     async function signInWithGoogle() {
-      const redirectTo = `${window.location.origin}/account`;
+      const redirectTo = `${window.location.origin}${window.location.pathname}${window.location.search}`;
       const authUrl = new URL(`${SUPABASE_URL}/auth/v1/authorize`);
       authUrl.searchParams.set('provider', 'google');
       authUrl.searchParams.set('redirect_to', redirectTo);
@@ -624,22 +664,25 @@
     async function openBillingPortal() {
       const email = getSessionEmail();
       if (!email) {
-        window.location.href = '/upgrade';
+        window.location.href = '/account';
         return;
       }
-      const btn = document.getElementById('manage-billing-btn');
+      const btn = document.getElementById('billing-portal-btn');
       const original = btn.textContent;
       btn.disabled = true;
       btn.textContent = 'Opening…';
       try {
         const resp = await fetch('/api/create-portal-session', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, returnUrl: `${window.location.origin}/account` }),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${_session?.access_token || ''}`,
+          },
+          body: JSON.stringify({ returnUrl: `${window.location.origin}/account` }),
         });
         const data = await resp.json().catch(() => ({}));
         if (!resp.ok || !data.url) {
-          window.location.href = `/upgrade?email=${encodeURIComponent(email)}&current=${encodeURIComponent(document.getElementById('plan-pill').dataset.plan || 'free')}&manage=1`;
+          window.location.href = buildUpgradeUrl();
           return;
         }
         window.location.href = data.url;
@@ -647,6 +690,26 @@
         btn.disabled = false;
         btn.textContent = original;
       }
+    }
+
+    function openChangePlan() {
+      if (!_session?.access_token) {
+        window.location.href = '/account';
+        return;
+      }
+      window.location.href = buildUpgradeUrl();
+    }
+
+    async function refreshSession(refreshToken) {
+      if (!refreshToken) return null;
+      const resp = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+        method: 'POST',
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok || !data.access_token) return null;
+      return data;
     }
 
     // ── UI ────────────────────────────────────────────────────────────────────
@@ -804,6 +867,7 @@
         const session = await signIn(email, password);
         _session = session;
         localStorage.setItem('tack_session', JSON.stringify(session));
+        if (maybeRedirectAfterAuth()) return;
         showHistory();
         loadHistory();
       } catch (err) {
@@ -843,7 +907,8 @@
     });
 
     document.getElementById('signout-btn').addEventListener('click', signOut);
-    document.getElementById('manage-billing-btn').addEventListener('click', openBillingPortal);
+    document.getElementById('change-plan-btn').addEventListener('click', openChangePlan);
+    document.getElementById('billing-portal-btn').addEventListener('click', openBillingPortal);
     document.getElementById('reset-back-link').addEventListener('click', e => {
       e.preventDefault();
       history.replaceState({}, document.title, window.location.pathname);
@@ -902,7 +967,8 @@
             return;
           }
           localStorage.setItem('tack_session', JSON.stringify(session));
-          history.replaceState({}, document.title, window.location.pathname);
+          history.replaceState({}, document.title, `${window.location.pathname}${window.location.search}`);
+          if (maybeRedirectAfterAuth()) return;
           showHistory();
           loadHistory();
           return;
@@ -913,11 +979,16 @@
       try {
         const stored = localStorage.getItem('tack_session');
         if (stored) {
-          const session = JSON.parse(stored);
+          let session = JSON.parse(stored);
           // Check if token is still valid (not expired)
           const payload = JSON.parse(atob(session.access_token.split('.')[1]));
-          if (payload.exp * 1000 > Date.now()) {
+          if (payload.exp * 1000 <= Date.now() && session.refresh_token) {
+            session = await refreshSession(session.refresh_token);
+            if (session) localStorage.setItem('tack_session', JSON.stringify(session));
+          }
+          if (session?.access_token) {
             _session = session;
+            if (maybeRedirectAfterAuth()) return;
             showHistory();
             loadHistory();
             return;

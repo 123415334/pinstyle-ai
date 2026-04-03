@@ -94,7 +94,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   document.getElementById('manage-plan-btn').addEventListener('click', () => {
     closeAccountMenu();
-    openUpgradeFlow(_plan, { manage: true });
+    openUpgradeFlow(_plan, { manage: true }).catch(() => {});
   });
   accountMenuTrigger?.addEventListener('click', e => {
     e.stopPropagation();
@@ -185,8 +185,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     hidePlanScreen();
     showMainUI();
   });
-  document.getElementById('choose-pro-btn').addEventListener('click', () => openUpgradeFlow('pro'));
-  document.getElementById('choose-unlimited-btn').addEventListener('click', () => openUpgradeFlow('unlimited'));
+  document.getElementById('choose-pro-btn').addEventListener('click', () => { openUpgradeFlow('pro').catch(() => {}); });
+  document.getElementById('choose-unlimited-btn').addEventListener('click', () => { openUpgradeFlow('unlimited').catch(() => {}); });
   document.getElementById('plan-done-btn').addEventListener('click', async () => {
     const btn        = document.getElementById('plan-done-btn');
     const waitingEl  = document.getElementById('plan-waiting');
@@ -469,14 +469,20 @@ function hidePlanScreen() {
   planScreen.classList.add('hidden');
 }
 
-function openUpgradeFlow(plan, options = {}) {
+async function openUpgradeFlow(plan, options = {}) {
   const params = new URLSearchParams();
   if (_authEmail) params.set('email', _authEmail);
   if (plan) params.set('plan', plan);
   if (_plan) params.set('current', _plan);
   params.set('source', 'extension');
   if (options.manage) params.set('manage', '1');
-  const upgradeUrl = `https://tack.design/upgrade?${params.toString()}`;
+  const { ps_refresh: refreshToken = null } = await chrome.storage.local.get(['ps_refresh']);
+  const hash = new URLSearchParams();
+  if (_authToken) hash.set('access_token', _authToken);
+  if (refreshToken) hash.set('refresh_token', refreshToken);
+  hash.set('token_type', 'bearer');
+  const hashString = hash.toString() ? `#${hash.toString()}` : '';
+  const upgradeUrl = `https://tack.design/upgrade?${params.toString()}${hashString}`;
   chrome.tabs.create({ url: upgradeUrl });
   _billingRefreshPending = true;
   trackEvent(options.manage ? 'billing_manage_opened' : 'upgrade_flow_opened', { requestedPlan: plan || _plan });

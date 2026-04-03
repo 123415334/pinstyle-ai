@@ -637,7 +637,7 @@
     <a href="/" class="nav-logo">
       <img src="/tack_logo.svg" alt="tack">
     </a>
-    <a href="/" class="nav-back">← Back to site</a>
+    <a href="/" class="nav-back" id="nav-back-link">← Back to site</a>
   </nav>
 
   <div class="glow"></div>
@@ -802,12 +802,16 @@
     const params     = new URLSearchParams(window.location.search);
     let email        = params.get('email')   || '';
     let currentPlan  = params.get('current') || 'free';
+    const requestedPlan = params.get('plan') || '';
     const isSuccess  = params.get('success') === 'true';
     const successPlan = params.get('plan')   || 'pro';
     const manageMode = params.get('manage') === '1';
     const wasCanceled = params.get('canceled') === 'true';
+    const hasExplicitEmail = params.has('email');
+    const hasExplicitCurrent = params.has('current');
 
     const accountBar = document.getElementById('account-bar');
+    const navBackLink = document.getElementById('nav-back-link');
     const freeCard = document.querySelector('.plan');
     const proCard = document.querySelector('.plan-pro');
     const unlimitedCard = document.querySelector('.plan-unlimited');
@@ -819,6 +823,68 @@
       } catch {
         return null;
       }
+    }
+
+    function normalizePlan(plan) {
+      return ['free', 'pro', 'unlimited'].includes((plan || '').toLowerCase())
+        ? plan.toLowerCase()
+        : 'free';
+    }
+
+    function consumeSessionFromHash() {
+      if (!window.location.hash.includes('access_token=')) return false;
+      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      const accessToken = hash.get('access_token');
+      if (!accessToken) return false;
+      const session = {
+        access_token: accessToken,
+        refresh_token: hash.get('refresh_token'),
+        token_type: hash.get('token_type') || 'bearer',
+      };
+      localStorage.setItem('tack_session', JSON.stringify(session));
+      history.replaceState({}, document.title, `${window.location.pathname}${window.location.search}`);
+      return true;
+    }
+
+    async function refreshSession(refreshToken) {
+      if (!refreshToken) return null;
+      const resp = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+        method: 'POST',
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok || !data.access_token) return null;
+      return data;
+    }
+
+    async function getResolvedSession() {
+      consumeSessionFromHash();
+      const stored = getStoredSession();
+      if (!stored?.access_token) return null;
+      try {
+        const payload = JSON.parse(atob(stored.access_token.split('.')[1]));
+        if (payload.exp * 1000 > Date.now()) return stored;
+      } catch {
+        return null;
+      }
+      if (!stored.refresh_token) return null;
+      const refreshed = await refreshSession(stored.refresh_token).catch(() => null);
+      if (refreshed?.access_token) {
+        localStorage.setItem('tack_session', JSON.stringify(refreshed));
+        return refreshed;
+      }
+      return null;
+    }
+
+    function buildAccountRedirect(targetPlan = '') {
+      const nextParams = new URLSearchParams();
+      if (targetPlan) nextParams.set('plan', targetPlan);
+      if (email) nextParams.set('email', email);
+      if (currentPlan) nextParams.set('current', currentPlan);
+      if (manageMode) nextParams.set('manage', '1');
+      const next = `/upgrade${nextParams.toString() ? `?${nextParams.toString()}` : ''}`;
+      return `/account?next=${encodeURIComponent(next)}`;
     }
 
     async function fetchProfileFromSession(session) {
@@ -854,20 +920,27 @@
     }
 
     async function openBillingPortal() {
-      if (!email) {
-        window.location.href = '/account';
+      const session = await getResolvedSession();
+      if (!session?.access_token) {
+        window.location.href = buildAccountRedirect();
         return;
       }
       try {
         const resp = await fetch('/api/create-portal-session', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
           body: JSON.stringify({
-            email,
             returnUrl: `${window.location.origin}/upgrade?email=${encodeURIComponent(email)}&current=${encodeURIComponent(currentPlan)}`,
           }),
         });
         const data = await resp.json().catch(() => ({}));
+        if (resp.status === 401) {
+          window.location.href = buildAccountRedirect();
+          return;
+        }
         if (resp.status === 404) {
           // Account exists in our system but has no Stripe subscription record
           // (e.g. manually provisioned plan). Direct to support.
@@ -891,6 +964,10 @@
       if (!email) return;
       accountBar.style.display = 'inline-flex';
       accountBar.innerHTML = `Signed in as <strong>${email}</strong>`;
+      if (navBackLink) {
+        navBackLink.textContent = '← Back to account';
+        navBackLink.href = '/account';
+      }
     }
 
     function renderBillingToolbar() {
@@ -991,7 +1068,7 @@
       if (successPlan === 'unlimited') {
         document.getElementById('success-heading').innerHTML = 'Welcome to <em>Unlimited.</em>';
         document.getElementById('success-body').textContent =
-          'No more caps. Your account now has unlimited generations — head back to the extension and click "Already upgraded?" to unlock it.';
+          'No more caps. Your account now has unlimited generations. Head back to the extension and your new plan should appear automatically.';
       }
     }
 
@@ -1011,14 +1088,27 @@
       btn.innerHTML = `<span class="spinner"></span> Preparing checkout…`;
 
       try {
+        const session = await getResolvedSession();
+        if (!session?.access_token) {
+          window.location.href = buildAccountRedirect(plan);
+          return;
+        }
+
         const resp = await fetch('/api/create-checkout', {
           method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ email, plan }),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body:    JSON.stringify({ plan }),
         });
 
         if (!resp.ok) {
           const err = await resp.json().catch(() => ({}));
+          if (resp.status === 401) {
+            window.location.href = buildAccountRedirect(plan);
+            return;
+          }
           throw new Error(err.error || 'Something went wrong. Please try again.');
         }
 
@@ -1036,13 +1126,21 @@
     document.getElementById('unlimited-btn')?.addEventListener('click', () => startCheckout('unlimited'));
 
     (async function hydrateBillingState() {
-      const session = getStoredSession();
+      currentPlan = normalizePlan(currentPlan);
+      const session = await getResolvedSession();
       const profile = await fetchProfileFromSession(session).catch(() => null);
-      if (profile?.email) email = profile.email;
-      if (profile?.plan) currentPlan = profile.plan;
+      if (!hasExplicitEmail && profile?.email) email = profile.email;
+      if (!hasExplicitCurrent && profile?.plan) currentPlan = normalizePlan(profile.plan);
       setAccountBar();
       renderBillingToolbar();
       renderPlanState();
+      if (wasCanceled) {
+        showBillingMessage('Checkout was canceled. Your plan has not changed.');
+      } else if (manageMode && !session?.access_token) {
+        showBillingMessage('Sign in to manage your plan and billing securely.');
+      } else if (!session?.access_token && requestedPlan) {
+        showBillingMessage('Sign in to choose a paid plan.');
+      }
     })();
   </script>
 

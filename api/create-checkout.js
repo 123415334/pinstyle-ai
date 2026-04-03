@@ -7,16 +7,38 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
+
+async function validateSupabaseUser(req) {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  if (!token || !process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) return null;
+
+  try {
+    const resp = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        apikey: process.env.SUPABASE_ANON_KEY,
+      },
+    });
+    if (!resp.ok) return null;
+    return await resp.json();
+  } catch {
+    return null;
+  }
+}
 
 module.exports = async function handler(req, res) {
   Object.entries(CORS).forEach(([k, v]) => res.setHeader(k, v));
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST')   return res.status(405).json({ error: 'Method not allowed' });
 
-  const { email, plan = 'pro' } = req.body || {};
+  const { plan = 'pro' } = req.body || {};
   const origin = `${req.headers['x-forwarded-proto'] || 'https'}://${req.headers.host}`;
+  const user = await validateSupabaseUser(req);
+  if (!user?.email) return res.status(401).json({ error: 'Authentication required' });
+  const email = user.email;
 
   // Route to the correct Stripe price ID based on plan
   const priceId = plan === 'unlimited'
