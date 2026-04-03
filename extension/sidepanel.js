@@ -325,7 +325,6 @@ function injectAnonCTA() {
   const cta = document.createElement('div');
   cta.id        = 'anon-cta';
   cta.className = 'anon-cta';
-  const eyebrow = createEl('p', { className: 'anon-cta-eyebrow', textContent: '✦ That\'s your 3 free generations' });
   const text = createEl('p', {
     className: 'anon-cta-text',
     textContent: 'Create an account to keep going and save your results.',
@@ -340,7 +339,7 @@ function injectAnonCTA() {
     textContent: 'Already have an account? Sign in',
     attrs: { id: 'anon-cta-login', type: 'button' },
   });
-  cta.append(eyebrow, text, signupBtn, loginBtn);
+  cta.append(text, signupBtn, loginBtn);
   resultsEl.appendChild(cta);
 
   signupBtn.addEventListener('click', () => {
@@ -1359,7 +1358,7 @@ async function generate() {
       switchAuthTab('signup');
       setAuthModalCopy(
         'Save your work & keep <em>creating</em>',
-        'You\'ve used your 3 free generations. Create an account to continue — it\'s free.',
+        'You\'ve used your 3 free generations. Create an account to continue.',
       );
       showAuthModal();
       return;
