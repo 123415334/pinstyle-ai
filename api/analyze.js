@@ -404,7 +404,6 @@ module.exports = async function handler(req, res) {
   const rawToken   = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
   const isAnon     = !rawToken || rawToken === 'null';
   const token      = isAnon ? null : rawToken;
-  console.log('[tack] auth check — isAnon:', isAnon, '| tokenPresent:', !!rawToken, '| rawTokenValue:', rawToken ? rawToken.slice(0, 20) + '…' : 'NONE');
 
   let user = null;
   if (!isAnon) {

@@ -1389,7 +1389,6 @@ async function generate() {
   _currentPageUrl = pageUrl;
 
   try {
-    console.log('[tack] generate() — _authToken:', _authToken ? ('SET:' + String(_authToken).slice(0, 15) + '…') : 'NULL', '| _authEmail:', _authEmail || 'none');
     const headers = { 'Content-Type': 'application/json' };
     if (_authToken) headers.Authorization = `Bearer ${_authToken}`;
 
@@ -1453,7 +1452,6 @@ async function generate() {
         injectAnonCTA();
       }
     } else {
-      console.log('[tack] response usage:', JSON.stringify(data.usage ?? null));
       if (data.usage) {
         _generationsUsed = data.usage.used;
         if (data.usage.monthly_used !== undefined) _monthlyUsed = data.usage.monthly_used;
