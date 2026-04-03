@@ -1453,6 +1453,7 @@ async function generate() {
         injectAnonCTA();
       }
     } else {
+      console.log('[tack] response usage:', JSON.stringify(data.usage ?? null));
       if (data.usage) {
         _generationsUsed = data.usage.used;
         if (data.usage.monthly_used !== undefined) _monthlyUsed = data.usage.monthly_used;
