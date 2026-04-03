@@ -50,7 +50,25 @@ async function getUsage(userId) {
   return rows[0] || null;
 }
 
+async function ensureProfile(userId) {
+  // Insert a default profile row only if one doesn't already exist.
+  // Uses "ignore-duplicates" so existing rows are never overwritten.
+  await fetch(`${process.env.SUPABASE_URL}/rest/v1/user_profiles`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+      'apikey':        process.env.SUPABASE_SERVICE_KEY,
+      'Content-Type':  'application/json',
+      'Prefer':        'resolution=ignore-duplicates',
+    },
+    body: JSON.stringify({ id: userId, generations_used: 0, plan: 'free' }),
+  });
+}
+
 async function incrementUsage(userId) {
+  // Ensure the profile row exists first (handles new Google / OAuth sign-ups
+  // that don't yet have a row in user_profiles).
+  await ensureProfile(userId);
   await fetch(`${process.env.SUPABASE_URL}/rest/v1/rpc/increment_generations`, {
     method: 'POST',
     headers: {
