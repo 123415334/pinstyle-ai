@@ -65,18 +65,19 @@ async function ensureProfile(userId) {
   });
 }
 
-async function incrementUsage(userId) {
+async function incrementUsage(userId, currentUsed) {
   // Ensure the profile row exists first (handles new Google / OAuth sign-ups
   // that don't yet have a row in user_profiles).
   await ensureProfile(userId);
-  await fetch(`${process.env.SUPABASE_URL}/rest/v1/rpc/increment_generations`, {
-    method: 'POST',
+  // Direct PATCH increment — avoids relying on a stored procedure.
+  await fetch(`${process.env.SUPABASE_URL}/rest/v1/user_profiles?id=eq.${userId}`, {
+    method: 'PATCH',
     headers: {
       'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
       'apikey':        process.env.SUPABASE_SERVICE_KEY,
       'Content-Type':  'application/json',
     },
-    body: JSON.stringify({ user_id: userId }),
+    body: JSON.stringify({ generations_used: currentUsed + 1 }),
   });
 }
 
@@ -518,7 +519,7 @@ module.exports = async function handler(req, res) {
 
     // ── Step 6: Increment usage ───────────────────────────────────────────
     if (!isAnon) {
-      await incrementUsage(user.id).catch(e =>
+      await incrementUsage(user.id, generationsUsed).catch(e =>
         console.error('[tack] usage increment failed (non-fatal):', e.message)
       );
     }
