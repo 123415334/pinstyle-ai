@@ -212,6 +212,29 @@
     }
     .billing-toolbar-btn.primary:hover { background: #0f49ff; }
 
+    /* Inline manage-billing text link under current-plan card */
+    .manage-billing-link {
+      display: block;
+      text-align: center;
+      font-size: 12px;
+      color: var(--ink-muted);
+      text-decoration: none;
+      margin-top: 10px;
+      letter-spacing: 0.02em;
+      transition: color 0.18s;
+    }
+    .manage-billing-link:hover { color: var(--ink); }
+
+    /* Inline billing status message (replaces alert) */
+    #billing-msg {
+      text-align: center;
+      font-size: 13px;
+      color: var(--ink-muted);
+      margin-bottom: 20px;
+      display: none;
+    }
+    #billing-msg a { color: var(--ink-muted); text-decoration: underline; }
+
     /* ── 3-column pricing grid ── */
     .pricing {
       display: grid;
@@ -612,10 +635,8 @@
       Start free, then upgrade when you need more runs. Every plan includes the same core workflow: select references, describe a subject, generate in that style.
     </p>
     <div class="account-bar" id="account-bar" style="display:none;"></div>
-    <div class="billing-toolbar" id="billing-toolbar">
-      <div class="billing-toolbar-copy" id="billing-toolbar-copy"></div>
-      <div class="billing-toolbar-actions" id="billing-toolbar-actions"></div>
-    </div>
+
+    <p id="billing-msg"></p>
 
     <div class="pricing">
 
@@ -682,6 +703,7 @@
         <button class="upgrade-btn btn-accent" id="pro-btn">
           Upgrade to Pro →
         </button>
+        <a class="manage-billing-link" id="pro-manage" href="#" style="display:none">Manage billing →</a>
       </div>
 
       <!-- Unlimited -->
@@ -715,6 +737,7 @@
         <button class="upgrade-btn btn-red" id="unlimited-btn">
           Go Unlimited →
         </button>
+        <a class="manage-billing-link" id="unlimited-manage" href="#" style="display:none">Manage billing →</a>
       </div>
 
     </div>
@@ -769,9 +792,6 @@
     const wasCanceled = params.get('canceled') === 'true';
 
     const accountBar = document.getElementById('account-bar');
-    const billingToolbar = document.getElementById('billing-toolbar');
-    const billingToolbarCopy = document.getElementById('billing-toolbar-copy');
-    const billingToolbarActions = document.getElementById('billing-toolbar-actions');
     const freeCard = document.querySelector('.plan');
     const proCard = document.querySelector('.plan-pro');
     const unlimitedCard = document.querySelector('.plan-unlimited');
@@ -809,6 +829,14 @@
       };
     }
 
+    function showBillingMessage(html) {
+      const el = document.getElementById('billing-msg');
+      if (!el) return;
+      el.innerHTML = html;
+      el.style.display = 'block';
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
     async function openBillingPortal() {
       if (!email) {
         window.location.href = '/account';
@@ -818,13 +846,28 @@
         const resp = await fetch('/api/create-portal-session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, returnUrl: `${window.location.origin}/upgrade?email=${encodeURIComponent(email)}&current=${encodeURIComponent(currentPlan)}` }),
+          body: JSON.stringify({
+            email,
+            returnUrl: `${window.location.origin}/upgrade?email=${encodeURIComponent(email)}&current=${encodeURIComponent(currentPlan)}`,
+          }),
         });
         const data = await resp.json().catch(() => ({}));
+        if (resp.status === 404) {
+          // Account exists in our system but has no Stripe subscription record
+          // (e.g. manually provisioned plan). Direct to support.
+          showBillingMessage(
+            `No Stripe subscription found for <strong>${email}</strong>. ` +
+            `Email us at <a href="mailto:hello@tack.design">hello@tack.design</a> and we'll sort it out.`
+          );
+          return;
+        }
         if (!resp.ok || !data.url) throw new Error(data.error || 'Could not open billing portal.');
         window.location.href = data.url;
       } catch (err) {
-        alert(err.message || 'Could not open billing portal.');
+        showBillingMessage(
+          (err.message || 'Could not open billing portal.') +
+          ` — <a href="mailto:hello@tack.design">hello@tack.design</a>`
+        );
       }
     }
 
@@ -835,21 +878,7 @@
     }
 
     function renderBillingToolbar() {
-      if (!email || currentPlan === 'free') {
-        billingToolbar.style.display = 'none';
-        return;
-      }
-      billingToolbar.style.display = 'flex';
-      billingToolbarCopy.innerHTML = currentPlan === 'unlimited'
-        ? '<strong>Unlimited plan.</strong> Manage billing, switch plans, or update your payment method.'
-        : '<strong>Pro plan.</strong> Upgrade to Unlimited or manage billing details.';
-      billingToolbarActions.innerHTML = '';
-      const manageBtn = document.createElement('button');
-      manageBtn.className = 'billing-toolbar-btn primary';
-      manageBtn.textContent = 'Open billing portal';
-      manageBtn.type = 'button';
-      manageBtn.addEventListener('click', openBillingPortal);
-      billingToolbarActions.appendChild(manageBtn);
+      // Billing toolbar removed — plan state communicated via card buttons inline
     }
 
     function attachManageLink(card, label = 'Manage billing') {
@@ -864,29 +893,36 @@
     }
 
     function renderPlanState() {
-      // ── Reset card highlights and any previously injected manage links ──
+      // ── Reset card highlights ──
       proCard?.classList.remove('current-plan-card');
       unlimitedCard?.classList.remove('current-plan-card');
-      document.querySelectorAll('.manage-link').forEach(el => el.remove());
 
-      const proBtn       = document.getElementById('pro-btn');
-      const unlimitedBtn = document.getElementById('unlimited-btn');
+      const proBtn         = document.getElementById('pro-btn');
+      const unlimitedBtn   = document.getElementById('unlimited-btn');
+      const proManage      = document.getElementById('pro-manage');
+      const unlimitedManage = document.getElementById('unlimited-manage');
 
-      // ── Reset both buttons to a clean visible state ──
-      [proBtn, unlimitedBtn].forEach(btn => {
-        if (!btn) return;
-        btn.style.display  = '';
-        btn.disabled       = false;
-        btn.className      = 'upgrade-btn btn-accent';
-        delete btn.dataset.action;
-      });
-      // Unlimited button keeps its red accent by default
-      if (unlimitedBtn) unlimitedBtn.className = 'upgrade-btn btn-red';
+      // ── Reset all buttons and manage links to clean default state ──
+      if (proBtn) {
+        proBtn.style.display = '';
+        proBtn.disabled      = false;
+        proBtn.className     = 'upgrade-btn btn-accent';
+        proBtn.textContent   = 'Upgrade to Pro →';
+        delete proBtn.dataset.action;
+      }
+      if (unlimitedBtn) {
+        unlimitedBtn.style.display = '';
+        unlimitedBtn.disabled      = false;
+        unlimitedBtn.className     = 'upgrade-btn btn-red';
+        unlimitedBtn.textContent   = 'Go Unlimited →';
+        delete unlimitedBtn.dataset.action;
+      }
+      if (proManage)      { proManage.style.display = 'none';      proManage.onclick = null; }
+      if (unlimitedManage){ unlimitedManage.style.display = 'none'; unlimitedManage.onclick = null; }
 
       if (currentPlan === 'pro') {
         // ── Pro subscriber ──
         proCard?.classList.add('current-plan-card');
-        if (freeNote) freeNote.textContent = 'Free plan';
 
         if (proBtn) {
           proBtn.textContent = '✓ Current plan';
@@ -895,40 +931,35 @@
         }
         if (unlimitedBtn) {
           unlimitedBtn.textContent = 'Upgrade to Unlimited →';
-          unlimitedBtn.className   = 'upgrade-btn btn-red';
         }
-        // Subtle portal link inside the current-plan card
-        attachManageLink(proCard, 'Manage billing');
+        // Show manage link wired to portal
+        if (proManage) {
+          proManage.style.display = 'block';
+          proManage.onclick = (e) => { e.preventDefault(); openBillingPortal(); };
+        }
 
       } else if (currentPlan === 'unlimited') {
         // ── Unlimited subscriber ──
         unlimitedCard?.classList.add('current-plan-card');
-        if (freeNote) freeNote.textContent = 'Free plan';
 
-        // Hide the Pro card button entirely — no downgrade nudge
+        // Hide Pro button — no downgrade nudge
         if (proBtn) {
           proBtn.style.display = 'none';
           proBtn.disabled      = true;
         }
-        // Unlimited button becomes a portal management action
         if (unlimitedBtn) {
-          unlimitedBtn.textContent   = 'Manage billing';
-          unlimitedBtn.className     = 'upgrade-btn btn-manage';
-          unlimitedBtn.dataset.action = 'portal';
+          unlimitedBtn.textContent = '✓ Current plan';
+          unlimitedBtn.disabled    = true;
+          unlimitedBtn.className   = 'upgrade-btn btn-current';
         }
-        // billing toolbar (setAccountBar) already surfaces portal — no attachManageLink needed
+        // Show manage link wired to portal
+        if (unlimitedManage) {
+          unlimitedManage.style.display = 'block';
+          unlimitedManage.onclick = (e) => { e.preventDefault(); openBillingPortal(); };
+        }
 
-      } else {
-        // ── Free plan — both upgrade buttons active ──
-        if (proBtn) {
-          proBtn.textContent = 'Upgrade to Pro →';
-          proBtn.className   = 'upgrade-btn btn-accent';
-        }
-        if (unlimitedBtn) {
-          unlimitedBtn.textContent = 'Go Unlimited →';
-          unlimitedBtn.className   = 'upgrade-btn btn-red';
-        }
       }
+      // else: free plan — defaults already set above, nothing more to do
     }
 
     setAccountBar();
