@@ -130,13 +130,24 @@ module.exports = async function handler(req, res) {
       case 'customer.subscription.updated':
       case 'customer.subscription.created': {
         const sub = event.data.object;
-        const email = sub.metadata?.email || sub.customer_email || null;
         const priceId = sub.items?.data?.[0]?.price?.id;
-        if (!email || !priceId) break;
+        if (!priceId) break;
+
+        // Try metadata first, then fall back to looking up the Stripe customer
+        let email = sub.metadata?.email || null;
+        if (!email && sub.customer) {
+          const customer = await stripe.customers.retrieve(sub.customer);
+          email = customer?.email || null;
+        }
+        if (!email) {
+          console.warn(`subscription.updated: no email for sub ${sub.id}, skipping`);
+          break;
+        }
+
         const plan = getPlanFromPriceId(priceId);
         await upgradePlan(email, plan);
         await storeSubscriptionId(email, sub.id);
-        console.log(`Synced subscription ${sub.id} to ${plan}`);
+        console.log(`Synced subscription ${sub.id} → ${plan} for ${email}`);
         break;
       }
 
