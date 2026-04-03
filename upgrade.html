@@ -893,13 +893,14 @@
     }
 
     function renderPlanState() {
-      // ── Reset card highlights ──
+      // ── Reset card highlights and free note ──
       proCard?.classList.remove('current-plan-card');
       unlimitedCard?.classList.remove('current-plan-card');
+      if (freeNote) freeNote.textContent = 'Your current plan';
 
-      const proBtn         = document.getElementById('pro-btn');
-      const unlimitedBtn   = document.getElementById('unlimited-btn');
-      const proManage      = document.getElementById('pro-manage');
+      const proBtn          = document.getElementById('pro-btn');
+      const unlimitedBtn    = document.getElementById('unlimited-btn');
+      const proManage       = document.getElementById('pro-manage');
       const unlimitedManage = document.getElementById('unlimited-manage');
 
       // ── Reset all buttons and manage links to clean default state ──
@@ -917,12 +918,13 @@
         unlimitedBtn.textContent   = 'Go Unlimited →';
         delete unlimitedBtn.dataset.action;
       }
-      if (proManage)      { proManage.style.display = 'none';      proManage.onclick = null; }
-      if (unlimitedManage){ unlimitedManage.style.display = 'none'; unlimitedManage.onclick = null; }
+      if (proManage)       { proManage.style.display = 'none';       proManage.onclick = null; }
+      if (unlimitedManage) { unlimitedManage.style.display = 'none'; unlimitedManage.onclick = null; }
 
       if (currentPlan === 'pro') {
         // ── Pro subscriber ──
         proCard?.classList.add('current-plan-card');
+        if (freeNote) freeNote.textContent = 'Free plan';
 
         if (proBtn) {
           proBtn.textContent = '✓ Current plan';
@@ -932,7 +934,6 @@
         if (unlimitedBtn) {
           unlimitedBtn.textContent = 'Upgrade to Unlimited →';
         }
-        // Show manage link wired to portal
         if (proManage) {
           proManage.style.display = 'block';
           proManage.onclick = (e) => { e.preventDefault(); openBillingPortal(); };
@@ -941,25 +942,28 @@
       } else if (currentPlan === 'unlimited') {
         // ── Unlimited subscriber ──
         unlimitedCard?.classList.add('current-plan-card');
+        if (freeNote) freeNote.textContent = 'Free plan';
 
-        // Hide Pro button — no downgrade nudge
+        // Pro button: visible but routes to portal to switch down
         if (proBtn) {
-          proBtn.style.display = 'none';
-          proBtn.disabled      = true;
+          proBtn.style.display    = '';
+          proBtn.disabled         = false;
+          proBtn.textContent      = 'Switch to Pro';
+          proBtn.className        = 'upgrade-btn btn-manage';
+          proBtn.dataset.action   = 'portal';
         }
         if (unlimitedBtn) {
           unlimitedBtn.textContent = '✓ Current plan';
           unlimitedBtn.disabled    = true;
           unlimitedBtn.className   = 'upgrade-btn btn-current';
         }
-        // Show manage link wired to portal
         if (unlimitedManage) {
           unlimitedManage.style.display = 'block';
           unlimitedManage.onclick = (e) => { e.preventDefault(); openBillingPortal(); };
         }
 
       }
-      // else: free plan — defaults already set above, nothing more to do
+      // else: free plan — all defaults already set above
     }
 
     setAccountBar();
