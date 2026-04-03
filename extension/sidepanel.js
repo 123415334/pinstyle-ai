@@ -1,6 +1,6 @@
 'use strict';
 
-const API_URL  = 'https://tack.design/api/analyze';
+const API_URL  = 'https://www.tack.design/api/analyze';
 const MIN_SIZE = 200;
 
 const SUPABASE_URL      = 'https://sbdowcielgtcfholfyry.supabase.co';
