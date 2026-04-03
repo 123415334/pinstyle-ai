@@ -159,40 +159,58 @@
       animation: fadeUp 0.7s ease 0.48s forwards;
     }
     .account-bar strong { color: var(--ink); font-weight: 500; }
-
-    .manage-note {
-      margin-top: 30px;
-      max-width: 640px;
+    .billing-toolbar {
+      margin-top: 16px;
       width: 100%;
-      padding: 18px 20px;
+      max-width: 760px;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 18px;
       border-radius: 18px;
+      border: 1px solid var(--border);
       background: rgba(240,235,227,0.03);
-      border: 1px solid var(--border);
-      color: var(--ink-muted);
-      line-height: 1.7;
-      font-size: 13px;
-      display: none;
       position: relative;
       z-index: 1;
     }
-    .manage-note strong { color: var(--ink); font-weight: 500; }
-
-    .plan-state-banner {
-      margin-top: 18px;
-      max-width: 720px;
-      width: 100%;
-      padding: 16px 18px;
-      border-radius: 18px;
+    .billing-toolbar-copy {
+      font-size: 13px;
+      color: var(--ink-muted);
+      line-height: 1.6;
+    }
+    .billing-toolbar-copy strong { color: var(--ink); font-weight: 500; }
+    .billing-toolbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .billing-toolbar-btn {
+      border-radius: 999px;
+      padding: 10px 16px;
+      border: 1px solid rgba(240,235,227,0.14);
       background: rgba(240,235,227,0.04);
-      border: 1px solid var(--border);
-      color: var(--ink-muted);
-      line-height: 1.65;
-      font-size: 13px;
-      display: none;
-      position: relative;
-      z-index: 1;
+      color: var(--ink);
+      text-decoration: none;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      white-space: nowrap;
     }
-    .plan-state-banner strong { color: var(--ink); font-weight: 500; }
+    .billing-toolbar-btn:hover {
+      background: rgba(240,235,227,0.08);
+      border-color: rgba(240,235,227,0.2);
+    }
+    .billing-toolbar-btn.primary {
+      background: var(--accent);
+      border-color: transparent;
+      color: #fff;
+    }
+    .billing-toolbar-btn.primary:hover { background: #0f49ff; }
 
     /* ── 3-column pricing grid ── */
     .pricing {
@@ -539,6 +557,10 @@
     /* Responsive */
     @media (max-width: 760px) {
       nav { padding: 16px 20px; }
+      .billing-toolbar {
+        flex-direction: column;
+        align-items: flex-start;
+      }
       .pricing {
         grid-template-columns: 1fr;
         max-width: 420px;
@@ -572,8 +594,10 @@
       Start free, then upgrade when you need more runs. Every plan includes the same core workflow: select references, describe a subject, generate in that style.
     </p>
     <div class="account-bar" id="account-bar" style="display:none;"></div>
-    <div class="plan-state-banner" id="plan-state-banner"></div>
-    <div class="manage-note" id="manage-note"></div>
+    <div class="billing-toolbar" id="billing-toolbar">
+      <div class="billing-toolbar-copy" id="billing-toolbar-copy"></div>
+      <div class="billing-toolbar-actions" id="billing-toolbar-actions"></div>
+    </div>
 
     <div class="pricing">
 
@@ -716,22 +740,156 @@
   </footer>
 
   <script>
+    const SUPABASE_URL      = 'https://sbdowcielgtcfholfyry.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiZG93Y2llbGd0Y2Zob2xmeXJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2NjkwNzMsImV4cCI6MjA5MDI0NTA3M30.3dUuwXB8kcAbKvEWWMpvyrXhcdLx1x8x4wKxp3UY4Kk';
     const params     = new URLSearchParams(window.location.search);
-    const email      = params.get('email')   || '';
-    const currentPlan = params.get('current') || 'free'; // 'free' | 'pro'
+    let email        = params.get('email')   || '';
+    let currentPlan  = params.get('current') || 'free';
     const isSuccess  = params.get('success') === 'true';
     const successPlan = params.get('plan')   || 'pro';
     const manageMode = params.get('manage') === '1';
     const wasCanceled = params.get('canceled') === 'true';
 
     const accountBar = document.getElementById('account-bar');
-    const planStateBanner = document.getElementById('plan-state-banner');
-    const manageNote = document.getElementById('manage-note');
+    const billingToolbar = document.getElementById('billing-toolbar');
+    const billingToolbarCopy = document.getElementById('billing-toolbar-copy');
+    const billingToolbarActions = document.getElementById('billing-toolbar-actions');
+    const freeCard = document.querySelector('.plan');
+    const proCard = document.querySelector('.plan-pro');
+    const unlimitedCard = document.querySelector('.plan-unlimited');
+    const freeNote = document.getElementById('free-note');
 
-    if (email) {
+    function getStoredSession() {
+      try {
+        return JSON.parse(localStorage.getItem('tack_session') || 'null');
+      } catch {
+        return null;
+      }
+    }
+
+    async function fetchProfileFromSession(session) {
+      if (!session?.access_token) return null;
+      const userResp = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': SUPABASE_ANON_KEY,
+        },
+      });
+      if (!userResp.ok) return null;
+      const user = await userResp.json();
+      const profileResp = await fetch(`${SUPABASE_URL}/rest/v1/user_profiles?select=plan,email&limit=1`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': SUPABASE_ANON_KEY,
+          'Accept': 'application/json',
+        },
+      });
+      const profileRows = profileResp.ok ? await profileResp.json().catch(() => []) : [];
+      return {
+        email: user?.email || profileRows?.[0]?.email || '',
+        plan: profileRows?.[0]?.plan || 'free',
+      };
+    }
+
+    async function openBillingPortal() {
+      if (!email) {
+        window.location.href = '/account';
+        return;
+      }
+      try {
+        const resp = await fetch('/api/create-portal-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, returnUrl: `${window.location.origin}/upgrade?email=${encodeURIComponent(email)}&current=${encodeURIComponent(currentPlan)}` }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok || !data.url) throw new Error(data.error || 'Could not open billing portal.');
+        window.location.href = data.url;
+      } catch (err) {
+        alert(err.message || 'Could not open billing portal.');
+      }
+    }
+
+    function setAccountBar() {
+      if (!email) return;
       accountBar.style.display = 'inline-flex';
       accountBar.innerHTML = `Signed in as <strong>${email}</strong>`;
     }
+
+    function renderBillingToolbar() {
+      if (!email || currentPlan === 'free') {
+        billingToolbar.style.display = 'none';
+        return;
+      }
+      billingToolbar.style.display = 'flex';
+      billingToolbarCopy.innerHTML = currentPlan === 'unlimited'
+        ? '<strong>Unlimited plan.</strong> Manage billing, switch plans, or update your payment method.'
+        : '<strong>Pro plan.</strong> Upgrade to Unlimited or manage billing details.';
+      billingToolbarActions.innerHTML = '';
+      const manageBtn = document.createElement('button');
+      manageBtn.className = 'billing-toolbar-btn primary';
+      manageBtn.textContent = 'Open billing portal';
+      manageBtn.type = 'button';
+      manageBtn.addEventListener('click', openBillingPortal);
+      billingToolbarActions.appendChild(manageBtn);
+    }
+
+    function attachManageLink(card, label = 'Manage billing') {
+      if (!card) return;
+      card.querySelector('.manage-link')?.remove();
+      const manage = document.createElement('button');
+      manage.className = 'manage-link';
+      manage.type = 'button';
+      manage.textContent = label;
+      manage.addEventListener('click', openBillingPortal);
+      card.appendChild(manage);
+    }
+
+    function renderPlanState() {
+      if (currentPlan !== 'free' && freeNote) freeNote.textContent = 'Free plan';
+      proCard?.classList.remove('current-plan-card');
+      unlimitedCard?.classList.remove('current-plan-card');
+
+      const proBtn = document.getElementById('pro-btn');
+      const unlimitedBtn = document.getElementById('unlimited-btn');
+
+      if (currentPlan === 'pro') {
+        proCard?.classList.add('current-plan-card');
+        if (proBtn) {
+          proBtn.textContent = 'Current plan';
+          proBtn.disabled = true;
+        }
+        if (unlimitedBtn) {
+          unlimitedBtn.textContent = 'Upgrade to Unlimited →';
+          unlimitedBtn.disabled = false;
+        }
+        attachManageLink(proCard, 'Manage Pro billing');
+      } else if (currentPlan === 'unlimited') {
+        unlimitedCard?.classList.add('current-plan-card');
+        if (unlimitedBtn) {
+          unlimitedBtn.textContent = 'Manage Unlimited billing';
+          unlimitedBtn.disabled = false;
+          unlimitedBtn.dataset.action = 'portal';
+        }
+        if (proBtn) {
+          proBtn.textContent = 'Switch to Pro in billing portal';
+          proBtn.disabled = false;
+          proBtn.dataset.action = 'portal';
+        }
+        attachManageLink(unlimitedCard, 'Open billing portal');
+      } else {
+        if (proBtn) {
+          proBtn.textContent = 'Upgrade to Pro →';
+          proBtn.disabled = false;
+        }
+        if (unlimitedBtn) {
+          unlimitedBtn.textContent = 'Go Unlimited →';
+          unlimitedBtn.disabled = false;
+        }
+      }
+    }
+
+    setAccountBar();
 
     // ── Success state ──
     if (isSuccess) {
@@ -744,68 +902,16 @@
       }
     }
 
-    if (wasCanceled) {
-      manageNote.style.display = 'block';
-      manageNote.innerHTML = '<strong>Checkout canceled.</strong> Nothing changed on your account. You can pick up right where you left off whenever you are ready.';
-    } else if (manageMode) {
-      manageNote.style.display = 'block';
-      manageNote.innerHTML = '<strong>Manage your plan.</strong> Upgrade, switch tiers, or update your payment method here. If you already have an active subscription, use the billing portal link on your account page for invoices and card changes.';
-    }
-
-    if (currentPlan === 'pro' || currentPlan === 'unlimited') {
-      planStateBanner.style.display = 'block';
-      planStateBanner.innerHTML = currentPlan === 'unlimited'
-        ? '<strong>Your current plan is Unlimited.</strong> This page is only for billing changes or downgrades. You already have access to everything tack offers.'
-        : '<strong>Your current plan is Pro.</strong> Stay on Pro, move to Unlimited, or manage billing details from your account page.';
-    }
-
-    const freeNote = document.getElementById('free-note');
-    if (currentPlan !== 'free' && freeNote) {
-      freeNote.textContent = 'Free plan';
-    }
-
-    // ── Hide CTA for current plan ──
-    if (currentPlan === 'pro') {
-      document.querySelector('.plan-pro')?.classList.add('current-plan-card');
-      // Already Pro — hide pro button, show "current plan" note
-      document.getElementById('pro-btn').replaceWith(
-        Object.assign(document.createElement('span'), {
-          className: 'current-plan-note',
-          textContent: 'Your current plan',
-        })
-      );
-      const unlimitedCard = document.querySelector('.plan-unlimited');
-      if (unlimitedCard) {
-        const manage = document.createElement('a');
-        manage.className = 'manage-link';
-        manage.href = `/account`;
-        manage.textContent = 'Need invoices or payment updates? Manage billing →';
-        unlimitedCard.appendChild(manage);
-      }
-    } else if (currentPlan === 'unlimited') {
-      document.querySelector('.plan-unlimited')?.classList.add('current-plan-card');
-      document.getElementById('unlimited-btn').replaceWith(
-        Object.assign(document.createElement('span'), {
-          className: 'current-plan-note',
-          textContent: 'Your current plan',
-        })
-      );
-      const proBtn = document.getElementById('pro-btn');
-      if (proBtn) {
-        proBtn.replaceWith(
-          Object.assign(document.createElement('span'), {
-            className: 'current-plan-note',
-            textContent: 'Already included in your current plan',
-          })
-        );
-      }
-    }
-
     // ── Checkout handlers ──
     async function startCheckout(plan) {
       const btnId = plan === 'unlimited' ? 'unlimited-btn' : 'pro-btn';
       const btn   = document.getElementById(btnId);
       if (!btn || btn.disabled) return;
+
+      if (btn.dataset.action === 'portal') {
+        openBillingPortal();
+        return;
+      }
 
       btn.disabled = true;
       btn.innerHTML = `<span class="spinner"></span> Preparing checkout…`;
@@ -834,6 +940,16 @@
 
     document.getElementById('pro-btn')?.addEventListener('click', () => startCheckout('pro'));
     document.getElementById('unlimited-btn')?.addEventListener('click', () => startCheckout('unlimited'));
+
+    (async function hydrateBillingState() {
+      const session = getStoredSession();
+      const profile = await fetchProfileFromSession(session).catch(() => null);
+      if (profile?.email) email = profile.email;
+      if (profile?.plan) currentPlan = profile.plan;
+      setAccountBar();
+      renderBillingToolbar();
+      renderPlanState();
+    })();
   </script>
 
 </body>
