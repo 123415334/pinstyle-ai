@@ -104,6 +104,33 @@ header {
   box-shadow: 0 8px 18px rgba(1,63,244,0.26);
   flex-shrink: 0;
 }
+.account-trigger-avatar[data-state="guest"] {
+  background: rgba(240,235,227,0.06);
+  border: 1px solid rgba(240,235,227,0.12);
+  box-shadow: none;
+  color: transparent;
+  position: relative;
+}
+.account-trigger-avatar[data-state="guest"]::before,
+.account-trigger-avatar[data-state="guest"]::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(240,235,227,0.62);
+}
+.account-trigger-avatar[data-state="guest"]::before {
+  top: 7px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.account-trigger-avatar[data-state="guest"]::after {
+  bottom: 6px;
+  width: 14px;
+  height: 8px;
+  border-radius: 8px 8px 6px 6px;
+}
 .account-trigger-label {
   font-size: 11px;
   font-weight: 500;
@@ -293,13 +320,6 @@ main { padding: 14px; display: flex; flex-direction: column; gap: 16px; }
   justify-content: space-between;
   margin-bottom: 6px;
   gap: 8px;
-}
-.scan-disclosure {
-  margin-top: 8px;
-  max-width: 390px;
-  font-size: 11px;
-  line-height: 1.45;
-  color: var(--ink-muted);
 }
 .btn-scan {
   font-family: inherit;
@@ -747,6 +767,14 @@ textarea#subject-input:focus {
   min-height: 16px;
   line-height: 1.4;
 }
+.auth-helper {
+  font-size: 11px;
+  color: var(--ink-muted);
+  line-height: 1.5;
+  margin-top: -4px;
+}
+.auth-helper.hidden { display: none; }
+.auth-helper.auth-helper-success { color: var(--gold); }
 .auth-submit-btn {
   width: 100%;
   font-family: inherit;

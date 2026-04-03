@@ -136,14 +136,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     e.preventDefault();
     const email   = document.getElementById('auth-email').value.trim();
     const errorEl = document.getElementById('auth-error');
+    const helperEl = document.getElementById('auth-helper');
+    resetAuthFeedback();
     if (!email) {
       errorEl.textContent = 'Enter your email address above first.';
       return;
     }
     try {
-      await supabaseResetPassword(email);
-      errorEl.style.color = 'var(--gold)';
-      errorEl.textContent = `Password reset link sent to ${email}`;
+      const sent = await supabaseResetPassword(email);
+      helperEl.textContent = sent
+        ? `Reset email sent to ${email}. Check your inbox and spam folder.`
+        : `If an account exists for ${email}, you will receive a reset email shortly. Check your inbox and spam folder.`;
+      helperEl.className = 'auth-helper auth-helper-success';
     } catch (err) {
       errorEl.style.color = '';
       errorEl.textContent = err.message;
@@ -256,6 +260,7 @@ function hideAuthModal() {
   authBackdrop.classList.add('hidden');
   authModal.classList.add('hidden');
   document.getElementById('auth-error').textContent = '';
+  resetAuthFeedback();
 }
 
 // Override the modal headline + sub-text (e.g. after anon generation)
@@ -264,6 +269,19 @@ function setAuthModalCopy(titleHTML, subText) {
   const subEl   = document.querySelector('.auth-modal-sub');
   if (titleEl) titleEl.innerHTML = titleHTML;
   if (subEl)   subEl.textContent = subText;
+}
+
+function resetAuthFeedback() {
+  const errorEl = document.getElementById('auth-error');
+  const helperEl = document.getElementById('auth-helper');
+  if (errorEl) {
+    errorEl.textContent = '';
+    errorEl.style.color = '';
+  }
+  if (helperEl) {
+    helperEl.textContent = '';
+    helperEl.className = 'auth-helper hidden';
+  }
 }
 
 // ── Upgrade moment ────────────────────────────────────────────────────────────
@@ -404,8 +422,7 @@ function startVerifyPolling() {
         await fetchPlan();
         await saveWorkspaceState();
         verifyScreen.classList.add('hidden');
-        // New signup → plan selection
-        showPlanScreen();
+        showMainUI();
       }
     } catch { /* not confirmed yet — keep polling */ }
   }, 4000);
@@ -662,10 +679,12 @@ function updateAccountMenuTrigger() {
 
   if (_authToken && _authEmail) {
     avatar.textContent = _authEmail.trim().charAt(0).toUpperCase() || 'T';
+    avatar.dataset.state = 'user';
     label.textContent = '';
     label.classList.add('hidden');
   } else {
-    avatar.textContent = 'T';
+    avatar.textContent = '';
+    avatar.dataset.state = 'guest';
     label.textContent = 'Sign in';
     label.classList.remove('hidden');
   }
@@ -867,6 +886,7 @@ function switchAuthTab(tab) {
   document.querySelectorAll('.auth-tab').forEach(el => {
     el.classList.toggle('active', el.dataset.tab === tab);
   });
+  resetAuthFeedback();
 
   const submitBtn  = document.getElementById('auth-submit');
   const forgotLink = document.getElementById('auth-forgot');
@@ -890,11 +910,10 @@ function switchAuthTab(tab) {
     if (pwField)    pwField.setAttribute('autocomplete', 'new-password');
     const titleEl = document.querySelector('.auth-modal-title');
     const subEl   = document.querySelector('.auth-modal-sub');
-    if (titleEl) titleEl.innerHTML = 'Sign up to <em>generate</em>';
-    if (subEl)   subEl.textContent = '3 free images included with every new account';
+    if (titleEl) titleEl.innerHTML = 'Create your <em>account</em>';
+    if (subEl)   subEl.textContent = 'Start free, save your generations, and keep creating.';
     document.getElementById('auth-google-copy').textContent = 'Continue with Google';
   }
-  document.getElementById('auth-error').textContent = '';
 }
 
 async function handleGoogleAuth() {
@@ -902,7 +921,7 @@ async function handleGoogleAuth() {
   const googleBtn = document.getElementById('auth-google-btn');
   const googleCopy = document.getElementById('auth-google-copy');
   const originalLabel = googleCopy.textContent;
-  errorEl.textContent = '';
+  resetAuthFeedback();
   googleBtn.disabled = true;
   googleCopy.textContent = 'Opening Google…';
 
@@ -950,7 +969,11 @@ async function handleGoogleAuth() {
     hideAuthModal();
     trackEvent('google_auth_success', { mode: _authMode });
   } catch (err) {
-    errorEl.textContent = err.message || 'Google sign-in did not complete.';
+    const rawMessage = err.message || '';
+    const friendly = /authorization page could not be loaded|network|failed to fetch/i.test(rawMessage)
+      ? 'Google sign-in is temporarily unavailable. Use email to continue.'
+      : rawMessage || 'Google sign-in did not complete.';
+    errorEl.textContent = friendly;
     trackEvent('google_auth_failed', { message: err.message || 'unknown' });
   } finally {
     googleBtn.disabled = false;
@@ -964,8 +987,7 @@ async function handleAuthSubmit() {
   const errorEl   = document.getElementById('auth-error');
   const submitBtn = document.getElementById('auth-submit');
 
-  errorEl.textContent  = '';
-  errorEl.style.color  = ''; // reset any custom colour from forgot-password
+  resetAuthFeedback();
 
   // Email format validation
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -1024,13 +1046,7 @@ async function handleAuthSubmit() {
     await fetchPlan();
     await saveWorkspaceState();
 
-    // New signup → plan selection screen
-    // Login → straight to main UI
-    if (_authMode === 'signup') {
-      showPlanScreen();
-    } else {
-      showMainUI();
-    }
+    showMainUI();
 
   } catch (err) {
     const msg = err.message || '';
@@ -1104,12 +1120,13 @@ async function supabaseResetPassword(email) {
   const resp = await fetch(`${SUPABASE_URL}/auth/v1/recover`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
-    body: JSON.stringify({ email, gotrue_meta_security: {} }),
+    body: JSON.stringify({ email, redirect_to: 'https://tack.design/account', gotrue_meta_security: {} }),
   });
   if (!resp.ok) {
     const data = await resp.json().catch(() => ({}));
     throw new Error(data.error_description || data.msg || 'Could not send reset email.');
   }
+  return true;
 }
 
 // ── Image scanning ────────────────────────────────────────────────────────────

@@ -45,6 +45,7 @@
         <p id="auth-pw-hint" class="auth-pw-hint hidden">At least 6 characters</p>
         <a href="#" id="auth-forgot" class="auth-forgot hidden">Forgot password?</a>
         <p id="auth-error" class="auth-error"></p>
+        <p id="auth-helper" class="auth-helper hidden"></p>
         <button id="auth-submit" class="auth-submit-btn">Create Account</button>
       </div>
 
@@ -136,7 +137,7 @@
       <div class="header-right">
         <div id="account-menu" class="account-menu">
           <button id="account-menu-trigger" class="account-menu-trigger" type="button" aria-expanded="false" aria-haspopup="menu">
-            <span id="account-trigger-avatar" class="account-trigger-avatar">T</span>
+            <span id="account-trigger-avatar" class="account-trigger-avatar" data-state="guest" aria-hidden="true"></span>
             <span id="account-trigger-label" class="account-trigger-label">Sign in</span>
             <span class="account-trigger-caret">⌄</span>
           </button>
@@ -166,7 +167,6 @@
         <div>
           <div id="status"></div>
           <div id="scan-hint-inline" style="font-size:11px;color:var(--ink-muted);margin-top:2px;"></div>
-          <p class="scan-disclosure">Reads images on this page so you can pick references. Only your selected images and prompt are sent to tack to generate results.</p>
         </div>
         <button class="btn-scan" id="refresh-btn">↻ Rescan</button>
       </div>

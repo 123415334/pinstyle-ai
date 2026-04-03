@@ -177,6 +177,23 @@
     }
     .manage-note strong { color: var(--ink); font-weight: 500; }
 
+    .plan-state-banner {
+      margin-top: 18px;
+      max-width: 720px;
+      width: 100%;
+      padding: 16px 18px;
+      border-radius: 18px;
+      background: rgba(240,235,227,0.04);
+      border: 1px solid var(--border);
+      color: var(--ink-muted);
+      line-height: 1.65;
+      font-size: 13px;
+      display: none;
+      position: relative;
+      z-index: 1;
+    }
+    .plan-state-banner strong { color: var(--ink); font-weight: 500; }
+
     /* ── 3-column pricing grid ── */
     .pricing {
       display: grid;
@@ -198,6 +215,10 @@
       position: relative;
       display: flex;
       flex-direction: column;
+    }
+    .plan.current-plan-card {
+      border-color: rgba(143,190,247,0.38);
+      box-shadow: 0 0 0 1px rgba(143,190,247,0.18) inset;
     }
     .plan:first-child { border-radius: var(--radius) 0 0 var(--radius); }
     .plan:last-child  { border-radius: 0 var(--radius) var(--radius) 0; }
@@ -551,6 +572,7 @@
       Start free, then upgrade when you need more runs. Every plan includes the same core workflow: select references, describe a subject, generate in that style.
     </p>
     <div class="account-bar" id="account-bar" style="display:none;"></div>
+    <div class="plan-state-banner" id="plan-state-banner"></div>
     <div class="manage-note" id="manage-note"></div>
 
     <div class="pricing">
@@ -703,6 +725,7 @@
     const wasCanceled = params.get('canceled') === 'true';
 
     const accountBar = document.getElementById('account-bar');
+    const planStateBanner = document.getElementById('plan-state-banner');
     const manageNote = document.getElementById('manage-note');
 
     if (email) {
@@ -729,6 +752,13 @@
       manageNote.innerHTML = '<strong>Manage your plan.</strong> Upgrade, switch tiers, or update your payment method here. If you already have an active subscription, use the billing portal link on your account page for invoices and card changes.';
     }
 
+    if (currentPlan === 'pro' || currentPlan === 'unlimited') {
+      planStateBanner.style.display = 'block';
+      planStateBanner.innerHTML = currentPlan === 'unlimited'
+        ? '<strong>Your current plan is Unlimited.</strong> This page is only for billing changes or downgrades. You already have access to everything tack offers.'
+        : '<strong>Your current plan is Pro.</strong> Stay on Pro, move to Unlimited, or manage billing details from your account page.';
+    }
+
     const freeNote = document.getElementById('free-note');
     if (currentPlan !== 'free' && freeNote) {
       freeNote.textContent = 'Free plan';
@@ -736,6 +766,7 @@
 
     // ── Hide CTA for current plan ──
     if (currentPlan === 'pro') {
+      document.querySelector('.plan-pro')?.classList.add('current-plan-card');
       // Already Pro — hide pro button, show "current plan" note
       document.getElementById('pro-btn').replaceWith(
         Object.assign(document.createElement('span'), {
@@ -752,6 +783,7 @@
         unlimitedCard.appendChild(manage);
       }
     } else if (currentPlan === 'unlimited') {
+      document.querySelector('.plan-unlimited')?.classList.add('current-plan-card');
       document.getElementById('unlimited-btn').replaceWith(
         Object.assign(document.createElement('span'), {
           className: 'current-plan-note',

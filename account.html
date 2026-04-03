@@ -181,6 +181,28 @@
       text-align: center;
       min-height: 18px;
     }
+    .signin-helper {
+      color: var(--ink-muted);
+      font-size: 12px;
+      margin-top: 10px;
+      text-align: center;
+      min-height: 18px;
+      line-height: 1.5;
+    }
+    .signin-helper.success { color: var(--accent-light); }
+    .signin-link-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: -4px;
+      margin-bottom: 4px;
+    }
+    .signin-link {
+      font-size: 11px;
+      color: var(--ink-muted);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .signin-link:hover { color: var(--accent-light); }
     .signin-footer {
       font-size: 12px;
       color: var(--ink-muted);
@@ -444,9 +466,35 @@
         <label for="password">Password</label>
         <input type="password" id="password" placeholder="••••••••" autocomplete="current-password">
       </div>
+      <div class="signin-link-row">
+        <a href="#" class="signin-link" id="forgot-password-link">Forgot password?</a>
+      </div>
       <button class="signin-btn" id="signin-btn">Sign in</button>
       <p class="signin-error" id="signin-error"></p>
+      <p class="signin-helper" id="signin-helper"></p>
       <p class="signin-footer">Don't have an account? <a href="/#download">Get the extension →</a></p>
+    </div>
+  </div>
+
+  <!-- Reset password screen -->
+  <div id="reset-screen" style="display:none;">
+    <div class="signin-card">
+      <img src="tack_logo.svg" alt="tack" class="signin-logo">
+      <h1 class="signin-title">Reset your <em>password</em></h1>
+      <p class="signin-sub">Choose a new password for your tack account.</p>
+
+      <div class="form-field">
+        <label for="reset-password">New password</label>
+        <input type="password" id="reset-password" placeholder="At least 6 characters" autocomplete="new-password">
+      </div>
+      <div class="form-field">
+        <label for="reset-password-confirm">Confirm password</label>
+        <input type="password" id="reset-password-confirm" placeholder="Repeat your new password" autocomplete="new-password">
+      </div>
+      <button class="signin-btn" id="reset-password-btn">Save new password</button>
+      <p class="signin-error" id="reset-error"></p>
+      <p class="signin-helper" id="reset-helper"></p>
+      <p class="signin-footer"><a href="#" id="reset-back-link">Back to sign in</a></p>
     </div>
   </div>
 
@@ -476,7 +524,7 @@
     <div id="lightbox-close">✕</div>
     <img id="lightbox-img" src="" alt="">
     <div style="display:flex;align-items:center;gap:14px;">
-      <a id="lightbox-download" href="" download="tack-generation.webp">↓ Save image</a>
+      <a id="lightbox-download" href="" download="tack-generation.png">↓ Save image</a>
       <span class="lightbox-meta" id="lightbox-meta"></span>
     </div>
   </div>
@@ -516,6 +564,34 @@
       _session = null;
       localStorage.removeItem('tack_session');
       showSignIn();
+    }
+
+    async function requestPasswordReset(email) {
+      const resp = await fetch(`${SUPABASE_URL}/auth/v1/recover`, {
+        method: 'POST',
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, redirect_to: `${window.location.origin}/account` }),
+      });
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        throw new Error(data.error_description || data.msg || 'Could not send reset email.');
+      }
+      return true;
+    }
+
+    async function updatePassword(newPassword) {
+      const resp = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+        method: 'PUT',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${_session.access_token}`,
+        },
+        body: JSON.stringify({ password: newPassword }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.error_description || data.msg || 'Could not update password.');
+      return data;
     }
 
     async function signInWithGoogle() {
@@ -576,11 +652,19 @@
     // ── UI ────────────────────────────────────────────────────────────────────
     function showSignIn() {
       document.getElementById('signin-screen').style.display = 'flex';
+      document.getElementById('reset-screen').style.display = 'none';
+      document.getElementById('history-screen').style.display = 'none';
+    }
+
+    function showResetPassword() {
+      document.getElementById('signin-screen').style.display = 'none';
+      document.getElementById('reset-screen').style.display = 'flex';
       document.getElementById('history-screen').style.display = 'none';
     }
 
     function showHistory() {
       document.getElementById('signin-screen').style.display = 'none';
+      document.getElementById('reset-screen').style.display = 'none';
       document.getElementById('history-screen').style.display = 'block';
       // Show email from session
       try {
@@ -703,6 +787,7 @@
       const email    = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value;
       const errorEl  = document.getElementById('signin-error');
+      const helperEl = document.getElementById('signin-helper');
       const btn      = document.getElementById('signin-btn');
 
       if (!email || !password) {
@@ -713,6 +798,7 @@
       btn.disabled    = true;
       btn.textContent = 'Signing in…';
       errorEl.textContent = '';
+      helperEl.textContent = '';
 
       try {
         const session = await signIn(email, password);
@@ -728,6 +814,26 @@
       }
     });
     document.getElementById('google-btn').addEventListener('click', signInWithGoogle);
+    document.getElementById('forgot-password-link').addEventListener('click', async e => {
+      e.preventDefault();
+      const email = document.getElementById('email').value.trim();
+      const errorEl = document.getElementById('signin-error');
+      const helperEl = document.getElementById('signin-helper');
+      errorEl.textContent = '';
+      helperEl.textContent = '';
+      helperEl.className = 'signin-helper';
+      if (!email) {
+        errorEl.textContent = 'Enter your email address first.';
+        return;
+      }
+      try {
+        await requestPasswordReset(email);
+        helperEl.textContent = `Reset email sent to ${email}. Check your inbox and spam folder.`;
+        helperEl.className = 'signin-helper success';
+      } catch (err) {
+        errorEl.textContent = err.message;
+      }
+    });
 
     document.getElementById('email').addEventListener('keydown', e => {
       if (e.key === 'Enter') document.getElementById('password').focus();
@@ -738,6 +844,47 @@
 
     document.getElementById('signout-btn').addEventListener('click', signOut);
     document.getElementById('manage-billing-btn').addEventListener('click', openBillingPortal);
+    document.getElementById('reset-back-link').addEventListener('click', e => {
+      e.preventDefault();
+      history.replaceState({}, document.title, window.location.pathname);
+      showSignIn();
+    });
+    document.getElementById('reset-password-btn').addEventListener('click', async () => {
+      const password = document.getElementById('reset-password').value;
+      const confirm = document.getElementById('reset-password-confirm').value;
+      const errorEl = document.getElementById('reset-error');
+      const helperEl = document.getElementById('reset-helper');
+      const btn = document.getElementById('reset-password-btn');
+      errorEl.textContent = '';
+      helperEl.textContent = '';
+      helperEl.className = 'signin-helper';
+
+      if (!password || password.length < 6) {
+        errorEl.textContent = 'Password must be at least 6 characters.';
+        return;
+      }
+      if (password !== confirm) {
+        errorEl.textContent = 'Passwords do not match.';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+      try {
+        await updatePassword(password);
+        helperEl.textContent = 'Password updated. You can now sign in with your new password.';
+        helperEl.className = 'signin-helper success';
+        setTimeout(() => {
+          history.replaceState({}, document.title, window.location.pathname);
+          showSignIn();
+        }, 900);
+      } catch (err) {
+        errorEl.textContent = err.message;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save new password';
+      }
+    });
 
     // ── Boot ──────────────────────────────────────────────────────────────────
     (async function init() {
@@ -750,6 +897,10 @@
         };
         if (session.access_token) {
           _session = session;
+          if (hash.get('type') === 'recovery') {
+            showResetPassword();
+            return;
+          }
           localStorage.setItem('tack_session', JSON.stringify(session));
           history.replaceState({}, document.title, window.location.pathname);
           showHistory();
