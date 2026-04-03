@@ -50,10 +50,10 @@ async function getUsage(userId) {
   return rows[0] || null;
 }
 
-async function ensureProfile(userId) {
+async function ensureProfile(userId, email) {
   // Insert a default profile row only if one doesn't already exist.
   // Uses "ignore-duplicates" so existing rows are never overwritten.
-  await fetch(`${process.env.SUPABASE_URL}/rest/v1/user_profiles`, {
+  const resp = await fetch(`${process.env.SUPABASE_URL}/rest/v1/user_profiles`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
@@ -61,14 +61,18 @@ async function ensureProfile(userId) {
       'Content-Type':  'application/json',
       'Prefer':        'resolution=ignore-duplicates',
     },
-    body: JSON.stringify({ id: userId, generations_used: 0, plan: 'free' }),
+    body: JSON.stringify({ id: userId, email: email || '', generations_used: 0, plan: 'free' }),
   });
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => '');
+    console.error('[tack] ensureProfile failed:', resp.status, body);
+  }
 }
 
-async function incrementUsage(userId, currentUsed) {
+async function incrementUsage(userId, email, currentUsed) {
   // Ensure the profile row exists first (handles new Google / OAuth sign-ups
   // that don't yet have a row in user_profiles).
-  await ensureProfile(userId);
+  await ensureProfile(userId, email);
   // Direct PATCH increment — avoids relying on a stored procedure.
   await fetch(`${process.env.SUPABASE_URL}/rest/v1/user_profiles?id=eq.${userId}`, {
     method: 'PATCH',
@@ -520,7 +524,7 @@ module.exports = async function handler(req, res) {
 
     // ── Step 6: Increment usage ───────────────────────────────────────────
     if (!isAnon) {
-      await incrementUsage(user.id, generationsUsed).catch(e =>
+      await incrementUsage(user.id, user.email, generationsUsed).catch(e =>
         console.error('[tack] usage increment failed (non-fatal):', e.message)
       );
     }
