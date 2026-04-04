@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "tack",
   "version": "1.1",
-  "description": "Select images from any website and generate AI images that match their exact visual style. Works on Pinterest, design sites, and anywhere you find inspiration.",
+  "description": "Select reference images on supported sites and generate new AI images in the same visual style.",
   "permissions": [
     "sidePanel",
     "activeTab",
@@ -12,8 +12,12 @@
     "identity"
   ],
   "host_permissions": [
-    "http://*/*",
-    "https://*/*"
+    "https://tack.design/*",
+    "https://*.supabase.co/*",
+    "https://*.pinterest.com/*",
+    "https://*.instagram.com/*",
+    "https://*.behance.net/*",
+    "https://*.dribbble.com/*"
   ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
