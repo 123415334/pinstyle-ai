@@ -147,16 +147,11 @@
     }
     h1 em { font-style: italic; color: var(--accent-light); }
     .hero-line { display: block; }
-    .hero-line-keep { display: inline-block; }
-    .hero-line-accent {
-      color: var(--accent-light);
-      font-size: 0.76em;
-      line-height: 0.98;
-      margin-top: 12px;
-    }
+    .hero-line-keep { white-space: nowrap; }
+    .hero-line-accent { color: var(--accent-light); }
 
     .hero-sub {
-      font-size: 16px; color: var(--ink-muted); max-width: 520px;
+      font-size: 16px; color: var(--ink-muted); max-width: 780px;
       line-height: 1.8; margin-top: 30px; font-weight: 300;
       opacity: 0; animation: fadeUp 0.8s ease 0.46s forwards;
     }
@@ -452,8 +447,7 @@
       .hero-sticky { position: relative; top: auto; height: auto; min-height: calc(100vh - 68px); }
       .hero-content { padding: 60px 24px 80px; }
       h1 { font-size: clamp(48px, 12vw, 80px); }
-      .hero-line-keep { display: inline; }
-      .hero-line-accent { font-size: 0.82em; margin-top: 10px; }
+      .hero-line-keep { white-space: normal; }
       .hero-tiles { display: none; }
       .editorial-wrap { padding: 100px 24px 60px; }
       .section-label { margin-bottom: 60px; }
@@ -473,6 +467,9 @@
     }
     @media (max-width: 560px) {
       .showcase-stage { padding: 8px; }
+    }
+    @media (min-width: 1180px) {
+      .hero-sub { white-space: nowrap; }
     }
   </style>
 </head>
@@ -610,10 +607,10 @@
 
       <div class="hero-content">
         <img src="tack_square.svg" class="hero-app-icon" alt="tack Chrome extension">
-        <h1><span class="hero-line">Select a style and make something new.</span><span class="hero-line hero-line-accent"><span class="hero-line-keep">Without leaving your browser.</span></span></h1>
-        <p class="hero-sub">Scan your favorite image sites, select references, and generate new subjects in the same visual style.</p>
+        <h1><span class="hero-line">Select a style and</span><span class="hero-line">make something new.</span><span class="hero-line hero-line-accent hero-line-keep">Without leaving chrome.</span></h1>
+        <p class="hero-sub">Scan your favorite sites and generate new subjects in the same visual style.</p>
         <div class="hero-actions">
-          <a href="#download" class="btn-primary">Add to Chrome — It's Free</a>
+          <a href="#download" class="btn-primary">Add to Chrome</a>
           <a href="#how" class="btn-ghost">See how it works ↓</a>
         </div>
       </div>
@@ -651,7 +648,7 @@
       <div class="ed-step flip">
         <div class="reveal reveal-right ed-copy">
           <span class="ed-ghost">02</span>
-          <h2 class="ed-title"><span class="ed-keep">Name the new</span><br><em>subject.</em></h2>
+          <h2 class="ed-title">Name the<br><span class="ed-keep">new <em>subject.</em></span></h2>
           <p class="ed-body">Type what you want to make: a product shot, a room, a character, a campaign visual. tack keeps the style from your references and applies it to something new.</p>
         </div>
         <div class="ed-visual reveal reveal-left" id="s2-visual">
@@ -671,7 +668,7 @@
       <div class="ed-step">
         <div class="reveal reveal-left ed-copy">
           <span class="ed-ghost">03</span>
-          <h2 class="ed-title"><em>Download</em> what<br>works.</h2>
+          <h2 class="ed-title"><em>Download</em><br><span class="ed-keep">what works.</span></h2>
           <p class="ed-body">Review the style analysis, copy the prompt if you want it, and save the results that fit. Then run a new subject in the same style whenever you need more.</p>
         </div>
         <div class="ed-visual reveal reveal-right" id="s3-visual">
