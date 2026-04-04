@@ -148,7 +148,12 @@
     h1 em { font-style: italic; color: var(--accent-light); }
     .hero-line { display: block; }
     .hero-line-keep { display: inline-block; }
-    .hero-line-accent { color: var(--accent-light); }
+    .hero-line-accent {
+      color: var(--accent-light);
+      font-size: 0.76em;
+      line-height: 0.98;
+      margin-top: 12px;
+    }
 
     .hero-sub {
       font-size: 16px; color: var(--ink-muted); max-width: 520px;
@@ -448,6 +453,7 @@
       .hero-content { padding: 60px 24px 80px; }
       h1 { font-size: clamp(48px, 12vw, 80px); }
       .hero-line-keep { display: inline; }
+      .hero-line-accent { font-size: 0.82em; margin-top: 10px; }
       .hero-tiles { display: none; }
       .editorial-wrap { padding: 100px 24px 60px; }
       .section-label { margin-bottom: 60px; }
