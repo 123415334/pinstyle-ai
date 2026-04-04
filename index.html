@@ -220,7 +220,7 @@
       margin-bottom: 22px;
     }
     .ed-title em { font-style: italic; color: var(--accent-light); }
-    .ed-body { font-size: 15px; color: var(--ink-muted); line-height: 1.85; max-width: 450px; }
+    .ed-body { font-size: 15px; color: var(--ink-muted); line-height: 1.85; max-width: 530px; }
     .ed-keep { white-space: nowrap; }
     .ed-visual { position: relative; }
 
@@ -390,21 +390,18 @@
     }
 
     .app-tile-wrap {
-      width: 100px; margin: 0 auto 44px; position: relative;
+      width: 80px; margin: 0 auto 28px; position: relative;
     }
     .app-tile-wrap::before {
-      content: ''; position: absolute; inset: -20px;
-      background: radial-gradient(ellipse, rgba(1,63,244,0.35) 0%, transparent 70%);
-      border-radius: 50%; animation: pulse 3s ease-in-out infinite;
+      content: ''; position: absolute; inset: -16px;
+      background: radial-gradient(ellipse, rgba(1,63,244,0.28) 0%, transparent 70%);
+      border-radius: 50%;
     }
     .app-tile {
-      width: 100px; height: 100px; border-radius: 22px;
+      width: 80px; height: 80px; border-radius: 18px;
       display: block; position: relative;
-      animation: floatIcon 4s ease-in-out infinite;
-      box-shadow: 0 20px 60px rgba(1,63,244,0.45);
+      box-shadow: 0 16px 52px rgba(1,63,244,0.42), 0 4px 16px rgba(1,63,244,0.25);
     }
-    @keyframes floatIcon { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
-    @keyframes pulse { 0%,100%{opacity:0.7;transform:scale(0.9)} 50%{opacity:1;transform:scale(1.1)} }
 
     .dl-cta h2 {
       font-family: 'Cormorant Garamond', serif;
@@ -583,7 +580,7 @@
 
         <!-- F5 ▸ lower right area -->
         <div class="ftile ftile-front"
-             style="width:100px;aspect-ratio:2/3;top:62%;left:64%"
+             style="width:100px;aspect-ratio:2/3;top:62%;left:71%"
              data-vy="-0.18" data-vx="0.04" data-rot="4">
           <img src="images/photo_03.jpg" alt="">
         </div>
@@ -629,7 +626,7 @@
         <div class="reveal reveal-left ed-copy">
           <span class="ed-ghost">01</span>
           <h2 class="ed-title">Browse supported<br><span class="ed-keep">sites. <em>Select what fits.</em></span></h2>
-          <p class="ed-body">tack currently works directly with Pinterest, Instagram, Behance, and Dribbble. Open it directly on the page, then select the images you want to use as references right where you found them.</p>
+          <p class="ed-body">Tack currently works directly with Pinterest, Instagram, Behance, and Dribbble. Open it directly on the page, then select the images you want to use as references right where you found them.</p>
         </div>
         <div class="ed-visual reveal reveal-right" id="s1-visual">
           <div class="showcase-shot step-1" id="s1-mock">
@@ -649,7 +646,7 @@
         <div class="reveal reveal-right ed-copy">
           <span class="ed-ghost">02</span>
           <h2 class="ed-title">Describe what<br><span class="ed-keep">to <em>create.</em></span></h2>
-          <p class="ed-body">Describe what you want to create: an illustration, a photograph, an object, a campaign visual. tack keeps the style from your references and applies it to something new.</p>
+          <p class="ed-body">Describe what you want to create: an illustration, a photograph, an object, a campaign visual. Tack keeps the style from your references and applies it to something new.</p>
         </div>
         <div class="ed-visual reveal reveal-left" id="s2-visual">
           <div class="showcase-shot step-2" id="s2-mock">
