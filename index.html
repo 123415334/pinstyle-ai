@@ -140,14 +140,14 @@
 
     h1 {
       font-family: 'Cormorant Garamond', serif;
-      font-size: clamp(56px, 9vw, 116px);
+      font-size: clamp(54px, 7.4vw, 98px);
       font-weight: 300; line-height: 0.94; letter-spacing: -0.03em;
-      max-width: 1120px;
+      max-width: 900px;
       opacity: 0; animation: fadeUp 0.88s cubic-bezier(0.16,1,0.3,1) 0.30s forwards;
     }
     h1 em { font-style: italic; color: var(--accent-light); }
     .hero-line { display: block; }
-    .hero-line-keep { white-space: nowrap; }
+    .hero-line-keep { display: inline-block; }
     .hero-line-accent { color: var(--accent-light); }
 
     .hero-sub {
@@ -447,7 +447,7 @@
       .hero-sticky { position: relative; top: auto; height: auto; min-height: calc(100vh - 68px); }
       .hero-content { padding: 60px 24px 80px; }
       h1 { font-size: clamp(48px, 12vw, 80px); }
-      .hero-line-keep { white-space: normal; }
+      .hero-line-keep { display: inline; }
       .hero-tiles { display: none; }
       .editorial-wrap { padding: 100px 24px 60px; }
       .section-label { margin-bottom: 60px; }
@@ -604,7 +604,7 @@
 
       <div class="hero-content">
         <img src="tack_square.svg" class="hero-app-icon" alt="tack Chrome extension">
-        <h1><span class="hero-line hero-line-keep">Select a style and make something new.</span><span class="hero-line hero-line-accent hero-line-keep">Without leaving your browser.</span></h1>
+        <h1><span class="hero-line">Select a style and make something new.</span><span class="hero-line hero-line-accent"><span class="hero-line-keep">Without leaving your browser.</span></span></h1>
         <p class="hero-sub">Scan your favorite image sites, select references, and generate new subjects in the same visual style.</p>
         <div class="hero-actions">
           <a href="#download" class="btn-primary">Add to Chrome — It's Free</a>
