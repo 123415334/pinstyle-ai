@@ -142,15 +142,16 @@
       font-family: 'Cormorant Garamond', serif;
       font-size: clamp(56px, 9vw, 116px);
       font-weight: 300; line-height: 0.94; letter-spacing: -0.03em;
-      max-width: 860px;
+      max-width: 1120px;
       opacity: 0; animation: fadeUp 0.88s cubic-bezier(0.16,1,0.3,1) 0.30s forwards;
     }
     h1 em { font-style: italic; color: var(--accent-light); }
     .hero-line { display: block; }
     .hero-line-keep { white-space: nowrap; }
+    .hero-line-accent { color: var(--accent-light); }
 
     .hero-sub {
-      font-size: 16px; color: var(--ink-muted); max-width: 400px;
+      font-size: 16px; color: var(--ink-muted); max-width: 520px;
       line-height: 1.8; margin-top: 30px; font-weight: 300;
       opacity: 0; animation: fadeUp 0.8s ease 0.46s forwards;
     }
@@ -603,8 +604,8 @@
 
       <div class="hero-content">
         <img src="tack_square.svg" class="hero-app-icon" alt="tack Chrome extension">
-        <h1><span class="hero-line">Select a style.</span><span class="hero-line hero-line-keep">Make something <em>new.</em></span></h1>
-        <p class="hero-sub">Pick reference images from supported sites. tack turns them into new images in the same visual style.</p>
+        <h1><span class="hero-line hero-line-keep">Select a style and make something new.</span><span class="hero-line hero-line-accent hero-line-keep">Without leaving your browser.</span></h1>
+        <p class="hero-sub">Scan your favorite image sites, select references, and generate new subjects in the same visual style.</p>
         <div class="hero-actions">
           <a href="#download" class="btn-primary">Add to Chrome — It's Free</a>
           <a href="#how" class="btn-ghost">See how it works ↓</a>
