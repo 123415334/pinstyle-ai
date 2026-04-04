@@ -159,6 +159,15 @@
       line-height: 1.8; margin-top: 30px; font-weight: 300;
       opacity: 0; animation: fadeUp 0.8s ease 0.46s forwards;
     }
+    h1,
+    .hero-sub,
+    .ed-title,
+    .ed-body,
+    .features-headline,
+    .dl-cta h2,
+    .dl-cta .sub {
+      text-wrap: balance;
+    }
 
     .hero-actions {
       display: flex; gap: 18px; align-items: center; margin-top: 46px;
@@ -200,6 +209,7 @@
     .ed-step:last-child { margin-bottom: 0; }
     .ed-step.flip { direction: rtl; }
     .ed-step.flip > * { direction: ltr; }
+    .ed-copy { max-width: 560px; }
     .ed-ghost {
       font-family: 'Cormorant Garamond', serif;
       font-size: clamp(100px, 16vw, 220px);
@@ -215,6 +225,7 @@
     }
     .ed-title em { font-style: italic; color: var(--accent-light); }
     .ed-body { font-size: 15px; color: var(--ink-muted); line-height: 1.85; max-width: 380px; }
+    .ed-keep { white-space: nowrap; }
     .ed-visual { position: relative; }
 
 
@@ -445,6 +456,8 @@
       .section-label { margin-bottom: 60px; }
       .ed-step { grid-template-columns: 1fr; gap: 48px; margin-bottom: 100px; }
       .ed-step.flip { direction: ltr; }
+      .ed-copy { max-width: none; }
+      .ed-keep { white-space: normal; }
       .showcase-stage { padding: 10px; }
       .ed-visual { max-width: none; }
       .features-wrap { padding: 0 24px 100px; }
@@ -614,7 +627,7 @@
 
       <!-- Step 01 -->
       <div class="ed-step">
-        <div class="reveal reveal-left">
+        <div class="reveal reveal-left ed-copy">
           <span class="ed-ghost">01</span>
           <h2 class="ed-title">Browse anywhere.<br><em>Select what fits.</em></h2>
           <p class="ed-body">Open tack on Pinterest, Behance, design blogs, shop pages, or anywhere else you find visual inspiration. Select the images you want to use as references right on the page.</p>
@@ -634,9 +647,9 @@
 
       <!-- Step 02 -->
       <div class="ed-step flip">
-        <div class="reveal reveal-right">
+        <div class="reveal reveal-right ed-copy">
           <span class="ed-ghost">02</span>
-          <h2 class="ed-title">Name the new<br><em>subject.</em></h2>
+          <h2 class="ed-title"><span class="ed-keep">Name the new</span><br><em>subject.</em></h2>
           <p class="ed-body">Type what you want to make: a product shot, a room, a character, a campaign visual. tack keeps the style from your references and applies it to something new.</p>
         </div>
         <div class="ed-visual reveal reveal-left" id="s2-visual">
@@ -654,9 +667,9 @@
 
       <!-- Step 03 -->
       <div class="ed-step">
-        <div class="reveal reveal-left">
+        <div class="reveal reveal-left ed-copy">
           <span class="ed-ghost">03</span>
-          <h2 class="ed-title"><em>Download</em> what works.</h2>
+          <h2 class="ed-title"><em>Download</em> what<br>works.</h2>
           <p class="ed-body">Review the style analysis, copy the prompt if you want it, and save the results that fit. Then run a new subject in the same style whenever you need more.</p>
         </div>
         <div class="ed-visual reveal reveal-right" id="s3-visual">
@@ -846,7 +859,7 @@
     <span>© 2026 tack</span>
     <div style="display:flex;gap:28px">
       <a href="/privacy">Privacy</a>
-      <a href="mailto:hello@tack.co">Contact</a>
+      <a href="mailto:hello@tack.design">Contact</a>
     </div>
   </footer>
 
