@@ -101,6 +101,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   accountMenuTrigger?.addEventListener('click', e => {
     e.stopPropagation();
+    if (!_authToken || !_authEmail) {
+      closeAccountMenu();
+      switchAuthTab('login');
+      showAuthModal();
+      return;
+    }
     const shouldOpen = accountMenuPanel.classList.contains('hidden');
     setAccountMenuOpen(shouldOpen);
   });
@@ -718,18 +724,22 @@ function updateHeaderPlanBadge() {
 function updateAccountMenuTrigger() {
   const avatar = document.getElementById('account-trigger-avatar');
   const label = document.getElementById('account-trigger-label');
-  if (!avatar || !label) return;
+  if (!avatar || !label || !accountMenuTrigger) return;
 
   if (_authToken && _authEmail) {
     avatar.textContent = _authEmail.trim().charAt(0).toUpperCase() || 'T';
     avatar.dataset.state = 'user';
     label.textContent = '';
     label.classList.add('hidden');
+    accountMenuTrigger.dataset.state = 'user';
+    accountMenuTrigger.setAttribute('aria-haspopup', 'menu');
   } else {
     avatar.textContent = '';
     avatar.dataset.state = 'guest';
     label.textContent = 'Sign in';
     label.classList.remove('hidden');
+    accountMenuTrigger.dataset.state = 'guest';
+    accountMenuTrigger.setAttribute('aria-haspopup', 'dialog');
   }
 }
 
@@ -1050,8 +1060,8 @@ async function handleAuthSubmit() {
     errorEl.textContent = 'Please enter a password.';
     return;
   }
-  if (password.length < 6) {
-    errorEl.textContent = 'Password must be at least 6 characters.';
+  if (password.length < 8) {
+    errorEl.textContent = 'Password must be at least 8 characters.';
     return;
   }
 
@@ -1216,7 +1226,7 @@ async function loadImages(options = {}) {
     });
   } catch (err) {
     if (!isLatestRequest('scan', requestId)) return;
-    setStatus('Cannot scan this page (try a regular http/https page).');
+    setStatus('Cannot scan this page. Try Pinterest, Instagram, Behance or Dribbble.');
     return;
   }
 

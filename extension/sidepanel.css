@@ -90,6 +90,9 @@ header {
   background: rgba(240,235,227,0.08);
   border-color: rgba(240,235,227,0.16);
 }
+.account-menu-trigger[data-state="guest"] {
+  padding: 5px 14px 5px 5px;
+}
 .account-trigger-avatar {
   width: 28px;
   height: 28px;
@@ -142,6 +145,9 @@ header {
   color: var(--ink-muted);
   line-height: 1;
   transform: translateY(-1px);
+}
+.account-menu-trigger[data-state="guest"] .account-trigger-caret {
+  display: none;
 }
 
 .header-account {
