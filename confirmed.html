@@ -212,6 +212,34 @@
       }
     }
 
+    async function verifyConfirmationToken() {
+      const params = new URLSearchParams(window.location.search);
+      const tokenHash = params.get('token_hash');
+      const type = params.get('type') || 'signup';
+      if (!tokenHash) return null;
+      const resp = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          token_hash: tokenHash,
+          type,
+        }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok || !data.access_token) return null;
+      const session = {
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+        token_type: data.token_type || 'bearer',
+      };
+      localStorage.setItem('tack_session', JSON.stringify(session));
+      history.replaceState({}, document.title, window.location.pathname);
+      return session;
+    }
+
     function storeSessionFromHash() {
       if (!window.location.hash.includes('access_token=')) return null;
       const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
@@ -244,7 +272,8 @@
 
     async function resolveSession() {
       const fromHash = storeSessionFromHash();
-      const stored = fromHash || getStoredSession();
+      const fromVerify = fromHash || await verifyConfirmationToken();
+      const stored = fromVerify || getStoredSession();
       if (!stored?.access_token) return null;
       try {
         const payload = JSON.parse(atob(stored.access_token.split('.')[1]));
