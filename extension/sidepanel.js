@@ -30,6 +30,7 @@ const selectedUrls = new Set();
 
 // ── Auth state ────────────────────────────────────────────────────────────────
 let _authToken        = null;
+let _authRefreshToken = null;
 let _authEmail        = null;
 let _authUserId       = null;
 let _generationsUsed  = 0;
@@ -291,21 +292,24 @@ function showUpgradeMoment(type) {
   const subEl        = document.getElementById('upgrade-sub');
   const primaryBtn   = document.getElementById('upgrade-primary-btn');
   const secondaryBtn = document.getElementById('upgrade-secondary-btn');
-  const email        = _authEmail ? `?email=${encodeURIComponent(_authEmail)}` : '';
+  const params       = new URLSearchParams();
+  if (_authEmail) params.set('email', _authEmail);
+  if (_plan) params.set('current', _plan);
+  const upgradeBase  = `https://tack.design/upgrade?${params.toString()}${buildAuthHash()}`;
 
   titleEl.textContent = "You're on a roll.";
 
   if (type === 'pro_limit') {
     subEl.textContent          = "You've hit your 120 monthly generations. Keep creating with Unlimited — no limits, ever.";
     primaryBtn.textContent     = 'Go Unlimited → $35/month';
-    primaryBtn.href            = `https://tack.design/upgrade${email}&current=pro`;
+    primaryBtn.href            = `${upgradeBase}&plan=unlimited`;
     secondaryBtn.style.display = 'none';
   } else {
     subEl.textContent          = "Your 3 free generations are up. Keep going with Pro — 120 images/month for $12.";
     primaryBtn.textContent     = 'Get Pro → $12/month';
-    primaryBtn.href            = `https://tack.design/upgrade${email}`;
+    primaryBtn.href            = `${upgradeBase}&plan=pro`;
     secondaryBtn.textContent   = 'Or go Unlimited → $35/month';
-    secondaryBtn.href          = `https://tack.design/upgrade${email}`;
+    secondaryBtn.href          = `${upgradeBase}&plan=unlimited`;
     secondaryBtn.style.display = '';
   }
 
@@ -314,6 +318,14 @@ function showUpgradeMoment(type) {
 
 function hideUpgradeMoment() {
   upgradeMoment.classList.add('hidden');
+}
+
+function buildAuthHash() {
+  const hash = new URLSearchParams();
+  if (_authToken) hash.set('access_token', _authToken);
+  if (_authRefreshToken) hash.set('refresh_token', _authRefreshToken);
+  hash.set('token_type', 'bearer');
+  return hash.toString() ? `#${hash.toString()}` : '';
 }
 
 // ── Anonymous CTA — injected below results after the preview generation ───────
@@ -406,6 +418,7 @@ function startVerifyPolling() {
 
         applyAuthSession({
           token: data.access_token,
+          refreshToken: data.refresh_token || null,
           email: _verifyEmail,
           userId: getUserIdFromToken(data.access_token),
           used: 0,
@@ -494,6 +507,7 @@ async function openUpgradeFlow(plan, options = {}) {
 
 function applyAuthSession(session = {}) {
   _authToken       = session.token || null;
+  _authRefreshToken = session.refreshToken || null;
   _authEmail       = session.email || '';
   _authUserId      = session.userId || (_authToken ? getUserIdFromToken(_authToken) : null);
   _generationsUsed = session.used ?? 0;
@@ -503,9 +517,10 @@ function applyAuthSession(session = {}) {
 }
 
 async function persistAuthSession(refreshToken = null) {
+  _authRefreshToken = refreshToken || null;
   await chrome.storage.local.set({
     ps_token: _authToken,
-    ps_refresh: refreshToken || null,
+    ps_refresh: _authRefreshToken,
     ps_email: _authEmail,
     ps_user_id: _authUserId,
     ps_used: _generationsUsed,
@@ -541,6 +556,7 @@ async function clearStoredAuthSession() {
 
 function resetLocalAuthState() {
   _authToken = null;
+  _authRefreshToken = null;
   _authEmail = null;
   _authUserId = null;
   _generationsUsed = 0;
@@ -588,6 +604,7 @@ async function initAuth() {
     if (user) {
       applyAuthSession({
         token: stored.ps_token,
+        refreshToken: stored.ps_refresh || null,
         email: user.email || stored.ps_email || '',
         userId: user.id || stored.ps_user_id || getUserIdFromToken(stored.ps_token),
         used: stored.ps_used || 0,
@@ -608,6 +625,7 @@ async function initAuth() {
         const user = await validateToken(refreshed.access_token);
         applyAuthSession({
           token: refreshed.access_token,
+          refreshToken: refreshed.refresh_token || stored.ps_refresh || null,
           email: user?.email || stored.ps_email || '',
           userId: user?.id || stored.ps_user_id || getUserIdFromToken(refreshed.access_token),
           used: stored.ps_used || 0,
@@ -769,7 +787,10 @@ function updateTrialBadge() {
     return;
   }
 
-  const upgradeBase = `https://tack.design/upgrade${_authEmail ? '?email=' + encodeURIComponent(_authEmail) : ''}`;
+  const params = new URLSearchParams();
+  if (_authEmail) params.set('email', _authEmail);
+  if (_plan) params.set('current', _plan);
+  const upgradeBase = `https://tack.design/upgrade?${params.toString()}${buildAuthHash()}`;
   trialBadge.classList.remove('hidden');
 
   // ── Unlimited ──
@@ -788,7 +809,7 @@ function updateTrialBadge() {
 
     if (remaining <= 0) {
       trialBadge.className = 'trial-badge counter-exhausted';
-      const unlimitedUrl = upgradeBase + (_authEmail ? '&current=pro' : '?current=pro');
+      const unlimitedUrl = `${upgradeBase}&plan=unlimited`;
       trialBadge.innerHTML = `Monthly limit reached · <a href="${unlimitedUrl}" target="_blank" rel="noopener" class="counter-upgrade-link">Go Unlimited →</a>`;
       generateBtn.disabled = true;
     } else {
@@ -813,7 +834,7 @@ function updateTrialBadge() {
 
   if (remaining <= 0) {
     trialBadge.className = 'trial-badge counter-exhausted';
-    trialBadge.innerHTML = `3 free generations used &middot; <a href="${upgradeBase}" target="_blank" rel="noopener" class="counter-upgrade-link">Upgrade to keep creating →</a>`;
+    trialBadge.innerHTML = `3 free generations used &middot; <a href="${upgradeBase}&plan=pro" target="_blank" rel="noopener" class="counter-upgrade-link">Upgrade to keep creating →</a>`;
     generateBtn.disabled = true;
     return;
   }
@@ -959,6 +980,7 @@ async function handleGoogleAuth() {
 
     applyAuthSession({
       token: accessToken,
+      refreshToken: refreshToken || null,
       email: user.email || '',
       userId: user.id || getUserIdFromToken(accessToken),
       used: 0,
@@ -1032,6 +1054,7 @@ async function handleAuthSubmit() {
 
     applyAuthSession({
       token: data.access_token,
+      refreshToken: data.refresh_token || null,
       email,
       userId: getUserIdFromToken(data.access_token),
       used: 0,
