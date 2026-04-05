@@ -115,41 +115,6 @@
       margin-bottom: 36px;
     }
 
-    /* Step instruction */
-    .step-box {
-      background: rgba(240,235,227,0.04);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 18px 20px;
-      margin-bottom: 20px;
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      text-align: left;
-    }
-    .step-icon {
-      width: 36px; height: 36px;
-      border-radius: 10px;
-      background: rgba(201,169,110,0.1);
-      border: 1px solid rgba(201,169,110,0.2);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-      flex-shrink: 0;
-    }
-    .step-text {
-      font-size: 13px;
-      color: var(--ink);
-      line-height: 1.5;
-    }
-    .step-text span {
-      display: block;
-      font-size: 11px;
-      color: var(--ink-muted);
-      margin-top: 2px;
-    }
-
     .close-btn {
       display: block;
       width: 100%;
@@ -174,6 +139,8 @@
       color: var(--ink-muted);
       opacity: 0.55;
       line-height: 1.6;
+      max-width: 320px;
+      margin: 0 auto;
     }
 
     .divider {
@@ -212,14 +179,6 @@
     <div class="eyebrow">Email confirmed</div>
     <h1>You're in,<br><em>let's create.</em></h1>
     <p class="sub">Your account is active. Go back to the extension and keep creating.</p>
-
-    <div class="step-box">
-      <div class="step-icon">↩</div>
-      <div class="step-text">
-        Switch back to your Chrome window
-        <span>The tack panel is already signing you in automatically.</span>
-      </div>
-    </div>
 
     <button class="close-btn" onclick="window.close()">Close this tab</button>
 
