@@ -51,6 +51,7 @@
       padding: 20px 40px;
       display: flex;
       align-items: center;
+      justify-content: space-between;
       background: linear-gradient(to bottom, rgba(14,12,10,0.95), transparent);
       z-index: 10;
     }
@@ -64,6 +65,14 @@
       letter-spacing: -0.3px;
     }
     .logo span { color: var(--accent-light); }
+
+    .nav-link {
+      font-size: 13px;
+      color: var(--ink-muted);
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+    .nav-link:hover { color: var(--ink); }
 
     .card {
       position: relative;
@@ -166,6 +175,7 @@
     <a href="/" class="logo" aria-label="tack home">
       <img src="/tack_logo.svg" alt="tack" style="height:28px;width:auto;display:block;">
     </a>
+    <a href="/account" class="nav-link" id="accountLink">My account</a>
   </nav>
 
   <div class="card">
@@ -186,9 +196,95 @@
 
     <div class="divider"></div>
 
-    <a href="/upgrade" class="plan-link">View plans &amp; pricing →</a>
+    <a href="/upgrade" class="plan-link" id="planLink">View plans &amp; pricing →</a>
 
   </div>
+
+  <script>
+    const SUPABASE_URL = 'https://sbdowcielgtcfholfyry.supabase.co';
+    const SUPABASE_ANON_KEY = '<SECRET>';
+
+    function getStoredSession() {
+      try {
+        return JSON.parse(localStorage.getItem('tack_session') || 'null');
+      } catch {
+        return null;
+      }
+    }
+
+    function storeSessionFromHash() {
+      if (!window.location.hash.includes('access_token=')) return null;
+      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      const accessToken = hash.get('access_token');
+      if (!accessToken) return null;
+      const session = {
+        access_token: accessToken,
+        refresh_token: hash.get('refresh_token'),
+        token_type: hash.get('token_type') || 'bearer',
+      };
+      localStorage.setItem('tack_session', JSON.stringify(session));
+      history.replaceState({}, document.title, `${window.location.pathname}${window.location.search}`);
+      return session;
+    }
+
+    async function refreshSession(refreshToken) {
+      if (!refreshToken) return null;
+      const resp = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok || !data.access_token) return null;
+      return data;
+    }
+
+    async function resolveSession() {
+      const fromHash = storeSessionFromHash();
+      const stored = fromHash || getStoredSession();
+      if (!stored?.access_token) return null;
+      try {
+        const payload = JSON.parse(atob(stored.access_token.split('.')[1]));
+        if (payload.exp * 1000 > Date.now()) return stored;
+      } catch {
+        return null;
+      }
+      if (!stored.refresh_token) return null;
+      const refreshed = await refreshSession(stored.refresh_token).catch(() => null);
+      if (refreshed?.access_token) {
+        localStorage.setItem('tack_session', JSON.stringify(refreshed));
+        return refreshed;
+      }
+      return null;
+    }
+
+    function buildSessionHash(session) {
+      if (!session?.access_token) return '';
+      const hash = new URLSearchParams();
+      hash.set('access_token', session.access_token);
+      if (session.refresh_token) hash.set('refresh_token', session.refresh_token);
+      if (session.token_type) hash.set('token_type', session.token_type);
+      return `#${hash.toString()}`;
+    }
+
+    (async function init() {
+      const session = await resolveSession();
+      const planLink = document.getElementById('planLink');
+      const accountLink = document.getElementById('accountLink');
+      if (!session?.access_token) return;
+      const sessionHash = buildSessionHash(session);
+      if (sessionHash) {
+        planLink.href = `/upgrade${sessionHash}`;
+        accountLink.href = `/account${sessionHash}`;
+      } else {
+        planLink.href = '/upgrade';
+        accountLink.href = '/account';
+      }
+    })();
+  </script>
 
 </body>
 </html>
