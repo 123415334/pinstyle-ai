@@ -66,7 +66,9 @@ let _telemetryFlushTimer   = null;
 let _telemetryQueue        = [];
 let _billingRefreshPending = false;
 let _billingRefreshPromise = null;
+let _billingRefreshTimer   = null;
 let _lastBillingRefreshAt  = 0;
+let _billingRefreshExpiresAt = 0;
 let _scanRequestId         = 0;
 let _generateRequestId     = 0;
 let _planRequestId         = 0;
@@ -498,10 +500,26 @@ async function openUpgradeFlow(plan, options = {}) {
   const upgradeUrl = `https://tack.design/upgrade?${params.toString()}${hashString}`;
   chrome.tabs.create({ url: upgradeUrl });
   _billingRefreshPending = true;
+  _billingRefreshExpiresAt = Date.now() + 10 * 60 * 1000;
+  startBillingRefreshPolling();
   trackEvent(options.manage ? 'billing_manage_opened' : 'upgrade_flow_opened', { requestedPlan: plan || _plan });
   if (!options.manage) {
     document.getElementById('plan-cards').classList.add('hidden');
     document.getElementById('plan-waiting').classList.remove('hidden');
+  }
+}
+
+function startBillingRefreshPolling() {
+  if (_billingRefreshTimer) return;
+  _billingRefreshTimer = setInterval(() => {
+    refreshBillingStateIfNeeded().catch(() => {});
+  }, 3000);
+}
+
+function stopBillingRefreshPolling() {
+  if (_billingRefreshTimer) {
+    clearInterval(_billingRefreshTimer);
+    _billingRefreshTimer = null;
   }
 }
 
@@ -566,6 +584,8 @@ function resetLocalAuthState() {
   _lastResultData = null;
   _savedStyleMemory = null;
   _billingRefreshPending = false;
+  _billingRefreshExpiresAt = 0;
+  stopBillingRefreshPolling();
 }
 
 function isLatestRequest(type, requestId) {
@@ -2244,6 +2264,12 @@ function renderStyleMemoryBanner() {
 
 async function refreshBillingStateIfNeeded() {
   if (!_authToken || !_billingRefreshPending) return;
+  if (_billingRefreshExpiresAt && Date.now() > _billingRefreshExpiresAt) {
+    _billingRefreshPending = false;
+    _billingRefreshExpiresAt = 0;
+    stopBillingRefreshPolling();
+    return;
+  }
   const now = Date.now();
   if (_billingRefreshPromise) return _billingRefreshPromise;
   if (now - _lastBillingRefreshAt < 2000) return;
@@ -2257,7 +2283,11 @@ async function refreshBillingStateIfNeeded() {
       showMainUI();
       setStatus(`Plan updated to ${_plan === 'unlimited' ? 'Unlimited' : _plan === 'pro' ? 'Pro' : 'Free'}.`);
     }
-    if (_plan !== 'free') _billingRefreshPending = false;
+    if (_plan !== 'free') {
+      _billingRefreshPending = false;
+      _billingRefreshExpiresAt = 0;
+      stopBillingRefreshPolling();
+    }
   })();
   try {
     await _billingRefreshPromise;
