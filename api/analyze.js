@@ -1,6 +1,7 @@
 const FREE_TRIAL_LIMIT  = 3;
 const PRO_MONTHLY_LIMIT = 120;
 const MAX_REFERENCE_IMAGES = 8;
+const MAX_CONDITIONING_IMAGES = 4;
 const DEFAULT_STYLE_PROMPT = 'professional photography, natural lighting, refined composition, high quality';
 const DEFAULT_STYLE_SCHEMA = Object.freeze({
   best_image_index: 0,
@@ -16,6 +17,8 @@ const DEFAULT_STYLE_SCHEMA = Object.freeze({
   mood: 'elevated and art directed',
   must_preserve: ['shared aesthetic family', 'overall art direction'],
   avoid: [],
+  reference_subjects: [],
+  subject_leak_risks: [],
   style_prompt: DEFAULT_STYLE_PROMPT,
 });
 const ANTHROPIC_STYLE_MODEL = process.env.ANTHROPIC_STYLE_MODEL || 'claude-sonnet-4-20250514';
@@ -179,6 +182,8 @@ function normalizeStyleSchema(rawSchema, referenceCount) {
     mood: cleanString(parsed.mood, DEFAULT_STYLE_SCHEMA.mood),
     must_preserve: cleanList(parsed.must_preserve, 5),
     avoid: cleanList(parsed.avoid, 5),
+    reference_subjects: cleanList(parsed.reference_subjects, 8),
+    subject_leak_risks: cleanList(parsed.subject_leak_risks, 8),
     style_prompt: cleanString(parsed.style_prompt, DEFAULT_STYLE_SCHEMA.style_prompt),
   };
 
@@ -230,6 +235,8 @@ Return ONLY valid JSON with this exact shape:
   "mood": "",
   "must_preserve": ["", "", ""],
   "avoid": ["", ""],
+  "reference_subjects": ["", ""],
+  "subject_leak_risks": ["", ""],
   "style_prompt": ""
 }
 
@@ -239,6 +246,8 @@ Field rules:
 - outlier_indices: zero-based indices for references that pull away from the shared style
 - must_preserve: 2-5 concise style traits that must survive generation
 - avoid: 0-5 drift risks or wrong directions
+- reference_subjects: 2-8 concise nouns for the main depicted subjects, objects, characters, or motifs recurring in the references
+- subject_leak_risks: 0-8 specific reference subjects or motifs that must NOT leak into a new generation unless explicitly requested
 - style_prompt: 90-140 words, dense and specific, describing the shared style for image generation
 
 Be concrete, visually specific, and faithful to the shared aesthetic. Output JSON only.`;
@@ -300,17 +309,21 @@ function buildConditioningReferences(validReferences, styleSchema) {
   const ordered = [bestRef, ...refs];
 
   const shouldExcludeOutliers = styleSchema.consistency_score < 0.7 && styleSchema.outlier_indices.length > 0;
-  if (!shouldExcludeOutliers) return ordered;
+  if (!shouldExcludeOutliers) return ordered.slice(0, MAX_CONDITIONING_IMAGES);
 
   const excluded = new Set(styleSchema.outlier_indices.map(index => validReferences[index]?.url).filter(Boolean));
   const filtered = ordered.filter((ref, index) => index === 0 || !excluded.has(ref.url));
-  return filtered.length >= 2 ? filtered : ordered;
+  const chosen = filtered.length >= 2 ? filtered : ordered;
+  return chosen.slice(0, MAX_CONDITIONING_IMAGES);
 }
 
 function buildGenerationPrompt(subject, styleSchema) {
   const lines = [
     `Create ${subject.trim()}.`,
+    `Primary subject requirement: the image must clearly depict ${subject.trim()} as the hero subject.`,
     'Match the shared visual family of the reference images, keeping the subject new but the aesthetic highly consistent.',
+    'Translate style only. Do not copy the exact subject matter, character design, mascot, lettering, logo, pose, layout, or composition from the reference images.',
+    'If the references contain recognizable objects or characters, carry over only their aesthetic treatment, not their identity.',
     `Style family: ${styleSchema.style_family}.`,
     `Rendering medium: ${styleSchema.rendering_medium}.`,
     `Color palette: ${styleSchema.palette}.`,
@@ -326,12 +339,20 @@ function buildGenerationPrompt(subject, styleSchema) {
     lines.push(`Avoid drifting into: ${styleSchema.avoid.join(', ')}.`);
   }
 
+  if (styleSchema.reference_subjects.length) {
+    lines.push(`Reference subjects present in the board: ${styleSchema.reference_subjects.join(', ')}.`);
+  }
+
+  if (styleSchema.subject_leak_risks.length) {
+    lines.push(`Do not let these reference subjects or motifs leak into the result unless explicitly requested: ${styleSchema.subject_leak_risks.join(', ')}.`);
+  }
+
   lines.push(`Reference style synthesis: ${styleSchema.style_prompt}`);
   return lines.join(' ');
 }
 
 function buildVariationPrompt(subject, styleSchema) {
-  return `${buildGenerationPrompt(subject, styleSchema)} Keep the same style fidelity, but vary the framing, crop, or camera distance so it feels like a second image from the same campaign rather than a duplicate.`;
+  return `${buildGenerationPrompt(subject, styleSchema)} Keep the same style fidelity, but vary the framing, silhouette, crop, and composition so it feels like a second image from the same campaign rather than a duplicate. Do not reuse the same arrangement or recurring motifs from the references.`;
 }
 
 // ── FLUX 2 Pro ────────────────────────────────────────────────────────────────
