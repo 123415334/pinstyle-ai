@@ -233,6 +233,80 @@
       color: var(--ink-muted);
       margin-top: 10px;
     }
+    .library-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 30px;
+      flex-wrap: wrap;
+    }
+    .library-tabs,
+    .library-actions,
+    .board-breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .library-tab,
+    .library-action,
+    .board-back {
+      border-radius: 999px;
+      border: 1px solid var(--border-hi);
+      background: rgba(240,235,227,0.04);
+      color: var(--ink-muted);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      padding: 10px 18px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s, color 0.2s, transform 0.15s;
+    }
+    .library-tab:hover,
+    .library-action:hover,
+    .board-back:hover {
+      border-color: var(--ink-muted);
+      color: var(--ink);
+      transform: translateY(-1px);
+    }
+    .library-tab.active,
+    .library-action.primary {
+      background: var(--accent);
+      border-color: transparent;
+      color: #fff;
+      box-shadow: 0 6px 24px rgba(1,63,244,0.26);
+    }
+    .hidden {
+      display: none !important;
+    }
+    .library-action.hidden,
+    .board-context.hidden {
+      display: none !important;
+    }
+    .selection-status {
+      font-size: 12px;
+      color: var(--ink-muted);
+    }
+    .board-context {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+    .board-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(34px, 5vw, 52px);
+      line-height: 0.98;
+      letter-spacing: -0.03em;
+      font-weight: 300;
+    }
+    .board-subtitle {
+      margin-top: 8px;
+      font-size: 13px;
+      color: var(--ink-muted);
+    }
     .account-controls {
       display: flex;
       align-items: center;
@@ -297,10 +371,44 @@
       transition: transform 0.2s, box-shadow 0.2s;
     }
     .masonry-item:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(0,0,0,0.6); }
+    .masonry-item.selecting { cursor: pointer; }
+    .masonry-item.selected {
+      box-shadow: 0 0 0 2px rgba(143,190,247,0.9), 0 20px 60px rgba(1,63,244,0.24);
+      transform: translateY(-3px);
+    }
     .masonry-item img {
       width: 100%;
       display: block;
       object-fit: cover;
+    }
+    .tile-check {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      border: 1px solid rgba(240,235,227,0.18);
+      background: rgba(13,11,9,0.72);
+      color: rgba(240,235,227,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      opacity: 0;
+      transition: opacity 0.18s, background 0.18s, color 0.18s, border-color 0.18s;
+      pointer-events: none;
+      z-index: 2;
+      backdrop-filter: blur(10px);
+    }
+    .masonry-item.selecting .tile-check,
+    .masonry-item.selected .tile-check {
+      opacity: 1;
+    }
+    .masonry-item.selected .tile-check {
+      background: var(--accent);
+      border-color: transparent;
+      color: #fff;
     }
     .masonry-item .tile-label {
       position: absolute;
@@ -319,6 +427,176 @@
       color: rgba(255,255,255,0.85);
       font-weight: 400;
       margin-bottom: 2px;
+    }
+    .boards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 18px;
+    }
+    .board-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    }
+    .board-card:hover {
+      transform: translateY(-3px);
+      border-color: var(--border-hi);
+      box-shadow: 0 22px 54px rgba(0,0,0,0.42);
+    }
+    .board-card-preview {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 6px;
+      padding: 10px;
+      min-height: 200px;
+      background: rgba(240,235,227,0.02);
+    }
+    .board-card-preview-main,
+    .board-card-preview-side {
+      display: grid;
+      gap: 6px;
+    }
+    .board-card-preview-main img,
+    .board-card-preview-side img,
+    .board-card-placeholder {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 14px;
+      display: block;
+      background: rgba(240,235,227,0.05);
+    }
+    .board-card-placeholder {
+      min-height: 180px;
+      background:
+        radial-gradient(circle at 30% 20%, rgba(143,190,247,0.18), transparent 40%),
+        linear-gradient(180deg, rgba(240,235,227,0.05), rgba(240,235,227,0.02));
+    }
+    .board-card-meta {
+      padding: 0 16px 16px;
+    }
+    .board-card-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 30px;
+      line-height: 0.95;
+      letter-spacing: -0.025em;
+      color: var(--ink);
+    }
+    .board-card-count {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--ink-muted);
+    }
+
+    .board-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 1200;
+      background: rgba(0,0,0,0.78);
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .board-modal.open { display: flex; }
+    .board-modal-panel {
+      width: min(520px, 100%);
+      background: var(--bg-card);
+      border: 1px solid var(--border-hi);
+      border-radius: 24px;
+      padding: 28px;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.55);
+    }
+    .board-modal-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 36px;
+      line-height: 0.95;
+      letter-spacing: -0.025em;
+    }
+    .board-modal-title em { color: var(--accent-light); font-style: italic; }
+    .board-modal-sub {
+      margin-top: 8px;
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--ink-muted);
+    }
+    .board-modal-list {
+      margin-top: 18px;
+      display: grid;
+      gap: 10px;
+      max-height: 240px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+    .board-option {
+      width: 100%;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: rgba(240,235,227,0.04);
+      color: var(--ink);
+      text-align: left;
+      padding: 14px 16px;
+      cursor: pointer;
+      transition: border-color 0.18s, background 0.18s;
+    }
+    .board-option.selected {
+      border-color: var(--accent-light);
+      background: rgba(1,63,244,0.12);
+    }
+    .board-option-meta {
+      display: block;
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--ink-muted);
+    }
+    .board-modal-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 18px 0;
+    }
+    .board-input {
+      width: 100%;
+      background: rgba(240,235,227,0.05);
+      border: 1px solid var(--border-hi);
+      border-radius: 14px;
+      padding: 13px 14px;
+      color: var(--ink);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 300;
+      outline: none;
+    }
+    .board-input:focus { border-color: var(--accent-light); }
+    .board-modal-actions {
+      margin-top: 22px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    .board-modal-btn {
+      border-radius: 999px;
+      border: 1px solid var(--border-hi);
+      background: rgba(240,235,227,0.04);
+      color: var(--ink);
+      padding: 11px 18px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .board-modal-btn.primary {
+      border-color: transparent;
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 6px 24px rgba(1,63,244,0.24);
+    }
+    .board-modal-error {
+      min-height: 18px;
+      margin-top: 12px;
+      color: var(--error);
+      font-size: 12px;
     }
 
     /* ══ EMPTY STATE ══ */
@@ -437,6 +715,10 @@
       .page-wrap { padding: 90px 16px 60px; }
       .signin-card { padding: 32px 24px; }
       .history-header { flex-direction: column; align-items: flex-start; gap: 16px; }
+      .library-toolbar,
+      .board-context {
+        align-items: flex-start;
+      }
     }
   </style>
 </head>
@@ -515,6 +797,28 @@
           </div>
         </div>
       </div>
+      <div class="library-toolbar">
+        <div class="library-tabs">
+          <button class="library-tab active" id="tab-all" type="button">All</button>
+          <button class="library-tab" id="tab-boards" type="button">Boards</button>
+        </div>
+        <div class="library-actions">
+          <span class="selection-status" id="selection-status"></span>
+          <button class="library-action" id="create-board-btn" type="button">Create board</button>
+          <button class="library-action" id="select-mode-btn" type="button">Select</button>
+          <button class="library-action hidden" id="save-to-board-btn" type="button">Save to board</button>
+          <button class="library-action hidden" id="cancel-select-btn" type="button">Cancel</button>
+        </div>
+      </div>
+      <div class="board-context hidden" id="board-context">
+        <div>
+          <div class="board-breadcrumb">
+            <button class="board-back" id="board-back-btn" type="button">← All boards</button>
+          </div>
+          <h2 class="board-title" id="board-title"></h2>
+          <p class="board-subtitle" id="board-subtitle"></p>
+        </div>
+      </div>
       <div id="gallery-wrap"></div>
     </div>
   </div>
@@ -529,11 +833,35 @@
     </div>
   </div>
 
+  <div class="board-modal" id="board-modal">
+    <div class="board-modal-panel">
+      <h2 class="board-modal-title" id="board-modal-title">Create <em>board</em></h2>
+      <p class="board-modal-sub" id="board-modal-sub"></p>
+      <div class="board-modal-list hidden" id="board-modal-list"></div>
+      <div class="board-modal-divider hidden" id="board-modal-divider"></div>
+      <input class="board-input" id="board-name-input" type="text" placeholder="Board name">
+      <p class="board-modal-error" id="board-modal-error"></p>
+      <div class="board-modal-actions">
+        <button class="board-modal-btn" id="board-modal-cancel" type="button">Cancel</button>
+        <button class="board-modal-btn primary" id="board-modal-confirm" type="button">Continue</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const SUPABASE_URL      = 'https://sbdowcielgtcfholfyry.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiZG93Y2llbGd0Y2Zob2xmeXJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2NjkwNzMsImV4cCI6MjA5MDI0NTA3M30.3dUuwXB8kcAbKvEWWMpvyrXhcdLx1x8x4wKxp3UY4Kk';
 
     let _session = null;
+    let _generations = [];
+    let _boards = [];
+    let _boardItems = [];
+    let _view = 'all';
+    let _activeBoardId = '';
+    let _selectionMode = false;
+    let _selectedKeys = new Set();
+    let _boardModalMode = 'create';
+    let _boardModalSelectedId = '';
 
     function getSafeNextPath() {
       const raw = new URLSearchParams(window.location.search).get('next') || '';
@@ -546,6 +874,15 @@
       return ['free', 'pro', 'unlimited'].includes((plan || '').toLowerCase())
         ? plan.toLowerCase()
         : 'free';
+    }
+
+    function getSessionUserId() {
+      try {
+        const payload = JSON.parse(atob(_session.access_token.split('.')[1]));
+        return payload.sub || '';
+      } catch {
+        return _session?.user?.id || '';
+      }
     }
 
     function buildSessionHash() {
@@ -660,6 +997,71 @@
       return Array.isArray(data) ? data[0] : null;
     }
 
+    async function fetchBoards() {
+      const userId = getSessionUserId();
+      const { ok, data } = await sbFetch(`/rest/v1/boards?select=id,name,created_at,updated_at&user_id=eq.${encodeURIComponent(userId)}&order=updated_at.desc`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+      });
+      if (!ok) throw new Error('Could not load boards');
+      return Array.isArray(data) ? data : [];
+    }
+
+    async function fetchBoardItems() {
+      const userId = getSessionUserId();
+      const { ok, data } = await sbFetch(`/rest/v1/board_items?select=id,board_id,image_url,prompt,source_created_at,position,created_at&user_id=eq.${encodeURIComponent(userId)}&order=position.asc,created_at.desc`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+      });
+      if (!ok) throw new Error('Could not load board items');
+      return Array.isArray(data) ? data : [];
+    }
+
+    async function createBoard(name) {
+      const userId = getSessionUserId();
+      const { ok, data } = await sbFetch('/rest/v1/boards', {
+        method: 'POST',
+        headers: {
+          'Prefer': 'return=representation',
+        },
+        body: JSON.stringify([{ user_id: userId, name }]),
+      });
+      if (!ok) throw new Error(data?.message || 'Could not create board');
+      return Array.isArray(data) ? data[0] : data;
+    }
+
+    async function addImagesToBoard(boardId, items) {
+      const userId = getSessionUserId();
+      const existing = new Set(
+        _boardItems
+          .filter(item => item.board_id === boardId)
+          .map(item => item.image_url)
+      );
+
+      const payload = items
+        .filter(item => item.url && !existing.has(item.url))
+        .map((item, index) => ({
+          board_id: boardId,
+          user_id: userId,
+          image_url: item.url,
+          prompt: item.prompt || '',
+          source_created_at: item.created_at || null,
+          position: index,
+        }));
+
+      if (payload.length === 0) return;
+
+      const { ok, data } = await sbFetch('/rest/v1/board_items', {
+        method: 'POST',
+        headers: {
+          'Prefer': 'resolution=merge-duplicates,return=representation',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!ok) throw new Error(data?.message || 'Could not save to board');
+    }
+
     function openManagePlan() {
       if (!_session?.access_token) {
         window.location.href = '/account';
@@ -718,6 +1120,41 @@
       return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     }
 
+    function flattenGenerations(generations) {
+      const items = [];
+      generations.forEach(gen => {
+        (gen.image_urls || []).forEach((url, index) => {
+          items.push({
+            key: `${gen.id}:${index}`,
+            generationId: gen.id,
+            url,
+            prompt: gen.prompt || '',
+            created_at: gen.created_at,
+          });
+        });
+      });
+      return items;
+    }
+
+    function getBoardItems(boardId) {
+      return _boardItems
+        .filter(item => item.board_id === boardId)
+        .map((item, index) => ({
+          key: item.id || `${boardId}:${index}`,
+          url: item.image_url,
+          prompt: item.prompt || '',
+          created_at: item.source_created_at || item.created_at,
+          boardItemId: item.id,
+        }));
+    }
+
+    function getSelectedGenerationItems() {
+      const map = new Map(flattenGenerations(_generations).map(item => [item.key, item]));
+      return Array.from(_selectedKeys)
+        .map(key => map.get(key))
+        .filter(Boolean);
+    }
+
     function openLightbox(url, subject, dateStr) {
       const lb   = document.getElementById('lightbox');
       const img  = document.getElementById('lightbox-img');
@@ -734,19 +1171,14 @@
       document.getElementById('lightbox-img').src = '';
     }
 
-    function renderGallery(generations) {
+    function renderGalleryItems(items, { emptyTitle, emptyCopy, showSelect = false } = {}) {
       const wrap = document.getElementById('gallery-wrap');
-      const meta = document.getElementById('history-meta');
-
-      const total = generations.reduce((n, g) => n + (g.image_urls || []).length, 0);
-      meta.textContent = `${total} image${total !== 1 ? 's' : ''} across ${generations.length} generation${generations.length !== 1 ? 's' : ''}`;
-
-      if (generations.length === 0) {
+      if (items.length === 0) {
         wrap.innerHTML = `
           <div class="empty-state">
             <div class="empty-state-icon">✦</div>
-            <h2>No generations yet</h2>
-            <p>Your AI-generated images will appear here after you generate them in the extension.</p>
+            <h2>${emptyTitle}</h2>
+            <p>${emptyCopy}</p>
             <a href="/#download" class="empty-cta">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               Add tack to Chrome
@@ -758,46 +1190,322 @@
       const grid = document.createElement('div');
       grid.className = 'masonry';
 
-      generations.forEach(gen => {
-        const date = formatDate(gen.created_at);
-        (gen.image_urls || []).forEach(url => {
-          const item = document.createElement('div');
-          item.className = 'masonry-item';
+      items.forEach(entry => {
+        const date = formatDate(entry.created_at);
+        const item = document.createElement('div');
+        item.className = 'masonry-item';
+        if (showSelect && _selectionMode) item.classList.add('selecting');
+        if (_selectedKeys.has(entry.key)) item.classList.add('selected');
 
-          const img = document.createElement('img');
-          img.src     = url;
-          img.alt     = gen.prompt || '';
-          img.loading = 'lazy';
-          img.decoding = 'async';
+        const img = document.createElement('img');
+        img.src     = entry.url;
+        img.alt     = entry.prompt || '';
+        img.loading = 'lazy';
+        img.decoding = 'async';
 
-          const label = document.createElement('div');
-          label.className = 'tile-label';
-          label.innerHTML = gen.prompt
-            ? `<div class="tile-subject">${gen.prompt}</div><div>${date}</div>`
-            : `<div>${date}</div>`;
+        const check = document.createElement('div');
+        check.className = 'tile-check';
+        check.textContent = '✓';
 
-          item.appendChild(img);
-          item.appendChild(label);
-          item.addEventListener('click', () => openLightbox(url, gen.prompt, date));
-          grid.appendChild(item);
+        const label = document.createElement('div');
+        label.className = 'tile-label';
+        label.innerHTML = entry.prompt
+          ? `<div class="tile-subject">${entry.prompt}</div><div>${date}</div>`
+          : `<div>${date}</div>`;
+
+        item.appendChild(img);
+        item.appendChild(check);
+        item.appendChild(label);
+        item.addEventListener('click', () => {
+          if (showSelect && _selectionMode) {
+            if (_selectedKeys.has(entry.key)) _selectedKeys.delete(entry.key);
+            else _selectedKeys.add(entry.key);
+            updateSelectionUi();
+            renderCurrentView();
+            return;
+          }
+          openLightbox(entry.url, entry.prompt, date);
         });
+        grid.appendChild(item);
       });
 
       wrap.innerHTML = '';
       wrap.appendChild(grid);
     }
 
-    async function loadHistory() {
+    function renderBoardsIndex() {
+      const wrap = document.getElementById('gallery-wrap');
+      if (_boards.length === 0) {
+        wrap.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">✦</div>
+            <h2>No boards yet</h2>
+            <p>Create a board to group the generations you want to reuse as future style references.</p>
+            <button type="button" class="empty-cta" id="empty-create-board">
+              Create board
+            </button>
+          </div>`;
+        wrap.querySelector('#empty-create-board')?.addEventListener('click', () => openBoardModal('create'));
+        return;
+      }
+
+      const grid = document.createElement('div');
+      grid.className = 'boards-grid';
+
+      _boards.forEach(board => {
+        const items = getBoardItems(board.id);
+        const card = document.createElement('article');
+        card.className = 'board-card';
+
+        const preview = document.createElement('div');
+        preview.className = 'board-card-preview';
+        if (items.length === 0) {
+          const placeholder = document.createElement('div');
+          placeholder.className = 'board-card-placeholder';
+          preview.appendChild(placeholder);
+        } else {
+          const main = document.createElement('div');
+          main.className = 'board-card-preview-main';
+          const side = document.createElement('div');
+          side.className = 'board-card-preview-side';
+          const [first, second, third] = items;
+          if (first) {
+            const img = document.createElement('img');
+            img.src = first.url;
+            img.alt = board.name;
+            main.appendChild(img);
+          }
+          [second, third].forEach(item => {
+            if (!item) return;
+            const img = document.createElement('img');
+            img.src = item.url;
+            img.alt = board.name;
+            side.appendChild(img);
+          });
+          preview.appendChild(main);
+          if (side.children.length) preview.appendChild(side);
+        }
+
+        const meta = document.createElement('div');
+        meta.className = 'board-card-meta';
+        meta.innerHTML = `
+          <div class="board-card-title">${board.name}</div>
+          <div class="board-card-count">${items.length} image${items.length !== 1 ? 's' : ''}</div>
+        `;
+        card.append(preview, meta);
+        card.addEventListener('click', () => {
+          _activeBoardId = board.id;
+          _selectionMode = false;
+          _selectedKeys.clear();
+          renderCurrentView();
+        });
+        grid.appendChild(card);
+      });
+
+      wrap.innerHTML = '';
+      wrap.appendChild(grid);
+    }
+
+    function updateSelectionUi() {
+      const selectBtn = document.getElementById('select-mode-btn');
+      const saveBtn = document.getElementById('save-to-board-btn');
+      const cancelBtn = document.getElementById('cancel-select-btn');
+      const status = document.getElementById('selection-status');
+      const createBtn = document.getElementById('create-board-btn');
+
+      const showSelectionControls = _view === 'all' && _selectionMode;
+      selectBtn.classList.toggle('hidden', showSelectionControls);
+      createBtn.classList.toggle('hidden', showSelectionControls);
+      saveBtn.classList.toggle('hidden', !showSelectionControls);
+      cancelBtn.classList.toggle('hidden', !showSelectionControls);
+      saveBtn.disabled = _selectedKeys.size === 0;
+      status.textContent = showSelectionControls
+        ? `${_selectedKeys.size} selected`
+        : '';
+    }
+
+    function updateBoardContext() {
+      const boardContext = document.getElementById('board-context');
+      const title = document.getElementById('board-title');
+      const subtitle = document.getElementById('board-subtitle');
+      if (_view === 'boards' && _activeBoardId) {
+        const board = _boards.find(entry => entry.id === _activeBoardId);
+        const items = getBoardItems(_activeBoardId);
+        boardContext.classList.remove('hidden');
+        title.textContent = board?.name || 'Board';
+        subtitle.textContent = `${items.length} image${items.length !== 1 ? 's' : ''} ready to scan and reuse`;
+      } else {
+        boardContext.classList.add('hidden');
+      }
+    }
+
+    function updateMeta() {
+      const meta = document.getElementById('history-meta');
+      const total = _generations.reduce((n, g) => n + (g.image_urls || []).length, 0);
+      if (_view === 'all') {
+        meta.textContent = `${total} image${total !== 1 ? 's' : ''} across ${_generations.length} generation${_generations.length !== 1 ? 's' : ''}`;
+        return;
+      }
+      if (_activeBoardId) {
+        const items = getBoardItems(_activeBoardId);
+        meta.textContent = `${_boards.length} board${_boards.length !== 1 ? 's' : ''} total`;
+        if (items.length) meta.textContent += ` • ${items.length} image${items.length !== 1 ? 's' : ''} in this board`;
+        return;
+      }
+      meta.textContent = `${_boards.length} board${_boards.length !== 1 ? 's' : ''}`;
+    }
+
+    function renderCurrentView() {
+      document.getElementById('tab-all').classList.toggle('active', _view === 'all');
+      document.getElementById('tab-boards').classList.toggle('active', _view === 'boards');
+      updateMeta();
+      updateSelectionUi();
+      updateBoardContext();
+
+      if (_view === 'all') {
+        renderGalleryItems(flattenGenerations(_generations), {
+          emptyTitle: 'No generations yet',
+          emptyCopy: 'Your AI-generated images will appear here after you generate them in the extension.',
+          showSelect: true,
+        });
+        return;
+      }
+
+      if (_activeBoardId) {
+        renderGalleryItems(getBoardItems(_activeBoardId), {
+          emptyTitle: 'This board is empty',
+          emptyCopy: 'Add images from All generations to start using this board as a future style source.',
+          showSelect: false,
+        });
+        return;
+      }
+
+      renderBoardsIndex();
+    }
+
+    function closeBoardModal() {
+      document.getElementById('board-modal').classList.remove('open');
+      document.getElementById('board-modal-error').textContent = '';
+      document.getElementById('board-name-input').value = '';
+      document.getElementById('board-modal-list').innerHTML = '';
+      document.getElementById('board-modal-list').classList.add('hidden');
+      document.getElementById('board-modal-divider').classList.add('hidden');
+      _boardModalSelectedId = '';
+    }
+
+    function openBoardModal(mode) {
+      _boardModalMode = mode;
+      const title = document.getElementById('board-modal-title');
+      const sub = document.getElementById('board-modal-sub');
+      const list = document.getElementById('board-modal-list');
+      const divider = document.getElementById('board-modal-divider');
+      const confirmBtn = document.getElementById('board-modal-confirm');
+      const input = document.getElementById('board-name-input');
+
+      list.innerHTML = '';
+      input.value = '';
+      document.getElementById('board-modal-error').textContent = '';
+
+      if (mode === 'create') {
+        title.innerHTML = `Create <em>board</em>`;
+        sub.textContent = 'Give this board a name. You can use it as a clean visual source on tack.design later.';
+        confirmBtn.textContent = 'Create board';
+        list.classList.add('hidden');
+        divider.classList.add('hidden');
+        input.placeholder = 'Board name';
+      } else {
+        title.innerHTML = `Save to <em>board</em>`;
+        sub.textContent = 'Choose an existing board, or create a new one for the images you selected.';
+        confirmBtn.textContent = 'Save';
+        input.placeholder = 'Or create a new board';
+        if (_boards.length) {
+          list.classList.remove('hidden');
+          divider.classList.remove('hidden');
+          _boards.forEach(board => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'board-option';
+            const items = getBoardItems(board.id);
+            button.innerHTML = `${board.name}<span class="board-option-meta">${items.length} image${items.length !== 1 ? 's' : ''}</span>`;
+            button.addEventListener('click', () => {
+              _boardModalSelectedId = board.id;
+              Array.from(list.children).forEach(node => node.classList.remove('selected'));
+              button.classList.add('selected');
+            });
+            list.appendChild(button);
+          });
+        } else {
+          list.classList.add('hidden');
+          divider.classList.add('hidden');
+        }
+      }
+
+      document.getElementById('board-modal').classList.add('open');
+      input.focus();
+    }
+
+    async function confirmBoardModal() {
+      const errorEl = document.getElementById('board-modal-error');
+      const input = document.getElementById('board-name-input');
+      const confirmBtn = document.getElementById('board-modal-confirm');
+      errorEl.textContent = '';
+      confirmBtn.disabled = true;
+
+      try {
+        let boardId = _boardModalSelectedId;
+        const newBoardName = input.value.trim();
+
+        if (_boardModalMode === 'create' || newBoardName) {
+          const board = await createBoard(newBoardName || 'Untitled board');
+          boardId = board.id;
+          if (_boardModalMode === 'create') {
+            _view = 'boards';
+            _activeBoardId = boardId;
+          }
+        }
+
+        if (_boardModalMode === 'save') {
+          if (!boardId) {
+            throw new Error('Choose a board or create a new one.');
+          }
+          await addImagesToBoard(boardId, getSelectedGenerationItems());
+          _selectedKeys.clear();
+          _selectionMode = false;
+          _view = 'boards';
+          _activeBoardId = boardId;
+        }
+
+        const [boards, boardItems] = await Promise.all([fetchBoards(), fetchBoardItems()]);
+        _boards = boards;
+        _boardItems = boardItems;
+        closeBoardModal();
+        renderCurrentView();
+      } catch (err) {
+        errorEl.textContent = err.message || 'Something went wrong.';
+      } finally {
+        confirmBtn.disabled = false;
+      }
+    }
+
+    async function loadLibrary() {
       const wrap = document.getElementById('gallery-wrap');
       wrap.innerHTML = `<div class="loading-state"><div class="spinner"></div>Loading your generations…</div>`;
       try {
-        const [generations, profile] = await Promise.all([fetchGenerations(), fetchProfile().catch(() => null)]);
+        const [generations, profile, boards, boardItems] = await Promise.all([
+          fetchGenerations(),
+          fetchProfile().catch(() => null),
+          fetchBoards().catch(() => []),
+          fetchBoardItems().catch(() => []),
+        ]);
+        _generations = generations;
+        _boards = boards;
+        _boardItems = boardItems;
         if (profile?.plan) {
           const pill = document.getElementById('plan-pill');
           pill.textContent = profile.plan;
           pill.dataset.plan = profile.plan;
         }
-        renderGallery(generations);
+        renderCurrentView();
       } catch (e) {
         wrap.innerHTML = `<div class="loading-state" style="color:var(--error)">Could not load history. Try refreshing.</div>`;
       }
@@ -837,7 +1545,7 @@
         localStorage.setItem('tack_session', JSON.stringify(session));
         if (maybeRedirectAfterAuth()) return;
         showHistory();
-        loadHistory();
+        loadLibrary();
       } catch (err) {
         errorEl.textContent = err.message;
       } finally {
@@ -876,6 +1584,48 @@
 
     document.getElementById('signout-btn').addEventListener('click', signOut);
     document.getElementById('manage-plan-btn').addEventListener('click', openManagePlan);
+    document.getElementById('tab-all').addEventListener('click', () => {
+      _view = 'all';
+      _activeBoardId = '';
+      _selectionMode = false;
+      _selectedKeys.clear();
+      renderCurrentView();
+    });
+    document.getElementById('tab-boards').addEventListener('click', () => {
+      _view = 'boards';
+      _selectionMode = false;
+      _selectedKeys.clear();
+      renderCurrentView();
+    });
+    document.getElementById('create-board-btn').addEventListener('click', () => openBoardModal('create'));
+    document.getElementById('select-mode-btn').addEventListener('click', () => {
+      _selectionMode = true;
+      _selectedKeys.clear();
+      updateSelectionUi();
+      renderCurrentView();
+    });
+    document.getElementById('cancel-select-btn').addEventListener('click', () => {
+      _selectionMode = false;
+      _selectedKeys.clear();
+      updateSelectionUi();
+      renderCurrentView();
+    });
+    document.getElementById('save-to-board-btn').addEventListener('click', () => openBoardModal('save'));
+    document.getElementById('board-back-btn').addEventListener('click', () => {
+      _activeBoardId = '';
+      renderCurrentView();
+    });
+    document.getElementById('board-modal-cancel').addEventListener('click', closeBoardModal);
+    document.getElementById('board-modal-confirm').addEventListener('click', confirmBoardModal);
+    document.getElementById('board-modal').addEventListener('click', e => {
+      if (e.target === document.getElementById('board-modal')) closeBoardModal();
+    });
+    document.getElementById('board-name-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        confirmBoardModal();
+      }
+    });
     document.getElementById('reset-back-link').addEventListener('click', e => {
       e.preventDefault();
       history.replaceState({}, document.title, window.location.pathname);
@@ -937,7 +1687,7 @@
           history.replaceState({}, document.title, `${window.location.pathname}${window.location.search}`);
           if (maybeRedirectAfterAuth()) return;
           showHistory();
-          loadHistory();
+          loadLibrary();
           return;
         }
       }
@@ -957,7 +1707,7 @@
             _session = session;
             if (maybeRedirectAfterAuth()) return;
             showHistory();
-            loadHistory();
+            loadLibrary();
             return;
           }
         }

@@ -13,6 +13,7 @@
   ],
   "host_permissions": [
     "https://tack.design/*",
+    "https://www.tack.design/*",
     "https://*.supabase.co/*",
     "https://*.pinterest.com/*",
     "https://*.instagram.com/*",
