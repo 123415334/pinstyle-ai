@@ -485,7 +485,7 @@
 
       <div class="form-field">
         <label for="reset-password">New password</label>
-        <input type="password" id="reset-password" placeholder="At least 6 characters" autocomplete="new-password">
+        <input type="password" id="reset-password" placeholder="At least 8 characters" autocomplete="new-password">
       </div>
       <div class="form-field">
         <label for="reset-password-confirm">Confirm password</label>
@@ -891,8 +891,8 @@
       helperEl.textContent = '';
       helperEl.className = 'signin-helper';
 
-      if (!password || password.length < 6) {
-        errorEl.textContent = 'Password must be at least 6 characters.';
+      if (!password || password.length < 8) {
+        errorEl.textContent = 'Password must be at least 8 characters.';
         return;
       }
       if (password !== confirm) {
