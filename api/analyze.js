@@ -1,7 +1,6 @@
 const FREE_TRIAL_LIMIT  = 3;
 const PRO_MONTHLY_LIMIT = 120;
 const MAX_REFERENCE_IMAGES = 8;
-const MAX_CONDITIONING_IMAGES = 4;
 const DEFAULT_STYLE_PROMPT = 'professional photography, natural lighting, refined composition, high quality';
 const DEFAULT_STYLE_SCHEMA = Object.freeze({
   best_image_index: 0,
@@ -309,12 +308,11 @@ function buildConditioningReferences(validReferences, styleSchema) {
   const ordered = [bestRef, ...refs];
 
   const shouldExcludeOutliers = styleSchema.consistency_score < 0.7 && styleSchema.outlier_indices.length > 0;
-  if (!shouldExcludeOutliers) return ordered.slice(0, MAX_CONDITIONING_IMAGES);
+  if (!shouldExcludeOutliers) return ordered;
 
   const excluded = new Set(styleSchema.outlier_indices.map(index => validReferences[index]?.url).filter(Boolean));
   const filtered = ordered.filter((ref, index) => index === 0 || !excluded.has(ref.url));
-  const chosen = filtered.length >= 2 ? filtered : ordered;
-  return chosen.slice(0, MAX_CONDITIONING_IMAGES);
+  return filtered.length >= 2 ? filtered : ordered;
 }
 
 function buildGenerationPrompt(subject, styleSchema) {
