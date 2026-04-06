@@ -572,25 +572,47 @@
       line-height: 1.7;
     }
 
-    .back-to-ext {
+    .success-sites {
+      width: 100%;
+      margin-top: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: center;
+    }
+    .success-sites-label {
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--ink-muted);
+    }
+    .success-sites-grid {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .success-site-link {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      margin-top: 8px;
-      padding: 14px 32px;
-      background: var(--accent);
-      color: #fff;
-      border: none;
-      border-radius: 100px;
+      justify-content: center;
+      min-height: 52px;
+      padding: 14px 18px;
+      background: rgba(240,235,227,0.04);
+      color: var(--ink);
+      border: 1px solid rgba(240,235,227,0.10);
+      border-radius: 999px;
       font-family: 'DM Sans', sans-serif;
       font-size: 14px;
       font-weight: 500;
-      cursor: pointer;
       text-decoration: none;
-      transition: opacity 0.2s, transform 0.2s;
-      box-shadow: 0 6px 24px rgba(224,61,47,0.28);
+      transition: transform 0.18s, background 0.18s, border-color 0.18s;
     }
-    .back-to-ext:hover { opacity: 0.88; transform: translateY(-2px); }
+    .success-site-link:hover {
+      transform: translateY(-2px);
+      background: rgba(240,235,227,0.08);
+      border-color: rgba(240,235,227,0.18);
+    }
 
     /* Footer */
     footer {
@@ -779,12 +801,15 @@
       <p id="success-body">
         Your account has been upgraded. Head back to the tack extension and start generating. Your new plan should appear automatically.
       </p>
-      <a href="#" class="back-to-ext" onclick="window.close(); return false;">
-        Close this tab &amp; keep creating
-      </a>
-      <p style="font-size:12px;color:var(--ink-muted);margin-top:4px;">
-        Or close this tab and return to your browser extension.
-      </p>
+      <div class="success-sites">
+        <div class="success-sites-label">Open a supported site</div>
+        <div class="success-sites-grid">
+          <a class="success-site-link" href="https://www.pinterest.com" target="_blank" rel="noopener noreferrer">Pinterest</a>
+          <a class="success-site-link" href="https://www.instagram.com" target="_blank" rel="noopener noreferrer">Instagram</a>
+          <a class="success-site-link" href="https://www.behance.net" target="_blank" rel="noopener noreferrer">Behance</a>
+          <a class="success-site-link" href="https://dribbble.com" target="_blank" rel="noopener noreferrer">Dribbble</a>
+        </div>
+      </div>
     </div>
   </div>
 
