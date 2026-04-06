@@ -430,8 +430,10 @@
     }
     .boards-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 18px;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 260px));
+      justify-content: start;
+      align-items: start;
+      gap: 22px 18px;
     }
     .board-card {
       background: var(--bg-card);
@@ -439,6 +441,7 @@
       border-radius: 22px;
       overflow: hidden;
       cursor: pointer;
+      width: 260px;
       transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
     }
     .board-card:hover {
@@ -451,7 +454,7 @@
       grid-template-columns: 2fr 1fr;
       gap: 6px;
       padding: 10px;
-      min-height: 200px;
+      aspect-ratio: 1.22 / 1;
       background: rgba(240,235,227,0.02);
     }
     .board-card-preview-main,
@@ -470,7 +473,7 @@
       background: rgba(240,235,227,0.05);
     }
     .board-card-placeholder {
-      min-height: 180px;
+      min-height: 100%;
       background:
         radial-gradient(circle at 30% 20%, rgba(143,190,247,0.18), transparent 40%),
         linear-gradient(180deg, rgba(240,235,227,0.05), rgba(240,235,227,0.02));
@@ -480,15 +483,34 @@
     }
     .board-card-title {
       font-family: 'Cormorant Garamond', serif;
-      font-size: 30px;
-      line-height: 0.95;
+      font-size: 26px;
+      line-height: 0.98;
       letter-spacing: -0.025em;
       color: var(--ink);
     }
     .board-card-count {
-      margin-top: 8px;
+      margin-top: 6px;
       font-size: 12px;
       color: var(--ink-muted);
+    }
+    @media (max-width: 900px) {
+      .boards-grid {
+        grid-template-columns: repeat(auto-fill, minmax(220px, 220px));
+      }
+      .board-card {
+        width: 220px;
+      }
+      .board-card-title {
+        font-size: 24px;
+      }
+    }
+    @media (max-width: 560px) {
+      .boards-grid {
+        grid-template-columns: 1fr;
+      }
+      .board-card {
+        width: 100%;
+      }
     }
 
     .board-modal {
