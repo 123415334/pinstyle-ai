@@ -999,8 +999,7 @@
   <footer>
     <span>© 2026 tack</span>
     <div style="display:flex;gap:28px">
-      <a href="/privacy">Privacy</a>
-      <a href="mailto:hello@tack.design">Contact</a>
+      <a href="/privacy">Privacy / Contact</a>
     </div>
   </footer>
 
@@ -1030,15 +1029,29 @@
       return normalizePlan(plan).toUpperCase();
     }
 
-    function setSignedInUi(session) {
+    async function fetchHomepageProfile(session) {
+      const resp = await fetch(`${SUPABASE_URL}/rest/v1/user_profiles?select=plan&limit=1`, {
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${session.access_token}`,
+          'Accept': 'application/json'
+        }
+      });
+      if (!resp.ok) return null;
+      const data = await resp.json().catch(() => []);
+      return Array.isArray(data) ? data[0] : null;
+    }
+
+    function setSignedInUi(session, planOverride = null) {
       const email = session?.user?.email || '';
-      const plan = formatPlanLabel(session?.user?.user_metadata?.plan || 'free');
+      const plan = formatPlanLabel(planOverride || session?.user?.user_metadata?.plan || 'free');
       document.body.classList.add('is-signed-in');
       document.getElementById('nav-marketing-actions').classList.add('hidden-auth');
       document.getElementById('nav-generations-link').classList.remove('hidden-auth');
       document.getElementById('nav-account').classList.add('is-visible');
       document.getElementById('nav-account-email').textContent = email;
       document.getElementById('nav-account-plan').textContent = plan;
+      document.getElementById('nav-account-plan').dataset.plan = normalizePlan(planOverride || session?.user?.user_metadata?.plan || 'free');
       document.getElementById('nav-account-avatar').textContent = (email[0] || 'T').toUpperCase();
     }
 
@@ -1070,7 +1083,8 @@
           localStorage.setItem('tack_session', JSON.stringify(session));
         }
         _session = session;
-        setSignedInUi(session);
+        const profile = await fetchHomepageProfile(session).catch(() => null);
+        setSignedInUi(session, profile?.plan || null);
       } catch {
         localStorage.removeItem('tack_session');
       }
