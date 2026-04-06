@@ -61,6 +61,8 @@ module.exports = async function handler(req, res) {
 
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
+      // If a promotion code makes today's total $0, let Stripe skip card entry.
+      payment_method_collection: 'if_required',
 
       // Pre-fill the email if passed from the extension
       ...(customerId ? { customer: customerId } : {}),

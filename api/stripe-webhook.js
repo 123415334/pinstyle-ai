@@ -83,6 +83,29 @@ async function downgradeToFree(subscriptionId) {
   }
 }
 
+async function downgradeToFreeByEmail(email) {
+  const url = `${process.env.SUPABASE_URL}/rest/v1/user_profiles?email=eq.${encodeURIComponent(email)}`;
+  const resp = await fetch(url, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type':  'application/json',
+      'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+      'apikey':        process.env.SUPABASE_SERVICE_KEY,
+      'Prefer':        'return=minimal',
+    },
+    body: JSON.stringify({ plan: 'free' }),
+  });
+
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`Supabase PATCH failed (${resp.status}): ${text}`);
+  }
+}
+
+function isEntitledSubscriptionStatus(status) {
+  return status === 'active' || status === 'trialing';
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
@@ -131,7 +154,7 @@ module.exports = async function handler(req, res) {
       case 'customer.subscription.created': {
         const sub = event.data.object;
         const priceId = sub.items?.data?.[0]?.price?.id;
-        if (!priceId) break;
+        if (!priceId && isEntitledSubscriptionStatus(sub.status)) break;
 
         // Try metadata first, then fall back to looking up the Stripe customer
         let email = sub.metadata?.email || null;
@@ -144,10 +167,15 @@ module.exports = async function handler(req, res) {
           break;
         }
 
-        const plan = getPlanFromPriceId(priceId);
-        await upgradePlan(email, plan);
-        await storeSubscriptionId(email, sub.id);
-        console.log(`Synced subscription ${sub.id} → ${plan} for ${email}`);
+        if (isEntitledSubscriptionStatus(sub.status)) {
+          const plan = getPlanFromPriceId(priceId);
+          await upgradePlan(email, plan);
+          await storeSubscriptionId(email, sub.id);
+          console.log(`Synced subscription ${sub.id} (${sub.status}) → ${plan} for ${email}`);
+        } else {
+          await downgradeToFreeByEmail(email);
+          console.log(`Downgraded to free from subscription ${sub.id} (${sub.status}) for ${email}`);
+        }
         break;
       }
 
