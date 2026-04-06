@@ -33,7 +33,7 @@ Open tack on a supported site with images. Select the references whose style you
 tack does more than apply a filter. It reads the shared visual language of your references, including composition, palette, rendering style, and mood, then uses that analysis to generate something new that still feels stylistically coherent.
 
 **Currently supported:**
-tack includes direct support for Pinterest, Instagram, Behance, and Dribbble. It may also work on other regular image-based pages when the user opens tack on the current tab.
+tack includes direct support for tack.design, Pinterest, Instagram, Behance, and Dribbble. It may also work on other regular image-based pages when the user opens tack on the current tab.
 
 **What gets sent:**
 When you generate, tack sends only the image URLs you select and the prompt you type so it can analyze style and create results. It does not send the rest of the page for generation.
@@ -45,7 +45,7 @@ Sign up for a free account to save your generations and access them at tack.desi
 
 ## Why tack needs supported-site and page access
 
-tack's core function is to let users select reference images from the page they are actively viewing. tack has direct host permissions for Pinterest, Instagram, Behance, and Dribbble so it can reliably scan those supported sites. It also uses activeTab so it can read images on the current tab after the user explicitly opens tack. It only sends the image URLs the user selects plus the prompt they type in order to generate results.
+tack's core function is to let users select reference images from the page they are actively viewing. tack has direct host permissions for tack.design, Pinterest, Instagram, Behance, and Dribbble so it can reliably scan those supported sites. It also uses activeTab so it can read images on the current tab after the user explicitly opens tack. It only sends the image URLs the user selects plus the prompt they type in order to generate results.
 
 ---
 
@@ -87,4 +87,4 @@ tack lets users select images from supported sites and use them as style referen
 
 **identity:** Used only for optional Google sign-in through Supabase authentication.
 
-**Host permissions:** tack has direct support for Pinterest, Instagram, Behance, and Dribbble so it can reliably scan reference images on those supported sites. It also uses activeTab to scan the current tab after the user opens tack. Generation uses only the references the user selects plus the prompt they type.
+**Host permissions:** tack has direct support for tack.design, Pinterest, Instagram, Behance, and Dribbble so it can reliably scan reference images on those supported sites. It also uses activeTab to scan the current tab after the user opens tack. Generation uses only the references the user selects plus the prompt they type.

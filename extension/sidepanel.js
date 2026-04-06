@@ -1210,10 +1210,22 @@ async function loadImages(options = {}) {
   _currentPageUrl = tab.url || '';
 
   const isPinterest = tab.url && tab.url.includes('pinterest.com');
+  const isTackSite = (() => {
+    try {
+      return /(^|\.)tack\.design$/i.test(new URL(tab.url).hostname);
+    } catch {
+      return false;
+    }
+  })();
+  const minSize = isTackSite ? 120 : MIN_SIZE;
   const cachedImages = !forceRefresh ? await getCachedScan(tab.url) : null;
   if (!isLatestRequest('scan', requestId)) return;
   if (cachedImages?.length) {
-    renderScannedImages(cachedImages, { isPinterest, fromCache: true });
+    renderScannedImages(cachedImages, {
+      isPinterest,
+      isTackSite,
+      fromCache: true,
+    });
   }
 
   if (!isLatestRequest('scan', requestId)) return;
@@ -1222,11 +1234,11 @@ async function loadImages(options = {}) {
     results = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       func: collectImages,
-      args: [MIN_SIZE],
+      args: [minSize],
     });
   } catch (err) {
     if (!isLatestRequest('scan', requestId)) return;
-    setStatus('Cannot scan this page. Try Pinterest, Instagram, Behance or Dribbble.');
+    setStatus('Cannot scan this page. Try tack.design, Pinterest, Instagram, Behance or Dribbble.');
     return;
   }
 
@@ -1238,15 +1250,22 @@ async function loadImages(options = {}) {
   if (images.length === 0) {
     imageGrid.innerHTML = isPinterest
       ? `<div class="empty-state"><strong>No pins found yet</strong>Scroll down the board so pins load, then tap Rescan.</div>`
-      : `<div class="empty-state"><strong>No large images found</strong>Try scrolling so images load, then tap Rescan.</div>`;
+      : isTackSite
+        ? `<div class="empty-state"><strong>No saved images found yet</strong>Open a page on tack.design with visible generations or boards, then tap Rescan.</div>`
+        : `<div class="empty-state"><strong>No large images found</strong>Try scrolling so images load, then tap Rescan.</div>`;
     setStatus('');
     return;
   }
 
-  const src = isPinterest ? 'Pinterest data' : 'page';
+  const src = isPinterest ? 'Pinterest data' : isTackSite ? 'tack.design' : 'page';
   setStatus(`${images.length} image${images.length !== 1 ? 's' : ''} from ${src} — tap to select`);
   if (isPinterest) setHint('Scroll down to load more pins, then tap ↻ Rescan');
-  renderScannedImages(images, { isPinterest, fromCache: false });
+  if (isTackSite) setHint('On tack.design, open a generations page or board, then tap ↻ Rescan');
+  renderScannedImages(images, {
+    isPinterest,
+    isTackSite,
+    fromCache: false,
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1916,258 +1935,11 @@ async function renderHistory() {
       createEl('p', { className: 'history-entry-title', textContent: entry.subject || 'Untitled generation' }),
       createEl('p', { className: 'history-entry-meta', textContent: formatHistoryDate(entry.timestamp) }),
     );
-    const actions = createEl('div', { className: 'history-entry-actions' });
-    const useStyleBtn = createEl('button', {
-      className: 'history-entry-btn primary',
-      textContent: 'Generate More in This Style',
-      attrs: { type: 'button' },
-    });
-    actions.append(useStyleBtn);
-    body.appendChild(actions);
-    const composer = createHistoryInlineComposer(entry, useStyleBtn);
-    body.appendChild(composer);
     card.append(media, body);
 
     media.addEventListener('click', () => showPreview(coverUrl));
-    useStyleBtn.addEventListener('click', () => {
-      toggleHistoryComposer(entry.id, composer, useStyleBtn);
-    });
 
     listEl.appendChild(card);
-  });
-}
-
-function createHistoryInlineComposer(entry, triggerBtn) {
-  const composer = createEl('div', { className: 'history-inline-composer hidden' });
-  const label = createEl('label', {
-    className: 'history-inline-prompt-label',
-    textContent: 'What would you like to create in this style?',
-  });
-  const textarea = createEl('textarea', {
-    className: 'history-inline-textarea',
-    attrs: {
-      rows: '3',
-      placeholder: entry.subject
-        ? `e.g. ${entry.subject}`
-        : 'Describe a new subject in this same style…',
-    },
-  });
-  const actions = createEl('div', { className: 'history-inline-composer-actions' });
-  const helper = createEl('p', {
-    className: 'history-inline-helper',
-    textContent: 'This creates one compact variation here in History.',
-  });
-  const generateBtn = createEl('button', {
-    className: 'history-inline-generate',
-    textContent: 'Generate',
-    attrs: { type: 'button' },
-  });
-  const results = createEl('div', { className: 'history-inline-results hidden' });
-  label.setAttribute('for', `history-inline-textarea-${entry.id}`);
-  textarea.id = `history-inline-textarea-${entry.id}`;
-  generateBtn.addEventListener('click', async () => {
-    await generateHistoryInline(entry, textarea, results, generateBtn, triggerBtn);
-  });
-  actions.append(helper, generateBtn);
-  composer.append(label, textarea, actions, results);
-  return composer;
-}
-
-function toggleHistoryComposer(entryId, composerEl, triggerBtn) {
-  const isOpen = !composerEl.classList.contains('hidden');
-  document.querySelectorAll('.history-inline-composer').forEach(el => el.classList.add('hidden'));
-  document.querySelectorAll('.history-entry-btn.primary').forEach(btn => {
-    btn.classList.remove('secondary');
-    if (!btn.disabled) btn.textContent = 'Generate More in This Style';
-  });
-
-  if (isOpen && _openHistoryComposerId === entryId) {
-    _openHistoryComposerId = null;
-    return;
-  }
-
-  composerEl.classList.remove('hidden');
-  _openHistoryComposerId = entryId;
-  triggerBtn.classList.add('secondary');
-  triggerBtn.textContent = 'Hide Composer';
-  composerEl.querySelector('.history-inline-textarea')?.focus();
-}
-
-async function generateHistoryInline(entry, subjectInputEl, mountEl, generateBtn, triggerBtn) {
-  if (!_authToken) {
-    switchAuthTab('login');
-    showAuthModal();
-    return;
-  }
-
-  const referenceUrls = Array.isArray(entry.referenceUrls) && entry.referenceUrls.length
-    ? entry.referenceUrls
-    : Array.isArray(entry.sourceUrls)
-      ? entry.sourceUrls
-      : [];
-  const subject = (subjectInputEl?.value || '').trim();
-
-  if (referenceUrls.length === 0) {
-    renderHistoryInlineError(mountEl, 'This saved generation does not have enough style data to regenerate from.');
-    return;
-  }
-
-  if (!subject) {
-    renderHistoryInlineError(mountEl, 'Add a new subject before generating.');
-    return;
-  }
-
-  const token = ++_historyInlineGenerationToken;
-  generateBtn.disabled = true;
-  generateBtn.textContent = 'Generating…';
-  renderHistoryInlineLoading(mountEl);
-
-  try {
-    const headers = { 'Content-Type': 'application/json' };
-    if (_authToken) headers.Authorization = `Bearer ${_authToken}`;
-
-    const resp = await fetch(API_URL, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        imageUrls: referenceUrls,
-        subject,
-        pageUrl: entry.sourcePageUrl || '',
-        outputCount: 1,
-      }),
-    });
-
-    const data = await resp.json().catch(() => ({}));
-    if (token !== _historyInlineGenerationToken) return;
-
-    if (resp.status === 401) {
-      resetLocalAuthState();
-      await clearStoredAuthSession();
-      document.getElementById('header-account').classList.add('hidden');
-      document.getElementById('header-signin-btn').classList.remove('hidden');
-      updateAccountMenuTrigger();
-      closeAccountMenu();
-      trialBadge.classList.add('hidden');
-      switchAuthTab('login');
-      showAuthModal();
-      renderHistoryInlineError(mountEl, 'Your session expired. Sign in again to generate more in this style.');
-      return;
-    }
-
-    if (resp.status === 402) {
-      const errData = data || {};
-      if (errData.error === 'pro_limit_reached') {
-        _monthlyUsed = PRO_MONTHLY_LIMIT;
-        await persistUsageState({ monthly: PRO_MONTHLY_LIMIT });
-        updateTrialBadge();
-        showUpgradeMoment('pro_limit');
-      } else {
-        _generationsUsed = FREE_TRIAL_LIMIT;
-        await persistUsageState({ used: FREE_TRIAL_LIMIT });
-        updateTrialBadge();
-        showUpgradeMoment('trial');
-      }
-      renderHistoryInlineError(mountEl, 'You’ve hit your current generation limit. Upgrade to keep creating.');
-      return;
-    }
-
-    if (!resp.ok) throw new Error(data.error || `API returned ${resp.status}`);
-
-    if (data.usage) {
-      _generationsUsed = data.usage.used;
-      if (data.usage.monthly_used !== undefined) _monthlyUsed = data.usage.monthly_used;
-      await persistUsageState({ used: _generationsUsed, monthly: _monthlyUsed });
-      updateTrialBadge();
-    }
-
-    if (data.images?.length) {
-      saveToHistory(data.images, {
-        subject,
-        pageUrl: entry.sourcePageUrl || '',
-        styleDescriptors: data.styleDescriptors || entry.styleDescriptors || '',
-        prompt: data.prompt || entry.prompt || '',
-        referenceUrls,
-      }).catch(e => console.warn('[tack] history inline save failed:', e));
-    }
-
-    renderHistoryInlineResults(mountEl, data.images || []);
-  } catch (err) {
-    if (token !== _historyInlineGenerationToken) return;
-    const msg = err.message || '';
-    const friendly = msg.includes('fetch') || msg.includes('network') || msg.includes('Failed')
-      ? 'Connection error — check your internet and try again.'
-      : msg || 'Something went wrong. Please try again.';
-    renderHistoryInlineError(mountEl, friendly);
-  } finally {
-    if (token === _historyInlineGenerationToken) {
-      generateBtn.disabled = false;
-      generateBtn.textContent = 'Generate';
-      triggerBtn.textContent = 'Hide Composer';
-      triggerBtn.classList.add('secondary');
-    }
-  }
-}
-
-function renderHistoryInlineLoading(mountEl) {
-  clearElement(mountEl);
-  mountEl.classList.remove('hidden');
-  const state = createEl('div', { className: 'history-inline-state' });
-  state.innerHTML = `
-    <div>
-      <div class="brand-loader" aria-hidden="true">
-        <span class="brand-loader-dot"></span>
-        <span class="brand-loader-dot"></span>
-        <span class="brand-loader-dot"></span>
-        <span class="brand-loader-dot"></span>
-      </div>
-      Generating fresh variations in this same style family…
-    </div>
-  `;
-  mountEl.appendChild(state);
-}
-
-function renderHistoryInlineError(mountEl, message) {
-  clearElement(mountEl);
-  mountEl.classList.remove('hidden');
-  mountEl.appendChild(createEl('div', {
-    className: 'history-inline-state error-state',
-    textContent: message,
-  }));
-}
-
-function renderHistoryInlineResults(mountEl, imageUrls) {
-  clearElement(mountEl);
-  mountEl.classList.remove('hidden');
-  if (!Array.isArray(imageUrls) || imageUrls.length === 0) {
-    renderHistoryInlineError(mountEl, 'No images came back. Please try again.');
-    return;
-  }
-
-  imageUrls.slice(0, 1).forEach((url, index) => {
-    const card = createEl('article', { className: 'history-inline-card' });
-    const media = createEl('div', { className: 'history-inline-media' });
-    const img = createEl('img', {
-      attrs: { src: url, alt: `New variation ${index + 1}`, loading: 'lazy' },
-    });
-    media.appendChild(img);
-    media.addEventListener('click', () => showPreview(url, `history-variation-${index + 1}.png`));
-
-    const body = createEl('div', { className: 'history-inline-body' });
-    body.appendChild(createEl('p', {
-      className: 'history-inline-label',
-      textContent: index === 0 ? 'New variation' : 'Another variation',
-    }));
-    const actions = createEl('div', { className: 'history-inline-actions' });
-    const downloadBtn = createEl('button', {
-      className: 'history-inline-btn primary',
-      textContent: 'Download',
-      attrs: { type: 'button' },
-    });
-    downloadBtn.addEventListener('click', () => downloadAsPng(url, `history-variation-${index + 1}.png`));
-    actions.append(downloadBtn);
-    body.appendChild(actions);
-    card.append(media, body);
-    mountEl.appendChild(card);
   });
 }
 
@@ -2209,14 +1981,15 @@ function showPreview(url, filename = 'tack-image.png') {
   overlay.style.display = 'flex';
 }
 
-function renderScannedImages(images, { isPinterest = false, fromCache = false } = {}) {
+function renderScannedImages(images, { isPinterest = false, isTackSite = false, fromCache = false } = {}) {
   if (!Array.isArray(images) || images.length === 0) return;
   imageGrid.innerHTML = '';
-  const src = isPinterest ? 'Pinterest data' : 'page';
+  const src = isPinterest ? 'Pinterest data' : isTackSite ? 'tack.design' : 'page';
   setStatus(fromCache
     ? `Showing your last scan from this ${src === 'page' ? 'page' : 'board'} while we refresh…`
     : `${images.length} image${images.length !== 1 ? 's' : ''} from ${src} — tap to select`);
   if (isPinterest) setHint('Scroll down to load more pins, then tap ↻ Rescan');
+  if (isTackSite) setHint('On tack.design, open a generations page or board, then tap ↻ Rescan');
 
   images.forEach(img => {
     const item  = document.createElement('div');
