@@ -80,8 +80,8 @@
     .nav-account-trigger {
       display: inline-flex;
       align-items: center;
-      gap: 12px;
-      padding: 6px 10px 6px 6px;
+      gap: 10px;
+      padding: 5px 9px 5px 5px;
       border-radius: 999px;
       border: 1px solid var(--border-hi);
       background: rgba(240,235,227,0.04);
@@ -95,15 +95,15 @@
       transform: translateY(-1px);
     }
     .nav-account-avatar {
-      width: 44px;
-      height: 44px;
+      width: 34px;
+      height: 34px;
       border-radius: 999px;
       background: var(--accent);
       color: #fff;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      font-size: 20px;
+      font-size: 16px;
       font-weight: 500;
       box-shadow: 0 0 0 2px rgba(143,190,247,0.92);
     }
@@ -117,7 +117,7 @@
       position: absolute;
       top: calc(100% + 10px);
       right: 0;
-      width: 248px;
+      width: 236px;
       padding: 14px;
       border-radius: 22px;
       border: 1px solid var(--border-hi);
@@ -493,6 +493,10 @@
       font-size: 11px;
       line-height: 1;
       font-family: 'DM Sans', sans-serif;
+      max-width: calc(100% - 24px);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
       opacity: 0;
       pointer-events: none;
       transition: opacity 0.18s, transform 0.18s, background 0.18s, border-color 0.18s;
@@ -739,6 +743,7 @@
       max-height: 220px;
       overflow: auto;
       margin-bottom: 12px;
+      padding: 2px 4px 2px 0;
     }
     .quick-save-option {
       width: 100%;
@@ -746,11 +751,12 @@
       border: 1px solid var(--border-hi);
       background: rgba(240,235,227,0.04);
       color: var(--ink);
-      padding: 12px 14px;
+      padding: 14px 14px;
       text-align: left;
       cursor: pointer;
       transition: border-color 0.2s, background 0.2s;
       font-family: 'DM Sans', sans-serif;
+      line-height: 1.25;
     }
     .quick-save-option:hover {
       border-color: var(--ink-muted);
@@ -760,6 +766,7 @@
       display: block;
       font-size: 14px;
       margin-bottom: 3px;
+      line-height: 1.2;
     }
     .quick-save-option-meta {
       display: block;
@@ -1387,6 +1394,12 @@
         .filter(Boolean);
     }
 
+    function getBoardsForEntry(entry) {
+      return _boards.filter(board =>
+        _boardItems.some(item => item.board_id === board.id && item.image_url === entry.url)
+      );
+    }
+
     function openLightbox(url, subject, dateStr) {
       const lb   = document.getElementById('lightbox');
       const img  = document.getElementById('lightbox-img');
@@ -1419,10 +1432,14 @@
       const popWidth = Math.min(320, window.innerWidth - 28);
       let left = rect.left;
       let top = rect.bottom + 10;
+      const popHeight = pop.offsetHeight || 360;
       if (left + popWidth > window.innerWidth - 14) {
         left = window.innerWidth - popWidth - 14;
       }
       if (left < 14) left = 14;
+      if (top + popHeight > window.innerHeight - 14) {
+        top = Math.max(14, rect.top - popHeight - 10);
+      }
       pop.style.left = `${left}px`;
       pop.style.top = `${top}px`;
     }
@@ -1469,12 +1486,13 @@
       if (_boards.length === 0) {
         list.innerHTML = '<div class="quick-save-sub" style="margin-bottom:0;">No boards yet. Create one below.</div>';
       } else {
+        const membership = new Set(getBoardsForEntry(entry).map(board => board.id));
         _boards.forEach(board => {
           const items = getBoardItems(board.id);
           const button = document.createElement('button');
           button.type = 'button';
           button.className = 'quick-save-option';
-          button.innerHTML = `<span class="quick-save-option-name">${board.name}</span><span class="quick-save-option-meta">${items.length} image${items.length !== 1 ? 's' : ''}</span>`;
+          button.innerHTML = `<span class="quick-save-option-name">${board.name}</span><span class="quick-save-option-meta">${membership.has(board.id) ? 'Saved here already' : `${items.length} image${items.length !== 1 ? 's' : ''}`}</span>`;
           button.addEventListener('click', () => saveQuickEntryToBoard(board.id));
           list.appendChild(button);
         });
@@ -1505,6 +1523,7 @@
 
       items.forEach(entry => {
         const date = formatDate(entry.created_at);
+        const boardsForEntry = getBoardsForEntry(entry);
         const item = document.createElement('div');
         item.className = 'masonry-item';
         if (showSelect && _selectionMode) item.classList.add('selecting');
@@ -1524,7 +1543,15 @@
           const saveBtn = document.createElement('button');
           saveBtn.type = 'button';
           saveBtn.className = 'tile-save-btn';
-          saveBtn.textContent = 'Save';
+          if (boardsForEntry.length === 1) {
+            saveBtn.textContent = boardsForEntry[0].name;
+            saveBtn.title = boardsForEntry[0].name;
+          } else if (boardsForEntry.length > 1) {
+            saveBtn.textContent = `${boardsForEntry.length} boards`;
+            saveBtn.title = boardsForEntry.map(board => board.name).join(', ');
+          } else {
+            saveBtn.textContent = 'Save';
+          }
           saveBtn.addEventListener('click', e => {
             e.stopPropagation();
             if (_quickSaveEntry?.key === entry.key) {
@@ -1940,10 +1967,15 @@
         positionQuickSavePopover(_quickSaveAnchor);
       }
     });
-    window.addEventListener('scroll', () => {
-      if (document.getElementById('quick-save-popover').classList.contains('open')) {
-        closeQuickSavePopover();
+    window.addEventListener('scroll', e => {
+      const pop = document.getElementById('quick-save-popover');
+      if (!pop.classList.contains('open')) return;
+      if (e.target === pop || pop.contains(e.target)) return;
+      if (_quickSaveAnchor && document.contains(_quickSaveAnchor)) {
+        positionQuickSavePopover(_quickSaveAnchor);
+        return;
       }
+      closeQuickSavePopover();
     }, true);
     document.addEventListener('click', e => {
       const pop = document.getElementById('quick-save-popover');
