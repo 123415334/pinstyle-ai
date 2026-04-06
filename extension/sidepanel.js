@@ -1238,7 +1238,7 @@ async function loadImages(options = {}) {
     });
   } catch (err) {
     if (!isLatestRequest('scan', requestId)) return;
-    setStatus('Cannot scan this page. Try tack.design, Pinterest, Instagram, Behance or Dribbble.');
+    setStatus('Cannot scan this page. Try Pinterest, Instagram, Behance or Dribble.');
     return;
   }
 
@@ -1251,16 +1251,16 @@ async function loadImages(options = {}) {
     imageGrid.innerHTML = isPinterest
       ? `<div class="empty-state"><strong>No pins found yet</strong>Scroll down the board so pins load, then tap Rescan.</div>`
       : isTackSite
-        ? `<div class="empty-state"><strong>No saved images found yet</strong>Open a page on tack.design with visible generations or boards, then tap Rescan.</div>`
+        ? `<div class="empty-state"><strong>No saved images found yet</strong>Open a generations page or board, then tap Rescan.</div>`
         : `<div class="empty-state"><strong>No large images found</strong>Try scrolling so images load, then tap Rescan.</div>`;
     setStatus('');
     return;
   }
 
-  const src = isPinterest ? 'Pinterest data' : isTackSite ? 'tack.design' : 'page';
+  const src = isPinterest ? 'Pinterest data' : 'page';
   setStatus(`${images.length} image${images.length !== 1 ? 's' : ''} from ${src} — tap to select`);
   if (isPinterest) setHint('Scroll down to load more pins, then tap ↻ Rescan');
-  if (isTackSite) setHint('On tack.design, open a generations page or board, then tap ↻ Rescan');
+  if (isTackSite) setHint('Open a generations page or board, then tap ↻ Rescan');
   renderScannedImages(images, {
     isPinterest,
     isTackSite,
@@ -1361,6 +1361,40 @@ function collectImages(minSize) {
   }
 
   // ── Generic path (non-Pinterest pages) ────────────────────────────────────
+  if ((/(^|\.)tack\.design$/i).test(window.location.hostname)) {
+    const selectors = [
+      '.masonry-item img',
+      '.board-card-preview img',
+      '#gallery-wrap img'
+    ];
+    const candidates = Array.from(document.querySelectorAll(selectors.join(',')));
+
+    candidates.forEach(img => {
+      const src = img.currentSrc || img.src;
+      if (!src || src.startsWith('data:')) return;
+      const w = img.naturalWidth || img.offsetWidth;
+      const h = img.naturalHeight || img.offsetHeight;
+      if (w < minSize || h < minSize) return;
+      add(src, w, h, img.alt || '');
+    });
+
+    const posMap = {};
+    candidates.forEach(img => {
+      const src = img.currentSrc || img.src;
+      if (!src || src.startsWith('data:') || posMap[src]) return;
+      const rect = img.getBoundingClientRect();
+      posMap[src] = { top: rect.top + window.scrollY, left: rect.left };
+    });
+
+    results.sort((a, b) => {
+      const pa = posMap[a.src] || { top: 9999, left: 9999 };
+      const pb = posMap[b.src] || { top: 9999, left: 9999 };
+      return pa.top !== pb.top ? pa.top - pb.top : pa.left - pb.left;
+    });
+
+    return results;
+  }
+
   document.querySelectorAll('img').forEach(img => {
     const src = img.currentSrc || img.src;
     if (!src || src.startsWith('data:')) return;
@@ -1984,12 +2018,12 @@ function showPreview(url, filename = 'tack-image.png') {
 function renderScannedImages(images, { isPinterest = false, isTackSite = false, fromCache = false } = {}) {
   if (!Array.isArray(images) || images.length === 0) return;
   imageGrid.innerHTML = '';
-  const src = isPinterest ? 'Pinterest data' : isTackSite ? 'tack.design' : 'page';
+  const src = isPinterest ? 'Pinterest data' : 'page';
   setStatus(fromCache
     ? `Showing your last scan from this ${src === 'page' ? 'page' : 'board'} while we refresh…`
     : `${images.length} image${images.length !== 1 ? 's' : ''} from ${src} — tap to select`);
   if (isPinterest) setHint('Scroll down to load more pins, then tap ↻ Rescan');
-  if (isTackSite) setHint('On tack.design, open a generations page or board, then tap ↻ Rescan');
+  if (isTackSite) setHint('Open a generations page or board, then tap ↻ Rescan');
 
   images.forEach(img => {
     const item  = document.createElement('div');
