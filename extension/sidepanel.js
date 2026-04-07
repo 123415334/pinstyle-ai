@@ -1238,7 +1238,7 @@ async function loadImages(options = {}) {
     });
   } catch (err) {
     if (!isLatestRequest('scan', requestId)) return;
-    setStatus('Cannot scan this page. Try Pinterest, Instagram, Behance or Dribble.');
+    setStatus('Cannot scan this page. Try Pinterest, Instagram, Behance or Dribbble.');
     return;
   }
 
