@@ -264,6 +264,7 @@
     }
     h1 em { font-style: italic; color: var(--accent-light); }
     .hero-line { display: block; }
+    .hero-line-mobile { display: none; }
     .hero-line-keep { white-space: nowrap; }
     .hero-line-accent { color: var(--accent-light); }
 
@@ -571,6 +572,8 @@
       .hero-sticky { position: relative; top: auto; height: auto; min-height: calc(100vh - 68px); }
       .hero-content { padding: 60px 24px 80px; }
       h1 { font-size: clamp(48px, 12vw, 80px); }
+      .hero-line-desktop { display: none; }
+      .hero-line-mobile { display: block; }
       .hero-line-keep { white-space: normal; }
       .hero-tiles { display: none; }
       .editorial-wrap { padding: 100px 24px 60px; }
@@ -749,7 +752,7 @@
 
       <div class="hero-content">
         <img src="tack_square.svg" class="hero-app-icon" alt="tack Chrome extension">
-        <h1><span class="hero-line">Select a style and</span><span class="hero-line">make something new.</span><span class="hero-line hero-line-accent hero-line-keep">Without leaving chrome.</span></h1>
+        <h1><span class="hero-line hero-line-desktop">Select a style and</span><span class="hero-line hero-line-mobile">Select a style</span><span class="hero-line hero-line-mobile">and make</span><span class="hero-line">make something new.</span><span class="hero-line hero-line-accent hero-line-keep">Without leaving chrome.</span></h1>
         <p class="hero-sub">Scan supported sites and your saved tack boards to generate new subjects in the same visual style.</p>
         <div class="hero-actions">
           <a href="https://chromewebstore.google.com/detail/tack/immnogdobhdocmmfceoeofjcmbohaobi" class="btn-primary signed-out-cta">Add to Chrome</a>
