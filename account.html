@@ -614,6 +614,18 @@
       padding: 24px;
     }
     .board-modal.open { display: flex; }
+    .confirm-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 1300;
+      background: rgba(0,0,0,0.78);
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      backdrop-filter: blur(10px);
+    }
+    .confirm-modal.open { display: flex; }
     .board-modal-panel {
       width: min(520px, 100%);
       background: var(--bg-card);
@@ -621,6 +633,9 @@
       border-radius: 24px;
       padding: 28px;
       box-shadow: 0 24px 80px rgba(0,0,0,0.55);
+    }
+    .confirm-modal-panel {
+      width: min(460px, 100%);
     }
     .board-modal-title {
       font-family: 'Cormorant Garamond', serif;
@@ -704,16 +719,25 @@
       color: #fff;
       box-shadow: 0 6px 24px rgba(1,63,244,0.24);
     }
-    .library-action.danger,
     .board-modal-btn.danger {
+      border-color: transparent;
+      background: #c84040;
+      color: #fff;
+      box-shadow: 0 6px 24px rgba(200,64,64,0.26);
+    }
+    .library-action.danger,
+    .board-modal-btn.danger-soft {
       border-color: rgba(255,107,107,0.42);
       color: #ffb3b3;
       background: rgba(255,107,107,0.08);
     }
     .library-action.danger:hover,
-    .board-modal-btn.danger:hover {
+    .board-modal-btn.danger-soft:hover {
       border-color: rgba(255,107,107,0.7);
       background: rgba(255,107,107,0.14);
+    }
+    .board-modal-btn.danger:hover {
+      background: #d74a4a;
     }
     .library-action.danger:disabled {
       opacity: 0.45;
@@ -1108,6 +1132,17 @@
     </div>
   </div>
 
+  <div class="confirm-modal" id="delete-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="delete-confirm-title">
+    <div class="board-modal-panel confirm-modal-panel">
+      <h2 class="board-modal-title" id="delete-confirm-title">Delete <em>images</em>?</h2>
+      <p class="board-modal-sub" id="delete-confirm-copy">This cannot be undone.</p>
+      <div class="board-modal-actions">
+        <button class="board-modal-btn" id="delete-confirm-cancel" type="button">Cancel</button>
+        <button class="board-modal-btn danger" id="delete-confirm-action" type="button">Delete</button>
+      </div>
+    </div>
+  </div>
+
   <div class="quick-save-popover" id="quick-save-popover">
     <div class="quick-save-title">Save to <em>board</em></div>
     <div class="quick-save-sub">Add this image to an existing board, or create a new one.</div>
@@ -1136,6 +1171,7 @@
     let _boardModalSelectedId = '';
     let _quickSaveEntry = null;
     let _quickSaveAnchor = null;
+    let _deleteConfirmResolve = null;
 
     function getSafeNextPath() {
       const raw = new URLSearchParams(window.location.search).get('next') || '';
@@ -1836,6 +1872,27 @@
       _boardModalSelectedId = '';
     }
 
+    function closeDeleteConfirmModal(confirmed = false) {
+      document.getElementById('delete-confirm-modal').classList.remove('open');
+      if (_deleteConfirmResolve) {
+        _deleteConfirmResolve(confirmed);
+        _deleteConfirmResolve = null;
+      }
+    }
+
+    function confirmImageDelete(count) {
+      const modal = document.getElementById('delete-confirm-modal');
+      const copy = document.getElementById('delete-confirm-copy');
+      const action = document.getElementById('delete-confirm-action');
+      copy.textContent = `${count} selected image${count !== 1 ? 's' : ''} will be removed from your generations and any boards. This cannot be undone.`;
+      action.textContent = count === 1 ? 'Delete image' : 'Delete images';
+      modal.classList.add('open');
+      action.focus();
+      return new Promise(resolve => {
+        _deleteConfirmResolve = resolve;
+      });
+    }
+
     function openBoardModal(mode) {
       _boardModalMode = mode;
       const title = document.getElementById('board-modal-title');
@@ -1935,7 +1992,7 @@
       if (selectedItems.length === 0) return;
 
       const count = selectedItems.length;
-      const confirmed = window.confirm(`Delete ${count} selected image${count !== 1 ? 's' : ''}? This cannot be undone.`);
+      const confirmed = await confirmImageDelete(count);
       if (!confirmed) return;
 
       const deleteBtn = document.getElementById('delete-selected-btn');
@@ -2010,6 +2067,7 @@
       if (e.key === 'Escape') {
         closeLightbox();
         closeQuickSavePopover();
+        closeDeleteConfirmModal(false);
         document.getElementById('nav-account')?.classList.remove('open');
         document.getElementById('nav-account-trigger')?.setAttribute('aria-expanded', 'false');
       }
@@ -2160,6 +2218,11 @@
     document.getElementById('board-modal-confirm').addEventListener('click', confirmBoardModal);
     document.getElementById('board-modal').addEventListener('click', e => {
       if (e.target === document.getElementById('board-modal')) closeBoardModal();
+    });
+    document.getElementById('delete-confirm-cancel').addEventListener('click', () => closeDeleteConfirmModal(false));
+    document.getElementById('delete-confirm-action').addEventListener('click', () => closeDeleteConfirmModal(true));
+    document.getElementById('delete-confirm-modal').addEventListener('click', e => {
+      if (e.target === document.getElementById('delete-confirm-modal')) closeDeleteConfirmModal(false);
     });
     document.getElementById('board-name-input').addEventListener('keydown', e => {
       if (e.key === 'Enter') {
