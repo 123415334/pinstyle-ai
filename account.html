@@ -704,6 +704,21 @@
       color: #fff;
       box-shadow: 0 6px 24px rgba(1,63,244,0.24);
     }
+    .library-action.danger,
+    .board-modal-btn.danger {
+      border-color: rgba(255,107,107,0.42);
+      color: #ffb3b3;
+      background: rgba(255,107,107,0.08);
+    }
+    .library-action.danger:hover,
+    .board-modal-btn.danger:hover {
+      border-color: rgba(255,107,107,0.7);
+      background: rgba(255,107,107,0.14);
+    }
+    .library-action.danger:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
     .board-modal-error {
       min-height: 18px;
       margin-top: 12px;
@@ -1047,6 +1062,7 @@
           <button class="library-action" id="create-board-btn" type="button">Create board</button>
           <button class="library-action" id="select-mode-btn" type="button">Select</button>
           <button class="library-action hidden" id="save-to-board-btn" type="button">Save to board</button>
+          <button class="library-action danger hidden" id="delete-selected-btn" type="button">Delete</button>
           <button class="library-action hidden" id="cancel-select-btn" type="button">Cancel</button>
         </div>
       </div>
@@ -1318,6 +1334,46 @@
       });
 
       if (!ok) throw new Error(data?.message || 'Could not save to board');
+    }
+
+    async function updateGenerationImages(generationId, imageUrls) {
+      const encodedId = encodeURIComponent(generationId);
+      if (imageUrls.length === 0) {
+        const { ok, data } = await sbFetch(`/rest/v1/generations?id=eq.${encodedId}`, {
+          method: 'DELETE',
+          headers: { 'Prefer': 'return=minimal' },
+        });
+        if (!ok) throw new Error(data?.message || 'Could not delete generation');
+        return;
+      }
+
+      const { ok, data } = await sbFetch(`/rest/v1/generations?id=eq.${encodedId}`, {
+        method: 'PATCH',
+        headers: { 'Prefer': 'return=minimal' },
+        body: JSON.stringify({ image_urls: imageUrls }),
+      });
+      if (!ok) throw new Error(data?.message || 'Could not update generation');
+    }
+
+    async function deleteBoardItemsForUrls(urls) {
+      const matches = _boardItems.filter(item => urls.has(item.image_url));
+      await Promise.all(matches.map(async item => {
+        const { ok, data } = await sbFetch(`/rest/v1/board_items?id=eq.${encodeURIComponent(item.id)}`, {
+          method: 'DELETE',
+          headers: { 'Prefer': 'return=minimal' },
+        });
+        if (!ok) throw new Error(data?.message || 'Could not remove image from boards');
+      }));
+    }
+
+    function buildGenerationDeletePlan(selectedKeys) {
+      return _generations
+        .map(gen => {
+          const imageUrls = gen.image_urls || [];
+          const remaining = imageUrls.filter((_, index) => !selectedKeys.has(`${gen.id}:${index}`));
+          return remaining.length === imageUrls.length ? null : { generationId: gen.id, remaining };
+        })
+        .filter(Boolean);
     }
 
     function openManagePlan() {
@@ -1693,6 +1749,7 @@
     function updateSelectionUi() {
       const selectBtn = document.getElementById('select-mode-btn');
       const saveBtn = document.getElementById('save-to-board-btn');
+      const deleteBtn = document.getElementById('delete-selected-btn');
       const cancelBtn = document.getElementById('cancel-select-btn');
       const status = document.getElementById('selection-status');
       const createBtn = document.getElementById('create-board-btn');
@@ -1701,8 +1758,10 @@
       selectBtn.classList.toggle('hidden', showSelectionControls);
       createBtn.classList.toggle('hidden', showSelectionControls);
       saveBtn.classList.toggle('hidden', !showSelectionControls);
+      deleteBtn.classList.toggle('hidden', !showSelectionControls);
       cancelBtn.classList.toggle('hidden', !showSelectionControls);
       saveBtn.disabled = _selectedKeys.size === 0;
+      deleteBtn.disabled = _selectedKeys.size === 0;
       status.textContent = showSelectionControls
         ? `${_selectedKeys.size} selected`
         : '';
@@ -1868,6 +1927,52 @@
         errorEl.textContent = err.message || 'Something went wrong.';
       } finally {
         confirmBtn.disabled = false;
+      }
+    }
+
+    async function deleteSelectedImages() {
+      const selectedItems = getSelectedGenerationItems();
+      if (selectedItems.length === 0) return;
+
+      const count = selectedItems.length;
+      const confirmed = window.confirm(`Delete ${count} selected image${count !== 1 ? 's' : ''}? This cannot be undone.`);
+      if (!confirmed) return;
+
+      const deleteBtn = document.getElementById('delete-selected-btn');
+      const saveBtn = document.getElementById('save-to-board-btn');
+      const cancelBtn = document.getElementById('cancel-select-btn');
+      const originalText = deleteBtn.textContent;
+      deleteBtn.disabled = true;
+      saveBtn.disabled = true;
+      cancelBtn.disabled = true;
+      deleteBtn.textContent = 'Deleting...';
+
+      try {
+        const selectedKeys = new Set(_selectedKeys);
+        const selectedUrls = new Set(selectedItems.map(item => item.url));
+        const deletePlan = buildGenerationDeletePlan(selectedKeys);
+
+        await Promise.all(deletePlan.map(plan => updateGenerationImages(plan.generationId, plan.remaining)));
+        await deleteBoardItemsForUrls(selectedUrls);
+
+        const [generations, boards, boardItems] = await Promise.all([
+          fetchGenerations(),
+          fetchBoards().catch(() => _boards),
+          fetchBoardItems().catch(() => _boardItems),
+        ]);
+        _generations = generations;
+        _boards = boards;
+        _boardItems = boardItems;
+        _selectedKeys.clear();
+        _selectionMode = false;
+        closeQuickSavePopover();
+        renderCurrentView();
+      } catch (err) {
+        alert(err.message || 'Could not delete images. Please try again.');
+        updateSelectionUi();
+      } finally {
+        deleteBtn.textContent = originalText;
+        cancelBtn.disabled = false;
       }
     }
 
@@ -2046,6 +2151,7 @@
       renderCurrentView();
     });
     document.getElementById('save-to-board-btn').addEventListener('click', () => openBoardModal('save'));
+    document.getElementById('delete-selected-btn').addEventListener('click', deleteSelectedImages);
     document.getElementById('board-back-btn').addEventListener('click', () => {
       _activeBoardId = '';
       renderCurrentView();
