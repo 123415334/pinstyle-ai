@@ -24,6 +24,7 @@
       --border:       rgba(240,235,227,0.07);
       --border-hi:    rgba(240,235,227,0.14);
       --radius-card:  16px;
+      --nav-height:   68px;
     }
 
     html { scroll-behavior: smooth; }
@@ -48,7 +49,7 @@
     /* ══ NAV ══ */
     nav {
       position: fixed; top: 0; left: 0; right: 0; z-index: 200;
-      height: 68px; padding: 0 52px;
+      height: var(--nav-height); padding: 0 52px;
       display: flex; justify-content: space-between; align-items: center;
       background: rgba(13,11,9,0.88);
       backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
@@ -336,12 +337,19 @@
       margin-top: 10px;
     }
     .library-toolbar {
+      position: sticky;
+      top: var(--nav-height);
+      z-index: 160;
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 16px;
-      margin-bottom: 30px;
+      margin: -12px -8px 18px;
+      padding: 12px 8px;
       flex-wrap: wrap;
+      background: linear-gradient(180deg, rgba(13,11,9,0.96) 0%, rgba(13,11,9,0.86) 72%, rgba(13,11,9,0) 100%);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
     }
     .library-tabs,
     .library-actions,
