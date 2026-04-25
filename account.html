@@ -340,6 +340,7 @@
       position: sticky;
       top: var(--nav-height);
       z-index: 160;
+      isolation: isolate;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -347,9 +348,22 @@
       margin: -12px -8px 18px;
       padding: 12px 8px;
       flex-wrap: wrap;
+    }
+    .library-toolbar::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 100vw;
+      transform: translateX(-50%);
       background: linear-gradient(180deg, rgba(13,11,9,0.96) 0%, rgba(13,11,9,0.86) 72%, rgba(13,11,9,0) 100%);
       backdrop-filter: blur(18px);
       -webkit-backdrop-filter: blur(18px);
+      border-bottom: 1px solid rgba(240,235,227,0.06);
+      box-shadow: 0 18px 40px rgba(0,0,0,0.22);
+      pointer-events: none;
+      z-index: -1;
     }
     .library-tabs,
     .library-actions,
