@@ -4,6 +4,13 @@
     "api/create-checkout.js": { "maxDuration": 30 },
     "api/stripe-webhook.js": { "maxDuration": 30 }
   },
+  "redirects": [
+    {
+      "source": "/chrome",
+      "destination": "https://chromewebstore.google.com/detail/tack/immnogdobhdocmmfceoeofjcmbohaobi",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     { "source": "/account",   "destination": "/account.html" },
     { "source": "/privacy",   "destination": "/privacy.html" },
