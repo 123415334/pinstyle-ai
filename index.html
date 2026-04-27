@@ -69,9 +69,6 @@
       box-shadow: 0 4px 24px rgba(1,63,244,0.3);
     }
     .nav-cta:hover { opacity: 0.88; transform: translateY(-1px); box-shadow: 0 8px 32px rgba(1,63,244,0.4); }
-    .mobile-nav-install {
-      display: none;
-    }
     .nav-actions {
       display: flex;
       align-items: center;
@@ -311,70 +308,13 @@
     body.is-signed-in .signed-out-cta {
       display: none !important;
     }
-    .mobile-install-form {
+    .mobile-desktop-note {
       display: none;
-      width: min(100%, 420px);
-    }
-    .install-field {
-      display: flex;
-      align-items: center;
-      width: 100%;
-      padding: 5px;
-      border-radius: 999px;
-      border: 1px solid rgba(240,235,227,0.12);
-      background: rgba(240,235,227,0.055);
-      box-shadow: 0 18px 70px rgba(0,0,0,0.22), 0 0 0 1px rgba(255,255,255,0.02) inset;
-    }
-    .install-field input {
-      min-width: 0;
-      flex: 1;
-      height: 44px;
-      border: 0;
-      outline: 0;
-      background: transparent;
-      color: var(--ink);
-      padding: 0 15px;
-      font: 400 14px/1 'DM Sans', sans-serif;
-    }
-    .install-field input::placeholder {
-      color: rgba(240,235,227,0.45);
-    }
-    .install-field button {
-      flex: 0 0 auto;
-      height: 44px;
-      border: 0;
-      border-radius: 999px;
-      padding: 0 18px;
-      background: var(--accent);
-      color: #fff;
-      font: 500 13px/1 'DM Sans', sans-serif;
-      cursor: pointer;
-      transition: opacity 0.2s, transform 0.2s, box-shadow 0.2s;
-      box-shadow: 0 8px 28px rgba(1,63,244,0.32);
-    }
-    .install-field button:hover {
-      opacity: 0.9;
-      transform: translateY(-1px);
-      box-shadow: 0 12px 34px rgba(1,63,244,0.42);
-    }
-    .install-field button:disabled {
-      cursor: default;
-      opacity: 0.64;
-      transform: none;
-    }
-    .install-form-note {
-      min-height: 20px;
-      margin-top: 12px;
       color: var(--ink-muted);
       font-size: 12px;
-      line-height: 1.55;
+      line-height: 1.4;
       text-align: center;
-    }
-    .install-form-note.is-error {
-      color: #ff9b91;
-    }
-    .install-form-note.is-success {
-      color: var(--accent-light);
+      letter-spacing: 0.02em;
     }
 
     .btn-ghost {
@@ -664,41 +604,18 @@
       .nav-link {
         display: none;
       }
-      .desktop-install-cta {
-        display: none;
-      }
-      .mobile-nav-install {
-        display: inline-flex;
-        padding: 10px 16px;
-      }
       .hero-actions {
-        width: min(100%, 420px);
         flex-direction: column;
-        gap: 14px;
+        gap: 10px;
         margin-top: 34px;
       }
-      .mobile-install-form {
+      .mobile-desktop-note {
         display: block;
-      }
-      body.is-signed-in .mobile-install-form {
-        display: none !important;
+        margin-top: -2px;
       }
       .btn-ghost {
+        margin-top: 4px;
         font-size: 12px;
-      }
-      .install-field {
-        border-radius: 24px;
-        align-items: stretch;
-        flex-direction: column;
-        gap: 6px;
-        padding: 6px;
-      }
-      .install-field input,
-      .install-field button {
-        width: 100%;
-      }
-      .install-field input {
-        text-align: center;
       }
     }
     @media (max-width: 560px) {
@@ -718,8 +635,7 @@
     <div class="nav-actions">
       <div id="nav-marketing-actions" class="nav-actions">
         <a href="/account" class="nav-link">My Account</a>
-        <a href="/chrome" class="nav-cta signed-out-cta desktop-install-cta">Install for Chrome</a>
-        <a href="#desktop-link" class="nav-cta signed-out-cta mobile-nav-install">Send link</a>
+        <a href="/chrome" class="nav-cta signed-out-cta">Install for Chrome</a>
       </div>
       <a href="/account" id="nav-generations-link" class="nav-link hidden-auth">My generations</a>
       <div class="nav-account" id="nav-account">
@@ -864,15 +780,9 @@
         <img src="tack_square.svg" class="hero-app-icon" alt="tack Chrome extension">
         <h1><span class="hero-line hero-line-desktop">Select a style and</span><span class="hero-line hero-line-mobile">Select a style</span><span class="hero-line hero-line-mobile">and make</span><span class="hero-line">something new.</span><span class="hero-line hero-line-accent hero-line-keep">Without leaving chrome.</span></h1>
         <p class="hero-sub">Scan supported sites and your saved tack boards to generate new subjects in the same visual style.</p>
-        <div class="hero-actions" id="desktop-link">
-          <a href="/chrome" class="btn-primary signed-out-cta desktop-install-cta">Install for Chrome</a>
-          <form class="mobile-install-form signed-out-cta" data-desktop-link-form>
-            <div class="install-field">
-              <input type="email" name="email" placeholder="Email me the desktop link" autocomplete="email" required>
-              <button type="submit">Send link</button>
-            </div>
-            <p class="install-form-note" data-form-status>Open it later from your desktop Chrome browser.</p>
-          </form>
+        <div class="hero-actions">
+          <a href="/chrome" class="btn-primary signed-out-cta">Install for Chrome</a>
+          <p class="mobile-desktop-note signed-out-cta">Desktop Chrome only</p>
           <a href="/account" class="btn-primary signed-in-cta">My generations</a>
           <a href="#how" class="btn-ghost">See how it works ↓</a>
         </div>
@@ -1102,16 +1012,10 @@
         <h2>Reference in.<br><em>Results out.</em></h2>
         <p class="sub">A Chrome extension for generating from references without leaving the page.</p>
         <div class="dl-actions">
-          <a href="/chrome" class="btn-primary signed-out-cta desktop-install-cta" style="font-size:15px;padding:17px 38px;">
+          <a href="/chrome" class="btn-primary signed-out-cta" style="font-size:15px;padding:17px 38px;">
             Install for Chrome
           </a>
-          <form class="mobile-install-form signed-out-cta" data-desktop-link-form>
-            <div class="install-field">
-              <input type="email" name="email" placeholder="Email me the desktop link" autocomplete="email" required>
-              <button type="submit">Send link</button>
-            </div>
-            <p class="install-form-note" data-form-status>We will send a one-click install link for when you are back at your computer.</p>
-          </form>
+          <p class="mobile-desktop-note signed-out-cta">Desktop Chrome only</p>
           <a href="/account" class="btn-primary signed-in-cta" style="font-size:15px;padding:17px 38px;">
             My generations
           </a>
@@ -1245,55 +1149,6 @@
       }
     });
     restoreHomepageSession();
-
-    document.querySelectorAll('[data-desktop-link-form]').forEach(form => {
-      form.addEventListener('submit', async e => {
-        e.preventDefault();
-        const input = form.querySelector('input[name="email"]');
-        const button = form.querySelector('button[type="submit"]');
-        const status = form.querySelector('[data-form-status]');
-        const email = input.value.trim();
-
-        status.classList.remove('is-error', 'is-success');
-        if (!email || !input.checkValidity()) {
-          status.textContent = 'Enter a valid email and we will send the desktop link.';
-          status.classList.add('is-error');
-          return;
-        }
-
-        button.disabled = true;
-        button.textContent = 'Sending...';
-        status.textContent = 'Sending the install link...';
-
-        try {
-          const resp = await fetch('/api/desktop-link', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              email,
-              source: 'homepage_mobile',
-              path: window.location.pathname,
-              referrer: document.referrer || ''
-            })
-          });
-          const data = await resp.json().catch(() => ({}));
-          if (!resp.ok) throw new Error(data.error || 'Could not send the link.');
-
-          status.textContent = data.emailed
-            ? 'Sent. Open the email on your desktop to install tack.'
-            : 'Saved. We will follow up with your desktop install link.';
-          status.classList.add('is-success');
-          input.value = '';
-        } catch (err) {
-          status.textContent = err.message || 'Something went wrong. Try again in a moment.';
-          status.classList.add('is-error');
-        } finally {
-          button.disabled = false;
-          button.textContent = 'Send link';
-        }
-      });
-    });
-
 
     // ── Hero tile parallax ──────────────────────────────────
     // Hero is 200vh tall with a sticky panel. Tiles parallax
