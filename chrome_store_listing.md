@@ -39,7 +39,7 @@ tack includes direct support for tack.design, Pinterest, Instagram, Behance, and
 When you generate, tack sends only the image URLs you select and the prompt you type so it can analyze style and create results. It does not send the rest of the page for generation.
 
 **Your account:**
-Sign up for a free account to save your generations and access them at tack.design. Free includes 6 generations per month. Pro includes 120 generations per month. Studio includes 600 generations per month.
+Sign up for a free account to save future generations to your tack account and access them at tack.design. Free includes 6 generations per month. Pro includes 120 generations per month. Studio includes 600 generations per month.
 
 ---
 

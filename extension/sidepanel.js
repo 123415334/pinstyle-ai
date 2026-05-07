@@ -379,7 +379,7 @@ function injectAnonCTA() {
   cta.className = 'anon-cta';
   const text = createEl('p', {
     className: 'anon-cta-text',
-    textContent: 'Create an account to keep going and save your results.',
+    textContent: 'Create a free account for 6 generations every month and account history.',
   });
   const signupBtn = createEl('button', {
     className: 'anon-cta-btn',
@@ -398,7 +398,7 @@ function injectAnonCTA() {
     switchAuthTab('signup');
     setAuthModalCopy(
       'Keep <em>creating</em>',
-      'Create an account to continue — your results will be saved.',
+      'Create a free account for 6 generations every month. Your future results will be saved to your tack account.',
     );
     showAuthModal();
   });
@@ -994,7 +994,7 @@ function switchAuthTab(tab) {
     const titleEl = document.querySelector('.auth-modal-title');
     const subEl   = document.querySelector('.auth-modal-sub');
     if (titleEl) titleEl.innerHTML = 'Create your <em>account</em>';
-    if (subEl)   subEl.textContent = 'Start free, save your generations, and keep creating.';
+    if (subEl)   subEl.textContent = 'Get 6 free generations every month and save future results to your tack account.';
     document.getElementById('auth-google-copy').textContent = 'Continue with Google';
   }
 }
@@ -1495,7 +1495,7 @@ async function generate() {
     if (_anonCount >= ANON_TRIAL_LIMIT) {
       switchAuthTab('signup');
       setAuthModalCopy(
-        'Save your work & keep <em>creating</em>',
+        'Keep <em>creating</em>',
         'You\'ve used your 3 anonymous generations. Create a free account for 6 generations every month, or upgrade for more.',
       );
       showAuthModal();
