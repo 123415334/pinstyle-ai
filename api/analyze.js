@@ -1,5 +1,6 @@
-const FREE_TRIAL_LIMIT  = 3;
+const FREE_MONTHLY_LIMIT = 6;
 const PRO_MONTHLY_LIMIT = 120;
+const STUDIO_MONTHLY_LIMIT = 600;
 const MAX_REFERENCE_IMAGES = 8;
 const DEFAULT_STYLE_PROMPT = 'professional photography, natural lighting, refined composition, high quality';
 const DEFAULT_STYLE_SCHEMA = Object.freeze({
@@ -71,7 +72,30 @@ async function ensureProfile(userId, email) {
   }
 }
 
-async function incrementUsage(userId, email, currentUsed) {
+function normalizePlan(plan) {
+  const value = (plan || '').toLowerCase();
+  if (value === 'unlimited') return 'studio';
+  return ['free', 'pro', 'studio'].includes(value) ? value : 'free';
+}
+
+function getPlanLimit(plan) {
+  if (plan === 'free') return FREE_MONTHLY_LIMIT;
+  if (plan === 'pro') return PRO_MONTHLY_LIMIT;
+  if (plan === 'studio') return STUDIO_MONTHLY_LIMIT;
+  return FREE_MONTHLY_LIMIT;
+}
+
+function getEffectiveMonthlyUsage(monthlyUsed, monthlyResetAt) {
+  const periodExpired = !monthlyResetAt || new Date(monthlyResetAt) <= new Date();
+  return periodExpired ? 0 : monthlyUsed;
+}
+
+function getNextMonthlyReset(monthlyResetAt) {
+  if (monthlyResetAt && new Date(monthlyResetAt) > new Date()) return monthlyResetAt;
+  return new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+}
+
+async function incrementUsage(userId, email, { currentUsed, effectiveMonthly, monthlyResetAt }) {
   // Ensure the profile row exists first (handles new Google / OAuth sign-ups
   // that don't yet have a row in user_profiles).
   await ensureProfile(userId, email);
@@ -83,7 +107,11 @@ async function incrementUsage(userId, email, currentUsed) {
       'apikey':        process.env.SUPABASE_SERVICE_KEY,
       'Content-Type':  'application/json',
     },
-    body: JSON.stringify({ generations_used: currentUsed + 1 }),
+    body: JSON.stringify({
+      generations_used: currentUsed + 1,
+      monthly_generations: effectiveMonthly + 1,
+      monthly_reset_at: getNextMonthlyReset(monthlyResetAt),
+    }),
   });
 }
 
@@ -445,35 +473,27 @@ module.exports = async function handler(req, res) {
     generationsUsed = profile?.generations_used   ?? 0;
     monthlyUsed     = profile?.monthly_generations ?? 0;
     monthlyResetAt  = profile?.monthly_reset_at   ?? null;
-    plan            = profile?.plan               ?? 'free';
+    plan            = normalizePlan(profile?.plan ?? 'free');
+    monthlyUsed     = getEffectiveMonthlyUsage(monthlyUsed, monthlyResetAt);
+    const limit      = getPlanLimit(plan);
 
-    if (plan === 'free' && generationsUsed >= FREE_TRIAL_LIMIT) {
+    if (monthlyUsed >= limit) {
       return res.status(402).json({
-        error:   'trial_exhausted',
-        message: `You've used all ${FREE_TRIAL_LIMIT} free generations. Upgrade to Pro to keep creating.`,
-        used:    generationsUsed,
-        limit:   FREE_TRIAL_LIMIT,
+        error:        plan === 'free' ? 'free_limit_reached' : `${plan}_limit_reached`,
+        message:      plan === 'free'
+          ? `You've used all ${FREE_MONTHLY_LIMIT} free generations for this month. Upgrade to Pro to keep creating.`
+          : `You've reached your ${limit} generation monthly limit. Upgrade for more monthly generations.`,
+        monthly_used: monthlyUsed,
+        limit,
+        resets_at:    monthlyResetAt,
       });
-    }
-
-    if (plan === 'pro') {
-      const periodExpired    = !monthlyResetAt || new Date(monthlyResetAt) <= new Date();
-      const effectiveMonthly = periodExpired ? 0 : monthlyUsed;
-      if (effectiveMonthly >= PRO_MONTHLY_LIMIT) {
-        return res.status(402).json({
-          error:        'pro_limit_reached',
-          message:      `You've reached your ${PRO_MONTHLY_LIMIT} generation monthly limit. Upgrade to Unlimited for no caps.`,
-          monthly_used: effectiveMonthly,
-          limit:        PRO_MONTHLY_LIMIT,
-          resets_at:    monthlyResetAt,
-        });
-      }
     }
   }
 
   // ── Input validation ──────────────────────────────────────────────────────
   const { imageUrls, subject, outputCount } = req.body;
-  const requestedOutputCount = Math.max(1, Math.min(2, Number(outputCount) || 2));
+  const defaultOutputCount = ['pro', 'studio'].includes(plan) ? 2 : 1;
+  const requestedOutputCount = Math.max(1, Math.min(defaultOutputCount, Number(outputCount) || defaultOutputCount));
   if (!subject || !subject.trim()) {
     return res.status(400).json({ error: 'Missing subject — please describe what you want to create.' });
   }
@@ -542,7 +562,11 @@ module.exports = async function handler(req, res) {
 
     // ── Step 6: Increment usage ───────────────────────────────────────────
     if (!isAnon) {
-      await incrementUsage(user.id, user.email, generationsUsed).catch(e =>
+      await incrementUsage(user.id, user.email, {
+        currentUsed: generationsUsed,
+        effectiveMonthly: monthlyUsed,
+        monthlyResetAt,
+      }).catch(e =>
         console.error('[tack] usage increment failed (non-fatal):', e.message)
       );
     }
@@ -566,11 +590,9 @@ module.exports = async function handler(req, res) {
       ...(isAnon ? {} : {
         usage: {
           used:         newUsed,
-          monthly_used: plan === 'pro' ? newMonthlyUsed : null,
-          limit:        plan === 'free' ? FREE_TRIAL_LIMIT : plan === 'pro' ? PRO_MONTHLY_LIMIT : null,
-          remaining:    plan === 'free' ? FREE_TRIAL_LIMIT - newUsed
-                      : plan === 'pro'  ? PRO_MONTHLY_LIMIT - newMonthlyUsed
-                      : null,
+          monthly_used: newMonthlyUsed,
+          limit:        getPlanLimit(plan),
+          remaining:    getPlanLimit(plan) - newMonthlyUsed,
           plan,
         },
       }),

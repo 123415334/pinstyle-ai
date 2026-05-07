@@ -197,7 +197,7 @@ header {
   color: var(--accent-light);
   border: 1px solid rgba(201,169,110,0.3);
 }
-.header-plan-badge.plan-unlimited {
+.header-plan-badge.plan-studio {
   background: rgba(240,235,227,0.07);
   color: var(--ink);
   border: 1px solid rgba(240,235,227,0.22);
@@ -564,7 +564,7 @@ textarea#subject-input:focus {
 }
 .counter-upgrade-link:hover { opacity: 0.8; }
 
-/* Unlimited */
+/* Studio */
 .counter-star { color: var(--accent-light); margin-right: 4px; }
 
 /* ── AUTH MODAL (slide-up bottom sheet) ─────────────────────────────────── */

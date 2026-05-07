@@ -5,8 +5,10 @@ const MIN_SIZE = 200;
 
 const SUPABASE_URL      = 'https://sbdowcielgtcfholfyry.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiZG93Y2llbGd0Y2Zob2xmeXJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2NjkwNzMsImV4cCI6MjA5MDI0NTA3M30.3dUuwXB8kcAbKvEWWMpvyrXhcdLx1x8x4wKxp3UY4Kk';
-const FREE_TRIAL_LIMIT  = 3;
+const ANON_TRIAL_LIMIT  = 3;
+const FREE_MONTHLY_LIMIT = 6;
 const PRO_MONTHLY_LIMIT = 120;
+const STUDIO_MONTHLY_LIMIT = 600;
 const SCAN_CACHE_KEY    = 'ps_scan_cache';
 const WORKSPACE_KEY     = 'ps_workspace_store';
 const EVENT_LOG_KEY     = 'ps_event_log';
@@ -38,6 +40,31 @@ let _monthlyUsed      = 0;
 let _monthlyResetAt   = null;
 let _plan             = 'free';
 let _anonCount        = 0;  // how many anonymous generations the guest has used (max 3)
+
+function normalizePlan(plan) {
+  const value = (plan || '').toLowerCase();
+  if (value === 'unlimited') return 'studio';
+  return ['free', 'pro', 'studio'].includes(value) ? value : 'free';
+}
+
+function getPlanLabel(plan = _plan) {
+  const value = normalizePlan(plan);
+  if (value === 'studio') return 'Studio';
+  if (value === 'pro') return 'Pro';
+  return 'Free';
+}
+
+function getMonthlyLimit(plan = _plan) {
+  const value = normalizePlan(plan);
+  if (value === 'studio') return STUDIO_MONTHLY_LIMIT;
+  if (value === 'pro') return PRO_MONTHLY_LIMIT;
+  return FREE_MONTHLY_LIMIT;
+}
+
+function getEffectiveMonthlyUsed() {
+  if (!_monthlyResetAt || new Date(_monthlyResetAt) <= new Date()) return 0;
+  return _monthlyUsed;
+}
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 const imageGrid    = document.getElementById('image-grid');
@@ -195,7 +222,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     showMainUI();
   });
   document.getElementById('choose-pro-btn').addEventListener('click', () => { openUpgradeFlow('pro').catch(() => {}); });
-  document.getElementById('choose-unlimited-btn').addEventListener('click', () => { openUpgradeFlow('unlimited').catch(() => {}); });
+  document.getElementById('choose-studio-btn').addEventListener('click', () => { openUpgradeFlow('studio').catch(() => {}); });
   document.getElementById('plan-done-btn').addEventListener('click', async () => {
     const btn        = document.getElementById('plan-done-btn');
     const waitingEl  = document.getElementById('plan-waiting');
@@ -308,16 +335,21 @@ function showUpgradeMoment(type) {
   titleEl.textContent = "You're on a roll.";
 
   if (type === 'pro_limit') {
-    subEl.textContent          = "You've hit your 120 monthly generations. Keep creating with Unlimited — no limits, ever.";
-    primaryBtn.textContent     = 'Go Unlimited → $35/month';
-    primaryBtn.href            = `${upgradeBase}&plan=unlimited`;
+    subEl.textContent          = "You've hit your 120 monthly generations. Keep creating with Studio — 600 generations/month.";
+    primaryBtn.textContent     = 'Get Studio → $35/month';
+    primaryBtn.href            = `${upgradeBase}&plan=studio`;
+    secondaryBtn.style.display = 'none';
+  } else if (type === 'studio_limit') {
+    subEl.textContent          = "You've hit your 600 monthly Studio generations. Your counter will reset next month.";
+    primaryBtn.textContent     = 'Manage billing →';
+    primaryBtn.href            = `${upgradeBase}&manage=1`;
     secondaryBtn.style.display = 'none';
   } else {
-    subEl.textContent          = "Your 3 free generations are up. Keep going with Pro — 120 images/month for $12.";
+    subEl.textContent          = "You've used your 6 free generations this month. Keep going with Pro — 120 generations/month, up to 240 images.";
     primaryBtn.textContent     = 'Get Pro → $12/month';
     primaryBtn.href            = `${upgradeBase}&plan=pro`;
-    secondaryBtn.textContent   = 'Or go Unlimited → $35/month';
-    secondaryBtn.href          = `${upgradeBase}&plan=unlimited`;
+    secondaryBtn.textContent   = 'Or get Studio → $35/month';
+    secondaryBtn.href          = `${upgradeBase}&plan=studio`;
     secondaryBtn.style.display = '';
   }
 
@@ -537,7 +569,7 @@ function applyAuthSession(session = {}) {
   _generationsUsed = session.used ?? 0;
   _monthlyUsed     = session.monthly ?? 0;
   _monthlyResetAt  = session.resetAt || null;
-  _plan            = session.plan || 'free';
+  _plan            = normalizePlan(session.plan || 'free');
 }
 
 async function persistAuthSession(refreshToken = null) {
@@ -712,9 +744,9 @@ function updateHeaderPlanBadge() {
   if (_plan === 'pro') {
     badge.textContent  = 'Pro';
     badge.className    = 'header-plan-badge plan-pro';
-  } else if (_plan === 'unlimited') {
-    badge.textContent  = 'Unlimited';
-    badge.className    = 'header-plan-badge plan-unlimited';
+  } else if (_plan === 'studio') {
+    badge.textContent  = 'Studio';
+    badge.className    = 'header-plan-badge plan-studio';
   } else {
     badge.textContent  = 'Free';
     badge.className    = 'header-plan-badge plan-free';
@@ -783,7 +815,7 @@ async function fetchPlan() {
     if (!resp.ok) return null;
     const rows = await resp.json();
     if (rows?.[0] && isLatestRequest('plan', requestId)) {
-      _plan            = rows[0].plan               || 'free';
+      _plan            = normalizePlan(rows[0].plan || 'free');
       _generationsUsed = rows[0].generations_used   ?? _generationsUsed;
       _monthlyUsed     = rows[0].monthly_generations ?? 0;
       _monthlyResetAt  = rows[0].monthly_reset_at   || null;
@@ -823,24 +855,19 @@ function updateTrialBadge() {
   const upgradeBase = `https://tack.design/upgrade?${params.toString()}${buildAuthHash()}`;
   trialBadge.classList.remove('hidden');
 
-  // ── Unlimited ──
-  if (_plan === 'unlimited') {
-    trialBadge.className = 'trial-badge';
-    trialBadge.innerHTML = `<span class="counter-star">✦</span> Unlimited plan · no monthly limit`;
-    generateBtn.disabled = subjectInput.value.trim().length === 0 || selectedUrls.size === 0;
-    return;
-  }
-
-  // ── Pro ──
-  if (_plan === 'pro') {
-    const used      = _monthlyUsed;
-    const remaining = PRO_MONTHLY_LIMIT - used;
-    const pct       = Math.min(100, Math.round((used / PRO_MONTHLY_LIMIT) * 100));
+  // ── Paid plans ──
+  if (_plan === 'pro' || _plan === 'studio') {
+    const limit     = getMonthlyLimit();
+    const used      = getEffectiveMonthlyUsed();
+    const remaining = limit - used;
+    const pct       = Math.min(100, Math.round((used / limit) * 100));
 
     if (remaining <= 0) {
       trialBadge.className = 'trial-badge counter-exhausted';
-      const unlimitedUrl = `${upgradeBase}&plan=unlimited`;
-      trialBadge.innerHTML = `Monthly limit reached · <a href="${unlimitedUrl}" target="_blank" rel="noopener" class="counter-upgrade-link">Go Unlimited →</a>`;
+      const upgradeUrl = `${upgradeBase}&plan=studio`;
+      trialBadge.innerHTML = _plan === 'pro'
+        ? `Monthly limit reached · <a href="${upgradeUrl}" target="_blank" rel="noopener" class="counter-upgrade-link">Get Studio →</a>`
+        : `Studio monthly limit reached · resets soon`;
       generateBtn.disabled = true;
     } else {
       const resetDate = _monthlyResetAt
@@ -849,7 +876,7 @@ function updateTrialBadge() {
       trialBadge.className = 'trial-badge';
       trialBadge.innerHTML = `
         <div class="counter-row">
-          <span class="counter-label"><strong style="color:var(--ink)">${remaining}</strong> of ${PRO_MONTHLY_LIMIT} left this month &middot; resets ${resetDate}</span>
+          <span class="counter-label"><strong style="color:var(--ink)">${remaining}</strong> of ${limit} left this month &middot; resets ${resetDate}</span>
         </div>
         <div class="counter-bar" style="margin-top:6px">
           <div class="counter-fill" style="width:${pct}%"></div>
@@ -859,18 +886,18 @@ function updateTrialBadge() {
   }
 
   // ── Free ──
-  const used      = _generationsUsed;
-  const remaining = FREE_TRIAL_LIMIT - used;
+  const used      = getEffectiveMonthlyUsed();
+  const remaining = FREE_MONTHLY_LIMIT - used;
 
   if (remaining <= 0) {
     trialBadge.className = 'trial-badge counter-exhausted';
-    trialBadge.innerHTML = `3 free generations used &middot; <a href="${upgradeBase}&plan=pro" target="_blank" rel="noopener" class="counter-upgrade-link">Upgrade to keep creating →</a>`;
+    trialBadge.innerHTML = `6 free generations used this month &middot; <a href="${upgradeBase}&plan=pro" target="_blank" rel="noopener" class="counter-upgrade-link">Upgrade to keep creating →</a>`;
     generateBtn.disabled = true;
     return;
   }
 
   // Dot indicators: ● ● ○
-  const dots = Array.from({ length: FREE_TRIAL_LIMIT }, (_, i) =>
+  const dots = Array.from({ length: FREE_MONTHLY_LIMIT }, (_, i) =>
     `<span class="counter-dot ${i < used ? 'used' : 'open'}"></span>`
   ).join('');
 
@@ -1452,9 +1479,8 @@ function updateGenerateBtn() {
   }
 
   // Logged in: also check plan limits
-  const trialExhausted   = _plan === 'free' && _generationsUsed >= FREE_TRIAL_LIMIT;
-  const monthlyExhausted = _plan === 'pro'  && _monthlyUsed     >= PRO_MONTHLY_LIMIT;
-  generateBtn.disabled = trialExhausted || monthlyExhausted || !hasImages || !hasSubject;
+  const monthlyExhausted = getEffectiveMonthlyUsed() >= getMonthlyLimit();
+  generateBtn.disabled = monthlyExhausted || !hasImages || !hasSubject;
 }
 
 // ── Generate ──────────────────────────────────────────────────────────────────
@@ -1466,11 +1492,11 @@ async function generate() {
 
   // Guest → allow 3 anonymous generations, then gate
   if (!_authToken) {
-    if (_anonCount >= 3) {
+    if (_anonCount >= ANON_TRIAL_LIMIT) {
       switchAuthTab('signup');
       setAuthModalCopy(
         'Save your work & keep <em>creating</em>',
-        'You\'ve used your 3 free generations. Create an account to continue.',
+        'You\'ve used your 3 anonymous generations. Create a free account for 6 generations every month, or upgrade for more.',
       );
       showAuthModal();
       return;
@@ -1479,12 +1505,16 @@ async function generate() {
   }
 
   // Limit guards
-  if (_plan === 'free' && _generationsUsed >= FREE_TRIAL_LIMIT) {
+  if (_plan === 'free' && getEffectiveMonthlyUsed() >= FREE_MONTHLY_LIMIT) {
     showUpgradeMoment('trial');
     return;
   }
-  if (_plan === 'pro' && _monthlyUsed >= PRO_MONTHLY_LIMIT) {
+  if (_plan === 'pro' && getEffectiveMonthlyUsed() >= PRO_MONTHLY_LIMIT) {
     showUpgradeMoment('pro_limit');
+    return;
+  }
+  if (_plan === 'studio' && getEffectiveMonthlyUsed() >= STUDIO_MONTHLY_LIMIT) {
+    showUpgradeMoment('studio_limit');
     return;
   }
 
@@ -1535,9 +1565,14 @@ async function generate() {
         await persistUsageState({ monthly: PRO_MONTHLY_LIMIT });
         updateTrialBadge();
         showUpgradeMoment('pro_limit');
+      } else if (errData.error === 'studio_limit_reached') {
+        _monthlyUsed = STUDIO_MONTHLY_LIMIT;
+        await persistUsageState({ monthly: STUDIO_MONTHLY_LIMIT });
+        updateTrialBadge();
+        showUpgradeMoment('studio_limit');
       } else {
-        _generationsUsed = FREE_TRIAL_LIMIT;
-        await persistUsageState({ used: FREE_TRIAL_LIMIT });
+        _monthlyUsed = FREE_MONTHLY_LIMIT;
+        await persistUsageState({ monthly: FREE_MONTHLY_LIMIT });
         updateTrialBadge();
         showUpgradeMoment('trial');
       }
@@ -1559,7 +1594,7 @@ async function generate() {
       // Anonymous generation completed — increment counter
       _anonCount++;
       await chrome.storage.local.set({ ps_anon_count: _anonCount });
-      if (_anonCount >= 3) {
+      if (_anonCount >= ANON_TRIAL_LIMIT) {
         // They've hit the limit — show a gentle CTA after their last generation
         injectAnonCTA();
       }
@@ -2098,7 +2133,7 @@ async function refreshBillingStateIfNeeded() {
       hidePlanScreen();
       hideUpgradeMoment();
       showMainUI();
-      setStatus(`Plan updated to ${_plan === 'unlimited' ? 'Unlimited' : _plan === 'pro' ? 'Pro' : 'Free'}.`);
+      setStatus(`Plan updated to ${getPlanLabel()}.`);
     }
     if (_plan !== 'free') {
       _billingRefreshPending = false;

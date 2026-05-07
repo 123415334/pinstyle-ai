@@ -1,6 +1,6 @@
 // api/create-checkout.js
-// Creates a Stripe Checkout session for either Pro or Unlimited plan.
-// POST /api/create-checkout  { email: "user@example.com", plan: "pro" | "unlimited" }
+// Creates a Stripe Checkout session for either Pro or Studio plan.
+// POST /api/create-checkout  { plan: "pro" | "studio" }
 
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
@@ -34,15 +34,19 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST')   return res.status(405).json({ error: 'Method not allowed' });
 
-  const { plan = 'pro' } = req.body || {};
+  const requestedPlan = (req.body?.plan || 'pro').toLowerCase();
+  const plan = requestedPlan === 'unlimited' ? 'studio' : requestedPlan;
+  if (!['pro', 'studio'].includes(plan)) {
+    return res.status(400).json({ error: 'Invalid plan' });
+  }
   const origin = `${req.headers['x-forwarded-proto'] || 'https'}://${req.headers.host}`;
   const user = await validateSupabaseUser(req);
   if (!user?.email) return res.status(401).json({ error: 'Authentication required' });
   const email = user.email;
 
   // Route to the correct Stripe price ID based on plan
-  const priceId = plan === 'unlimited'
-    ? process.env.STRIPE_PRICE_ID_UNLIMITED
+  const priceId = plan === 'studio'
+    ? (process.env.STRIPE_PRICE_ID_STUDIO || process.env.STRIPE_PRICE_ID_UNLIMITED)
     : process.env.STRIPE_PRICE_ID_PRO;
 
   if (!priceId) {

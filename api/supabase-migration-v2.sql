@@ -1,4 +1,4 @@
--- ── tack — Migration v2: Monthly generation tracking + Unlimited plan ──
+-- ── tack — Migration v2: Monthly generation tracking + Studio plan ──
 -- Run this in Supabase SQL Editor (Dashboard → SQL Editor → New query)
 
 -- 1. Add monthly tracking columns to user_profiles
@@ -7,8 +7,13 @@ ALTER TABLE public.user_profiles
   ADD COLUMN IF NOT EXISTS monthly_reset_at     TIMESTAMP WITH TIME ZONE;
 
 -- 2. Update the plan column comment to reflect new values
--- plan is now: 'free' | 'pro' | 'unlimited'
-COMMENT ON COLUMN public.user_profiles.plan IS 'free | pro | unlimited';
+-- plan is now: 'free' | 'pro' | 'studio'
+COMMENT ON COLUMN public.user_profiles.plan IS 'free | pro | studio';
+
+-- Rename legacy subscriber rows to Studio.
+UPDATE public.user_profiles
+SET plan = 'studio'
+WHERE plan = 'unlimited';
 
 -- 3. Replace increment function — now also tracks monthly usage and auto-resets
 CREATE OR REPLACE FUNCTION public.increment_generations(user_id UUID)

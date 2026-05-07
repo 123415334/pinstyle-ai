@@ -23,7 +23,7 @@ function getRawBody(req) {
   });
 }
 
-// Update the user's plan in Supabase ('pro' or 'unlimited')
+// Update the user's plan in Supabase ('pro' or 'studio')
 async function upgradePlan(email, plan) {
   const url = `${process.env.SUPABASE_URL}/rest/v1/user_profiles?email=eq.${encodeURIComponent(email)}`;
   const resp = await fetch(url, {
@@ -59,7 +59,13 @@ async function storeSubscriptionId(email, subscriptionId) {
 }
 
 function getPlanFromPriceId(priceId) {
-  if (priceId === process.env.STRIPE_PRICE_ID_UNLIMITED) return 'unlimited';
+  if (priceId === process.env.STRIPE_PRICE_ID_STUDIO || priceId === process.env.STRIPE_PRICE_ID_UNLIMITED) return 'studio';
+  return 'pro';
+}
+
+function normalizePaidPlan(plan) {
+  const value = (plan || '').toLowerCase();
+  if (value === 'studio' || value === 'unlimited') return 'studio';
   return 'pro';
 }
 
@@ -141,7 +147,7 @@ module.exports = async function handler(req, res) {
           break;
         }
         // Determine plan from metadata (set by create-checkout.js)
-        const plan = session.metadata?.plan === 'unlimited' ? 'unlimited' : 'pro';
+        const plan = normalizePaidPlan(session.metadata?.plan);
         await upgradePlan(email, plan);
         if (session.subscription) {
           await storeSubscriptionId(email, session.subscription);

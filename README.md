@@ -29,7 +29,7 @@ In Vercel → your project → Settings → Environment Variables, ensure these 
 | `STRIPE_SECRET_KEY` | Stripe Dashboard → Developers → API keys |
 | `STRIPE_WEBHOOK_SECRET` | Stripe Dashboard → Developers → Webhooks |
 | `STRIPE_PRICE_ID_PRO` | Stripe Dashboard → Product catalog → Tack Pro |
-| `STRIPE_PRICE_ID_UNLIMITED` | Stripe Dashboard → Product catalog → Tack Unlimited |
+| `STRIPE_PRICE_ID_STUDIO` | Stripe Dashboard → Product catalog → Tack Studio |
 | `SUPABASE_URL` | Supabase → Project Settings → API |
 | `SUPABASE_ANON_KEY` | Supabase → Project Settings → API |
 | `SUPABASE_SERVICE_KEY` | Supabase → Project Settings → API → service_role |

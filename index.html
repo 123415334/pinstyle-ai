@@ -1057,9 +1057,9 @@
     let _session = null;
 
     function normalizePlan(plan) {
-      return ['free', 'pro', 'unlimited'].includes((plan || '').toLowerCase())
-        ? plan.toLowerCase()
-        : 'free';
+      const value = (plan || '').toLowerCase();
+      if (value === 'unlimited') return 'studio';
+      return ['free', 'pro', 'studio'].includes(value) ? value : 'free';
     }
 
     async function refreshSession(refreshToken) {
@@ -1073,7 +1073,8 @@
     }
 
     function formatPlanLabel(plan) {
-      return normalizePlan(plan).toUpperCase();
+      const value = normalizePlan(plan);
+      return value === 'studio' ? 'STUDIO' : value.toUpperCase();
     }
 
     async function fetchHomepageProfile(session) {

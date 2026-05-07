@@ -1208,9 +1208,14 @@
     }
 
     function normalizePlan(plan) {
-      return ['free', 'pro', 'unlimited'].includes((plan || '').toLowerCase())
-        ? plan.toLowerCase()
-        : 'free';
+      const value = (plan || '').toLowerCase();
+      if (value === 'unlimited') return 'studio';
+      return ['free', 'pro', 'studio'].includes(value) ? value : 'free';
+    }
+
+    function formatPlanLabel(plan) {
+      const value = normalizePlan(plan);
+      return value === 'studio' ? 'Studio' : value.charAt(0).toUpperCase() + value.slice(1);
     }
 
     function getSessionUserId() {
@@ -2075,8 +2080,8 @@
         _boardItems = boardItems;
         if (profile?.plan) {
           const planChip = document.getElementById('nav-account-plan');
-          planChip.textContent = profile.plan;
-          planChip.dataset.plan = profile.plan;
+          planChip.textContent = formatPlanLabel(profile.plan);
+          planChip.dataset.plan = normalizePlan(profile.plan);
         }
         renderCurrentView();
       } catch (e) {

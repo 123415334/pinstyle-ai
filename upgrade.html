@@ -290,8 +290,8 @@
       box-shadow: 0 0 0 1px rgba(201,169,110,0.22), 0 24px 60px rgba(0,0,0,0.4);
     }
 
-    /* Unlimited — premium dark */
-    .plan-unlimited {
+    /* Studio — premium dark */
+    .plan-studio {
       background: #110f0d;
       border-color: rgba(1,63,244,0.10);
     }
@@ -303,8 +303,8 @@
       color: var(--ink-muted);
       margin-bottom: 20px;
     }
-    .plan-pro .plan-label       { color: var(--accent-light); }
-    .plan-unlimited .plan-label { color: var(--ink-muted); }
+    .plan-pro .plan-label    { color: var(--accent-light); }
+    .plan-studio .plan-label { color: var(--ink-muted); }
 
     .plan-price {
       font-family: 'Cormorant Garamond', serif;
@@ -368,14 +368,14 @@
       background: rgba(1,63,244,0.10);
       border-color: rgba(143,190,247,0.3);
     }
-    .plan-unlimited .check {
+    .plan-studio .check {
       background: rgba(1,63,244,0.07);
       border-color: rgba(143,190,247,0.2);
     }
     .check svg { width: 8px; height: 8px; }
     .check svg path { stroke: var(--accent); }
     .plan-pro .check svg path,
-    .plan-unlimited .check svg path { stroke: var(--accent-light); }
+    .plan-studio .check svg path { stroke: var(--accent-light); }
 
     /* Cross icon */
     .cross {
@@ -680,30 +680,30 @@
 
       <!-- Free -->
       <div class="plan">
-        <p class="plan-label">Free Trial</p>
+        <p class="plan-label">Free</p>
         <p class="plan-price"><sup></sup>$0</p>
-        <p class="plan-period">3 generations, no card required</p>
+        <p class="plan-period">per month · 6 generations</p>
         <hr class="plan-divider">
         <ul class="feature-list">
           <li>
             <span class="check"><svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-            <span>3 AI image generations</span>
+            <span><strong style="color:var(--ink)">6 generations</strong> per month</span>
           </li>
           <li>
             <span class="check"><svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-            <span>AI style analysis</span>
+            <span>1 image per generation</span>
           </li>
           <li>
             <span class="check"><svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-            <span>Works on tack.design, Pinterest, Behance, and more</span>
+            <span>Up to 6 images per month</span>
           </li>
           <li>
             <span class="cross"><svg viewBox="0 0 7 7" fill="none"><path d="M1 1l5 5M6 1L1 6" stroke-width="1.4" stroke-linecap="round"/></svg></span>
-            <span class="feature-text-muted">Monthly generations</span>
+            <span class="feature-text-muted">2 images per generation</span>
           </li>
           <li>
             <span class="cross"><svg viewBox="0 0 7 7" fill="none"><path d="M1 1l5 5M6 1L1 6" stroke-width="1.4" stroke-linecap="round"/></svg></span>
-            <span class="feature-text-muted">Full image history</span>
+            <span class="feature-text-muted">Higher monthly limits</span>
           </li>
         </ul>
         <span class="current-plan-note" id="free-note">Your current plan</span>
@@ -723,11 +723,11 @@
           </li>
           <li>
             <span class="check"><svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-            <span>AI style analysis</span>
+            <span>2 images per generation</span>
           </li>
           <li>
             <span class="check"><svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-            <span>Full persistent image history</span>
+            <span>Up to 240 images per month</span>
           </li>
           <li>
             <span class="check"><svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
@@ -735,7 +735,7 @@
           </li>
           <li>
             <span class="check"><svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-            <span>Early access to new features</span>
+            <span>Upgrade anytime</span>
           </li>
         </ul>
         <button class="upgrade-btn btn-accent" id="pro-btn">
@@ -744,38 +744,38 @@
         <a class="manage-billing-link" id="pro-manage" href="#" style="display:none">Manage billing →</a>
       </div>
 
-      <!-- Unlimited -->
-      <div class="plan plan-unlimited">
-        <p class="plan-label">Unlimited</p>
+      <!-- Studio -->
+      <div class="plan plan-studio">
+        <p class="plan-label">Studio</p>
         <p class="plan-price"><sup>$</sup>35</p>
-        <p class="plan-period">per month · no limits</p>
+        <p class="plan-period">per month · 600 generations</p>
         <hr class="plan-divider">
         <ul class="feature-list">
           <li>
             <span class="check"><svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-            <span><strong style="color:var(--ink)">Unlimited</strong> generations, always</span>
+            <span><strong style="color:var(--ink)">600 generations</strong> per month</span>
           </li>
           <li>
             <span class="check"><svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-            <span>AI style analysis</span>
+            <span>2 images per generation</span>
           </li>
           <li>
             <span class="check"><svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-            <span>Full persistent image history</span>
+            <span>Up to 1,200 images per month</span>
           </li>
           <li>
             <span class="check"><svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-            <span>No monthly caps or resets</span>
+            <span>Monthly counter resets automatically</span>
           </li>
           <li>
             <span class="check"><svg viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-            <span>Priority support + early features</span>
+            <span>Upgrade or cancel anytime</span>
           </li>
         </ul>
-        <button class="upgrade-btn btn-red" id="unlimited-btn">
-          Go Unlimited →
+        <button class="upgrade-btn btn-red" id="studio-btn">
+          Upgrade to Studio →
         </button>
-        <a class="manage-billing-link" id="unlimited-manage" href="#" style="display:none">Manage billing →</a>
+        <a class="manage-billing-link" id="studio-manage" href="#" style="display:none">Manage billing →</a>
       </div>
 
     </div>
@@ -839,7 +839,7 @@
     const navBackLink = document.getElementById('nav-back-link');
     const freeCard = document.querySelector('.plan');
     const proCard = document.querySelector('.plan-pro');
-    const unlimitedCard = document.querySelector('.plan-unlimited');
+    const studioCard = document.querySelector('.plan-studio');
     const freeNote = document.getElementById('free-note');
 
     function getStoredSession() {
@@ -851,9 +851,9 @@
     }
 
     function normalizePlan(plan) {
-      return ['free', 'pro', 'unlimited'].includes((plan || '').toLowerCase())
-        ? plan.toLowerCase()
-        : 'free';
+      const value = (plan || '').toLowerCase();
+      if (value === 'unlimited') return 'studio';
+      return ['free', 'pro', 'studio'].includes(value) ? value : 'free';
     }
 
     function consumeSessionFromHash() {
@@ -1013,13 +1013,13 @@
     function renderPlanState() {
       // ── Reset card highlights and free note ──
       proCard?.classList.remove('current-plan-card');
-      unlimitedCard?.classList.remove('current-plan-card');
+      studioCard?.classList.remove('current-plan-card');
       if (freeNote) freeNote.textContent = 'Your current plan';
 
       const proBtn          = document.getElementById('pro-btn');
-      const unlimitedBtn    = document.getElementById('unlimited-btn');
+      const studioBtn       = document.getElementById('studio-btn');
       const proManage       = document.getElementById('pro-manage');
-      const unlimitedManage = document.getElementById('unlimited-manage');
+      const studioManage    = document.getElementById('studio-manage');
 
       // ── Reset all buttons and manage links to clean default state ──
       if (proBtn) {
@@ -1029,15 +1029,15 @@
         proBtn.textContent   = 'Upgrade to Pro →';
         delete proBtn.dataset.action;
       }
-      if (unlimitedBtn) {
-        unlimitedBtn.style.display = '';
-        unlimitedBtn.disabled      = false;
-        unlimitedBtn.className     = 'upgrade-btn btn-red';
-        unlimitedBtn.textContent   = 'Go Unlimited →';
-        delete unlimitedBtn.dataset.action;
+      if (studioBtn) {
+        studioBtn.style.display = '';
+        studioBtn.disabled      = false;
+        studioBtn.className     = 'upgrade-btn btn-red';
+        studioBtn.textContent   = 'Upgrade to Studio →';
+        delete studioBtn.dataset.action;
       }
       if (proManage)       { proManage.style.display = 'none';       proManage.onclick = null; }
-      if (unlimitedManage) { unlimitedManage.style.display = 'none'; unlimitedManage.onclick = null; }
+      if (studioManage)    { studioManage.style.display = 'none';    studioManage.onclick = null; }
 
       if (currentPlan === 'pro') {
         // ── Pro subscriber ──
@@ -1049,17 +1049,17 @@
           proBtn.disabled    = true;
           proBtn.className   = 'upgrade-btn btn-current';
         }
-        if (unlimitedBtn) {
-          unlimitedBtn.textContent = 'Upgrade to Unlimited →';
+        if (studioBtn) {
+          studioBtn.textContent = 'Upgrade to Studio →';
         }
         if (proManage) {
           proManage.style.display = 'block';
           proManage.onclick = (e) => { e.preventDefault(); openBillingPortal(); };
         }
 
-      } else if (currentPlan === 'unlimited') {
-        // ── Unlimited subscriber ──
-        unlimitedCard?.classList.add('current-plan-card');
+      } else if (currentPlan === 'studio') {
+        // ── Studio subscriber ──
+        studioCard?.classList.add('current-plan-card');
         if (freeNote) freeNote.textContent = 'Free plan';
 
         // Pro button: ghost style — available but not encouraged
@@ -1070,14 +1070,14 @@
           proBtn.className        = 'upgrade-btn btn-downgrade';
           proBtn.dataset.action   = 'portal';
         }
-        if (unlimitedBtn) {
-          unlimitedBtn.textContent = '✓ Current plan';
-          unlimitedBtn.disabled    = true;
-          unlimitedBtn.className   = 'upgrade-btn btn-current';
+        if (studioBtn) {
+          studioBtn.textContent = '✓ Current plan';
+          studioBtn.disabled    = true;
+          studioBtn.className   = 'upgrade-btn btn-current';
         }
-        if (unlimitedManage) {
-          unlimitedManage.style.display = 'block';
-          unlimitedManage.onclick = (e) => { e.preventDefault(); openBillingPortal(); };
+        if (studioManage) {
+          studioManage.style.display = 'block';
+          studioManage.onclick = (e) => { e.preventDefault(); openBillingPortal(); };
         }
 
       }
@@ -1090,16 +1090,16 @@
     if (isSuccess) {
       document.getElementById('main-view').style.display = 'none';
       document.getElementById('success-view').style.display = 'flex';
-      if (successPlan === 'unlimited') {
-        document.getElementById('success-heading').innerHTML = 'Welcome to <em>Unlimited.</em>';
+      if (normalizePlan(successPlan) === 'studio') {
+        document.getElementById('success-heading').innerHTML = 'Welcome to <em>Studio.</em>';
         document.getElementById('success-body').textContent =
-          'No more caps. Your account now has unlimited generations. Head back to the extension and your new plan should appear automatically.';
+          'Your account now has 600 generations each month. Head back to the extension and your new plan should appear automatically.';
       }
     }
 
     // ── Checkout handlers ──
     async function startCheckout(plan) {
-      const btnId = plan === 'unlimited' ? 'unlimited-btn' : 'pro-btn';
+      const btnId = normalizePlan(plan) === 'studio' ? 'studio-btn' : 'pro-btn';
       const btn   = document.getElementById(btnId);
       if (!btn || btn.disabled || btn.style.display === 'none') return;
 
@@ -1148,7 +1148,7 @@
     }
 
     document.getElementById('pro-btn')?.addEventListener('click', () => startCheckout('pro'));
-    document.getElementById('unlimited-btn')?.addEventListener('click', () => startCheckout('unlimited'));
+    document.getElementById('studio-btn')?.addEventListener('click', () => startCheckout('studio'));
 
     (async function hydrateBillingState() {
       currentPlan = normalizePlan(currentPlan);
