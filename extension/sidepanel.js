@@ -379,7 +379,7 @@ function injectAnonCTA() {
   cta.className = 'anon-cta';
   const text = createEl('p', {
     className: 'anon-cta-text',
-    textContent: 'Create a free account for 6 generations every month and account history.',
+    textContent: 'Create a free account for 6 generations every month. Results save automatically to your tack account.',
   });
   const signupBtn = createEl('button', {
     className: 'anon-cta-btn',
@@ -398,7 +398,7 @@ function injectAnonCTA() {
     switchAuthTab('signup');
     setAuthModalCopy(
       'Keep <em>creating</em>',
-      'Create a free account for 6 generations every month. Your future results will be saved to your tack account.',
+      'Create a free account for 6 generations every month. Results save automatically to your tack account.',
     );
     showAuthModal();
   });
@@ -994,7 +994,7 @@ function switchAuthTab(tab) {
     const titleEl = document.querySelector('.auth-modal-title');
     const subEl   = document.querySelector('.auth-modal-sub');
     if (titleEl) titleEl.innerHTML = 'Create your <em>account</em>';
-    if (subEl)   subEl.textContent = 'Get 6 free generations every month and save future results to your tack account.';
+    if (subEl)   subEl.textContent = 'Get 6 free generations every month. Results save automatically to your tack account.';
     document.getElementById('auth-google-copy').textContent = 'Continue with Google';
   }
 }
