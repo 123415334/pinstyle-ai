@@ -1,6 +1,7 @@
 'use strict';
 
 const API_URL  = 'https://www.tack.design/api/analyze';
+const ANALYTICS_URL = 'https://www.tack.design/api/track-event';
 const MIN_SIZE = 200;
 
 const SUPABASE_URL      = 'https://sbdowcielgtcfholfyry.supabase.co';
@@ -12,6 +13,7 @@ const STUDIO_MONTHLY_LIMIT = 600;
 const SCAN_CACHE_KEY    = 'ps_scan_cache';
 const WORKSPACE_KEY     = 'ps_workspace_store';
 const EVENT_LOG_KEY     = 'ps_event_log';
+const ANON_ID_KEY       = 'tack_anonymous_id';
 const ONBOARDING_KEY    = 'ps_onboarding_dismissed';
 const SCAN_CACHE_TTL_MS = 5 * 60 * 1000;
 const WORKSPACE_TTL_MS  = 24 * 60 * 60 * 1000;
@@ -91,6 +93,8 @@ let _lastResultData        = null;
 let _generationProgressTimer = null;
 let _telemetryFlushTimer   = null;
 let _telemetryQueue        = [];
+let _anonymousId           = null;
+let _promptEnteredTracked  = false;
 let _billingRefreshPending = false;
 let _billingRefreshPromise = null;
 let _billingRefreshTimer   = null;
@@ -103,11 +107,16 @@ let _activeGenerationController = null;
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
+  await initAnalyticsIdentity();
   refreshBtn.addEventListener('click', () => loadImages({ forceRefresh: true }));
   generateBtn.addEventListener('click', generate);
   subjectInput.addEventListener('input', () => {
     updateGenerateBtn();
     saveWorkspaceState().catch(() => {});
+    if (!_promptEnteredTracked && subjectInput.value.trim().length > 0) {
+      _promptEnteredTracked = true;
+      trackEvent('prompt_entered', { length: subjectInput.value.trim().length });
+    }
   });
 
   // Header sign-in button (shown in guest mode)
@@ -275,6 +284,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Boot
   await initAuth();
+  trackEvent('extension_opened');
 });
 
 window.addEventListener('beforeunload', () => {
@@ -290,6 +300,7 @@ window.addEventListener('beforeunload', () => {
 function showAuthModal() {
   authBackdrop.classList.remove('hidden');
   authModal.classList.remove('hidden');
+  trackEvent('auth_modal_opened', { mode: _authMode || 'unknown' });
 }
 
 function hideAuthModal() {
@@ -475,6 +486,7 @@ function startVerifyPolling() {
         await saveWorkspaceState();
         verifyScreen.classList.add('hidden');
         showMainUI();
+        trackEvent('signup_completed', { method: 'email_confirmation' });
       }
     } catch { /* not confirmed yet — keep polling */ }
   }, 4000);
@@ -637,6 +649,17 @@ function cancelActiveGeneration() {
   if (_activeGenerationController) {
     _activeGenerationController.abort();
     _activeGenerationController = null;
+  }
+}
+
+// ── Product analytics ────────────────────────────────────────────────────────
+
+async function initAnalyticsIdentity() {
+  const stored = await chrome.storage.local.get([ANON_ID_KEY]);
+  _anonymousId = stored[ANON_ID_KEY] || null;
+  if (!_anonymousId) {
+    _anonymousId = crypto.randomUUID();
+    await chrome.storage.local.set({ [ANON_ID_KEY]: _anonymousId });
   }
 }
 
@@ -1052,6 +1075,7 @@ async function handleGoogleAuth() {
     showMainUI();
     hideAuthModal();
     trackEvent('google_auth_success', { mode: _authMode });
+    trackEvent(_authMode === 'login' ? 'login_completed' : 'signup_completed', { method: 'google' });
   } catch (err) {
     const rawMessage = err.message || '';
     const friendly = /authorization page could not be loaded|network|failed to fetch/i.test(rawMessage)
@@ -1100,6 +1124,7 @@ async function handleAuthSubmit() {
     if (_authMode === 'login') {
       data = await supabaseLogin(email, password);
     } else {
+      trackEvent('signup_started', { method: 'email' });
       data = await supabaseSignup(email, password);
     }
 
@@ -1132,6 +1157,7 @@ async function handleAuthSubmit() {
     await saveWorkspaceState();
 
     showMainUI();
+    trackEvent(_authMode === 'login' ? 'login_completed' : 'signup_completed', { method: 'email' });
 
   } catch (err) {
     const msg = err.message || '';
@@ -1275,6 +1301,7 @@ async function loadImages(options = {}) {
   if (!isLatestRequest('scan', requestId)) return;
 
   if (images.length === 0) {
+    trackEvent('images_scanned', { count: 0, source: isPinterest ? 'pinterest' : isTackSite ? 'tack' : 'page' });
     imageGrid.innerHTML = isPinterest
       ? `<div class="empty-state"><strong>No pins found yet</strong>Scroll down the board so pins load, then tap Rescan.</div>`
       : isTackSite
@@ -1288,6 +1315,11 @@ async function loadImages(options = {}) {
   setStatus(`${images.length} image${images.length !== 1 ? 's' : ''} from ${src} — tap to select`);
   if (isPinterest) setHint('Scroll down to load more pins, then tap ↻ Rescan');
   if (isTackSite) setHint('Open a generations page or board, then tap ↻ Rescan');
+  trackEvent('images_scanned', {
+    count: images.length,
+    source: isPinterest ? 'pinterest' : isTackSite ? 'tack' : 'page',
+    fromCache: false,
+  });
   renderScannedImages(images, {
     isPinterest,
     isTackSite,
@@ -1463,6 +1495,7 @@ function toggleSelect(item, src) {
   } else {
     selectedUrls.add(src);
     item.classList.add('selected');
+    trackEvent('image_selected', { selectedCount: selectedUrls.size });
   }
   updateGenerateBtn();
   saveWorkspaceState().catch(() => {});
@@ -1488,7 +1521,7 @@ async function generate() {
   const requestId = ++_generateRequestId;
   const subject = subjectInput.value.trim();
   if (!subject || selectedUrls.size === 0) return;
-  trackEvent('generate_started', { count: selectedUrls.size, source: _savedStyleMemory ? 'history_memory' : 'page' });
+  trackEvent('generate_clicked', { count: selectedUrls.size, source: _savedStyleMemory ? 'history_memory' : 'page' });
 
   // Guest → allow 1 anonymous generation, then gate
   if (!_authToken) {
@@ -1498,6 +1531,7 @@ async function generate() {
         'Keep <em>creating</em>',
         'You\'ve used your anonymous generation. Create a free account for 3 generations every month, or upgrade for more.',
       );
+      trackEvent('anon_limit_reached', { count: selectedUrls.size });
       showAuthModal();
       return;
     }
@@ -1538,7 +1572,7 @@ async function generate() {
       method: 'POST',
       headers,
       signal: controller.signal,
-      body: JSON.stringify({ imageUrls: [...selectedUrls], subject }),
+      body: JSON.stringify({ imageUrls: [...selectedUrls], subject, anonymousId: _anonymousId }),
     });
 
     const data = await resp.json().catch(() => ({}));
@@ -1617,7 +1651,7 @@ async function generate() {
       }
     }
     await saveWorkspaceState();
-    trackEvent('generate_succeeded', { count: data.images?.length || 0 });
+    trackEvent('generate_succeeded', { outputCount: data.images?.length || 0 });
 
   } catch (err) {
     if (controller.signal.aborted || !isLatestRequest('generate', requestId)) return;
@@ -2321,15 +2355,52 @@ function getSessionStorageArea() {
 }
 
 function trackEvent(name, payload = {}) {
-  _telemetryQueue.push({
+  const event = {
     name,
     payload,
     scope: getAccountScope(),
     pageUrl: _currentPageUrl || '',
     timestamp: Date.now(),
+  };
+  _telemetryQueue.push({
+    ...event,
   });
+  sendAnalyticsEvent(event).catch(() => {});
   if (_telemetryFlushTimer) return;
   _telemetryFlushTimer = setTimeout(flushTelemetryQueue, 1200);
+}
+
+async function sendAnalyticsEvent(event) {
+  if (!_anonymousId) await initAnalyticsIdentity();
+
+  const headers = { 'Content-Type': 'application/json' };
+  if (_authToken) headers.Authorization = `Bearer ${_authToken}`;
+
+  await fetch(ANALYTICS_URL, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      event_name: event.name,
+      anonymous_id: _anonymousId,
+      plan: _plan || 'free',
+      page_url: event.pageUrl,
+      selected_image_count: event.payload.count ?? event.payload.selectedCount ?? selectedUrls.size,
+      output_count: event.payload.outputCount ?? null,
+      anon_count: _anonCount,
+      error_code: event.payload.errorCode || null,
+      metadata: {
+        count: event.payload.count ?? null,
+        source: event.payload.source || null,
+        mode: event.payload.mode || null,
+        method: event.payload.method || null,
+        requested_plan: event.payload.requestedPlan || null,
+        from_cache: event.payload.fromCache ?? null,
+        prompt_length: event.payload.length || null,
+        message: event.payload.message ? String(event.payload.message).slice(0, 240) : null,
+        scope: event.scope,
+      },
+    }),
+  });
 }
 
 async function flushTelemetryQueue() {
