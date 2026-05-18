@@ -9,7 +9,8 @@
     "scripting",
     "storage",
     "downloads",
-    "identity"
+    "identity",
+    "permissions"
   ],
   "host_permissions": [
     "https://tack.design/*",

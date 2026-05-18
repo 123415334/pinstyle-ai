@@ -87,4 +87,6 @@ tack lets users select images from the current page and use them as style refere
 
 **identity:** Used only for optional Google sign-in through Supabase authentication.
 
+**permissions:** Used only to request optional current-site access when a user asks tack to scan a website outside the directly supported sites.
+
 **Host permissions:** tack has direct support for tack.design, Pinterest, Instagram, Behance, and Dribbble so it can reliably scan reference images on those supported sites. It also uses activeTab to scan the current tab after the user opens tack. Optional host permissions are requested only when a user asks tack to scan another regular website that needs current-site access. Generation uses only the references the user selects plus the prompt they type.

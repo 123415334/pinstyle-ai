@@ -1836,7 +1836,7 @@ function showScanAccessPrompt(tab) {
     setStatus('Tack cannot scan this kind of browser page.');
     imageGrid.appendChild(createEl('div', {
       className: 'empty-state',
-      textContent: 'Try a regular website with visible images.',
+      textContent: 'Try Pinterest, Instagram, Behance, Dribbble, or another regular website with visible images.',
     }));
     return;
   }
@@ -1845,7 +1845,7 @@ function showScanAccessPrompt(tab) {
   const prompt = createEl('div', { className: 'empty-state' });
   prompt.append(
     createEl('strong', { textContent: 'This site needs permission' }),
-    createEl('p', { textContent: 'Tack can scan this current website after you allow access.' }),
+    createEl('p', { textContent: 'Tack can scan this current website after you allow access. Pinterest, Instagram, Behance, and Dribbble remain directly supported.' }),
   );
 
   const button = createEl('button', {
