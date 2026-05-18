@@ -9,21 +9,18 @@
     "scripting",
     "storage",
     "downloads",
-    "identity",
-    "permissions"
+    "identity"
   ],
   "host_permissions": [
     "https://tack.design/*",
     "https://www.tack.design/*",
     "https://*.supabase.co/*",
+    "https://*/*",
+    "http://*/*",
     "https://*.pinterest.com/*",
     "https://*.instagram.com/*",
     "https://*.behance.net/*",
     "https://*.dribbble.com/*"
-  ],
-  "optional_host_permissions": [
-    "https://*/*",
-    "http://*/*"
   ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
