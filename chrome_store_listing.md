@@ -45,7 +45,7 @@ Sign up for a free account and future results save automatically to your tack ac
 
 ## Why tack needs supported-site and page access
 
-tack's core function is to let users select reference images from the page they are actively viewing. tack has direct host permissions for tack.design, Pinterest, Instagram, Behance, and Dribbble so it can reliably scan those supported sites. It also uses activeTab so it can read images on the current tab after the user explicitly opens tack. It only sends the image URLs the user selects plus the prompt they type in order to generate results.
+tack's core function is to let users select reference images from the page they are actively viewing. tack has direct host permissions for tack.design, Pinterest, Instagram, Behance, and Dribbble so it can reliably scan those supported sites. It also uses activeTab and optional current-site access so it can scan another regular image-based page only after the user explicitly opens tack and allows that site. It only sends the image URLs the user selects plus the prompt they type in order to generate results.
 
 ---
 
@@ -56,7 +56,7 @@ https://tack.design/privacy
 
 ## Single Purpose Description
 *(Required field in the Chrome Web Store — one sentence)*
-tack lets users select images from supported sites and use them as style references to generate new AI images in the same aesthetic.
+tack lets users select images from the current page and use them as style references to generate new AI images in the same aesthetic.
 
 ---
 
@@ -87,4 +87,4 @@ tack lets users select images from supported sites and use them as style referen
 
 **identity:** Used only for optional Google sign-in through Supabase authentication.
 
-**Host permissions:** tack has direct support for tack.design, Pinterest, Instagram, Behance, and Dribbble so it can reliably scan reference images on those supported sites. It also uses activeTab to scan the current tab after the user opens tack. Generation uses only the references the user selects plus the prompt they type.
+**Host permissions:** tack has direct support for tack.design, Pinterest, Instagram, Behance, and Dribbble so it can reliably scan reference images on those supported sites. It also uses activeTab to scan the current tab after the user opens tack. Optional host permissions are requested only when a user asks tack to scan another regular website that needs current-site access. Generation uses only the references the user selects plus the prompt they type.

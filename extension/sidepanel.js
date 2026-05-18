@@ -1291,7 +1291,7 @@ async function loadImages(options = {}) {
     });
   } catch (err) {
     if (!isLatestRequest('scan', requestId)) return;
-    setStatus('Cannot scan this page. Try Pinterest, Instagram, Behance or Dribbble.');
+    showScanAccessPrompt(tab);
     return;
   }
 
@@ -1807,6 +1807,68 @@ function setHint(msg) {
     statusEl.insertAdjacentElement('afterend', hint);
   }
   hint.textContent = msg;
+}
+
+function getOriginPermissionPattern(pageUrl) {
+  try {
+    const url = new URL(pageUrl);
+    if (!['http:', 'https:'].includes(url.protocol)) return null;
+    return `${url.protocol}//${url.hostname}/*`;
+  } catch {
+    return null;
+  }
+}
+
+function showScanAccessPrompt(tab) {
+  const pattern = getOriginPermissionPattern(tab?.url || '');
+  const hostname = (() => {
+    try {
+      return new URL(tab?.url || '').hostname.replace(/^www\./, '');
+    } catch {
+      return 'this page';
+    }
+  })();
+
+  setHint('');
+  clearElement(imageGrid);
+
+  if (!pattern || !chrome.permissions?.request) {
+    setStatus('Tack cannot scan this kind of browser page.');
+    imageGrid.appendChild(createEl('div', {
+      className: 'empty-state',
+      textContent: 'Try a regular website with visible images.',
+    }));
+    return;
+  }
+
+  setStatus(`Allow Tack to scan images on ${hostname}?`);
+  const prompt = createEl('div', { className: 'empty-state' });
+  prompt.append(
+    createEl('strong', { textContent: 'This site needs permission' }),
+    createEl('p', { textContent: 'Tack can scan this current website after you allow access.' }),
+  );
+
+  const button = createEl('button', {
+    className: 'link-btn',
+    textContent: `Allow ${hostname}`,
+    attrs: { type: 'button' },
+  });
+  prompt.appendChild(button);
+  imageGrid.appendChild(prompt);
+
+  button.addEventListener('click', async () => {
+    button.disabled = true;
+    button.textContent = 'Requesting access...';
+    const granted = await chrome.permissions.request({ origins: [pattern] }).catch(() => false);
+    if (granted) {
+      setStatus('Access granted. Scanning page...');
+      loadImages({ forceRefresh: true }).catch(() => {});
+      return;
+    }
+    button.disabled = false;
+    button.textContent = `Allow ${hostname}`;
+    setStatus('Tack needs permission to scan images on this site.');
+  });
 }
 
 function syncImageGridSelectionState() {
