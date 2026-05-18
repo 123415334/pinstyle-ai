@@ -5,8 +5,8 @@ const MIN_SIZE = 200;
 
 const SUPABASE_URL      = 'https://sbdowcielgtcfholfyry.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiZG93Y2llbGd0Y2Zob2xmeXJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2NjkwNzMsImV4cCI6MjA5MDI0NTA3M30.3dUuwXB8kcAbKvEWWMpvyrXhcdLx1x8x4wKxp3UY4Kk';
-const ANON_TRIAL_LIMIT  = 3;
-const FREE_MONTHLY_LIMIT = 6;
+const ANON_TRIAL_LIMIT  = 1;
+const FREE_MONTHLY_LIMIT = 3;
 const PRO_MONTHLY_LIMIT = 120;
 const STUDIO_MONTHLY_LIMIT = 600;
 const SCAN_CACHE_KEY    = 'ps_scan_cache';
@@ -39,7 +39,7 @@ let _generationsUsed  = 0;
 let _monthlyUsed      = 0;
 let _monthlyResetAt   = null;
 let _plan             = 'free';
-let _anonCount        = 0;  // how many anonymous generations the guest has used (max 3)
+let _anonCount        = 0;  // how many anonymous generations the guest has used
 
 function normalizePlan(plan) {
   const value = (plan || '').toLowerCase();
@@ -345,7 +345,7 @@ function showUpgradeMoment(type) {
     primaryBtn.href            = `${upgradeBase}&manage=1`;
     secondaryBtn.style.display = 'none';
   } else {
-    subEl.textContent          = "You've used your 6 free generations this month. Keep going with Pro — 120 generations/month, up to 240 images.";
+    subEl.textContent          = "You've used your 3 free generations this month. Keep going with Pro — 120 generations/month, up to 240 images.";
     primaryBtn.textContent     = 'Get Pro → $12/month';
     primaryBtn.href            = `${upgradeBase}&plan=pro`;
     secondaryBtn.textContent   = 'Or get Studio → $35/month';
@@ -379,7 +379,7 @@ function injectAnonCTA() {
   cta.className = 'anon-cta';
   const text = createEl('p', {
     className: 'anon-cta-text',
-    textContent: 'Create a free account for 6 generations every month. Results save automatically to your tack account.',
+    textContent: 'Create a free account for 3 generations every month. Results save automatically to your tack account.',
   });
   const signupBtn = createEl('button', {
     className: 'anon-cta-btn',
@@ -398,7 +398,7 @@ function injectAnonCTA() {
     switchAuthTab('signup');
     setAuthModalCopy(
       'Keep <em>creating</em>',
-      'Create a free account for 6 generations every month. Results save automatically to your tack account.',
+      'Create a free account for 3 generations every month. Results save automatically to your tack account.',
     );
     showAuthModal();
   });
@@ -891,7 +891,7 @@ function updateTrialBadge() {
 
   if (remaining <= 0) {
     trialBadge.className = 'trial-badge counter-exhausted';
-    trialBadge.innerHTML = `6 free generations used this month &middot; <a href="${upgradeBase}&plan=pro" target="_blank" rel="noopener" class="counter-upgrade-link">Upgrade to keep creating →</a>`;
+    trialBadge.innerHTML = `3 free generations used this month &middot; <a href="${upgradeBase}&plan=pro" target="_blank" rel="noopener" class="counter-upgrade-link">Upgrade to keep creating →</a>`;
     generateBtn.disabled = true;
     return;
   }
@@ -994,7 +994,7 @@ function switchAuthTab(tab) {
     const titleEl = document.querySelector('.auth-modal-title');
     const subEl   = document.querySelector('.auth-modal-sub');
     if (titleEl) titleEl.innerHTML = 'Create your <em>account</em>';
-    if (subEl)   subEl.textContent = 'Get 6 free generations every month. Results save automatically to your tack account.';
+    if (subEl)   subEl.textContent = 'Get 3 free generations every month. Results save automatically to your tack account.';
     document.getElementById('auth-google-copy').textContent = 'Continue with Google';
   }
 }
@@ -1490,13 +1490,13 @@ async function generate() {
   if (!subject || selectedUrls.size === 0) return;
   trackEvent('generate_started', { count: selectedUrls.size, source: _savedStyleMemory ? 'history_memory' : 'page' });
 
-  // Guest → allow 3 anonymous generations, then gate
+  // Guest → allow 1 anonymous generation, then gate
   if (!_authToken) {
     if (_anonCount >= ANON_TRIAL_LIMIT) {
       switchAuthTab('signup');
       setAuthModalCopy(
         'Keep <em>creating</em>',
-        'You\'ve used your 3 anonymous generations. Create a free account for 6 generations every month, or upgrade for more.',
+        'You\'ve used your anonymous generation. Create a free account for 3 generations every month, or upgrade for more.',
       );
       showAuthModal();
       return;
