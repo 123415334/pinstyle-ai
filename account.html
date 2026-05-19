@@ -1545,6 +1545,14 @@
         .filter(Boolean);
     }
 
+    function getSelectedBoardItems() {
+      if (!_activeBoardId) return [];
+      const map = new Map(getBoardItems(_activeBoardId).map(item => [item.key, item]));
+      return Array.from(_selectedKeys)
+        .map(key => map.get(key))
+        .filter(Boolean);
+    }
+
     function getBoardsForEntry(entry) {
       return _boards.filter(board =>
         _boardItems.some(item => item.board_id === board.id && item.image_url === entry.url)
@@ -1822,14 +1830,17 @@
       const status = document.getElementById('selection-status');
       const createBtn = document.getElementById('create-board-btn');
 
-      const showSelectionControls = _view === 'all' && _selectionMode;
-      selectBtn.classList.toggle('hidden', showSelectionControls);
+      const canSelect = _view === 'all' || (_view === 'boards' && Boolean(_activeBoardId));
+      const isBoardSelection = _view === 'boards' && Boolean(_activeBoardId) && _selectionMode;
+      const showSelectionControls = canSelect && _selectionMode;
+      selectBtn.classList.toggle('hidden', showSelectionControls || !canSelect);
       createBtn.classList.toggle('hidden', showSelectionControls);
-      saveBtn.classList.toggle('hidden', !showSelectionControls);
+      saveBtn.classList.toggle('hidden', !showSelectionControls || isBoardSelection);
       deleteBtn.classList.toggle('hidden', !showSelectionControls);
       cancelBtn.classList.toggle('hidden', !showSelectionControls);
       saveBtn.disabled = _selectedKeys.size === 0;
       deleteBtn.disabled = _selectedKeys.size === 0;
+      deleteBtn.textContent = isBoardSelection ? 'Remove' : 'Delete';
       status.textContent = showSelectionControls
         ? `${_selectedKeys.size} selected`
         : '';
@@ -1886,7 +1897,7 @@
         renderGalleryItems(getBoardItems(_activeBoardId), {
           emptyTitle: 'This board is empty',
           emptyCopy: 'Add images from All generations to start using this board as a future style source.',
-          showSelect: false,
+          showSelect: true,
         });
         return;
       }
@@ -1914,10 +1925,27 @@
 
     function confirmImageDelete(count) {
       const modal = document.getElementById('delete-confirm-modal');
+      const title = document.getElementById('delete-confirm-title');
       const copy = document.getElementById('delete-confirm-copy');
       const action = document.getElementById('delete-confirm-action');
+      title.innerHTML = `Delete <em>images</em>?`;
       copy.textContent = `${count} selected image${count !== 1 ? 's' : ''} will be removed from your generations and any boards. This cannot be undone.`;
       action.textContent = count === 1 ? 'Delete image' : 'Delete images';
+      modal.classList.add('open');
+      action.focus();
+      return new Promise(resolve => {
+        _deleteConfirmResolve = resolve;
+      });
+    }
+
+    function confirmBoardItemRemove(count) {
+      const modal = document.getElementById('delete-confirm-modal');
+      const title = document.getElementById('delete-confirm-title');
+      const copy = document.getElementById('delete-confirm-copy');
+      const action = document.getElementById('delete-confirm-action');
+      title.innerHTML = `Remove from <em>board</em>?`;
+      copy.textContent = `${count} selected image${count !== 1 ? 's' : ''} will be removed from this board only. They will stay in All generations.`;
+      action.textContent = count === 1 ? 'Remove image' : 'Remove images';
       modal.classList.add('open');
       action.focus();
       return new Promise(resolve => {
@@ -2063,6 +2091,57 @@
         deleteBtn.textContent = originalText;
         cancelBtn.disabled = false;
       }
+    }
+
+    async function deleteBoardItemsByIds(ids) {
+      await Promise.all(ids.map(async id => {
+        const { ok, data } = await sbFetch(`/rest/v1/board_items?id=eq.${encodeURIComponent(id)}`, {
+          method: 'DELETE',
+          headers: { Prefer: 'return=minimal' },
+        });
+        if (!ok) throw new Error(data?.message || 'Could not remove image from board');
+      }));
+    }
+
+    async function removeSelectedBoardItems() {
+      const selectedItems = getSelectedBoardItems();
+      if (selectedItems.length === 0) return;
+
+      const count = selectedItems.length;
+      const confirmed = await confirmBoardItemRemove(count);
+      if (!confirmed) return;
+
+      const removeBtn = document.getElementById('delete-selected-btn');
+      const cancelBtn = document.getElementById('cancel-select-btn');
+      const originalText = removeBtn.textContent;
+      removeBtn.disabled = true;
+      cancelBtn.disabled = true;
+      removeBtn.textContent = 'Removing...';
+
+      try {
+        await deleteBoardItemsByIds(selectedItems.map(item => item.boardItemId).filter(Boolean));
+        _boardItems = await fetchBoardItems().catch(() =>
+          _boardItems.filter(item => !_selectedKeys.has(item.id))
+        );
+        _selectedKeys.clear();
+        _selectionMode = false;
+        closeQuickSavePopover();
+        renderCurrentView();
+      } catch (err) {
+        alert(err.message || 'Could not remove images from this board. Please try again.');
+        updateSelectionUi();
+      } finally {
+        removeBtn.textContent = originalText;
+        cancelBtn.disabled = false;
+      }
+    }
+
+    function handleSelectionDestructiveAction() {
+      if (_view === 'boards' && _activeBoardId) {
+        removeSelectedBoardItems();
+        return;
+      }
+      deleteSelectedImages();
     }
 
     async function loadLibrary() {
@@ -2241,9 +2320,11 @@
       renderCurrentView();
     });
     document.getElementById('save-to-board-btn').addEventListener('click', () => openBoardModal('save'));
-    document.getElementById('delete-selected-btn').addEventListener('click', deleteSelectedImages);
+    document.getElementById('delete-selected-btn').addEventListener('click', handleSelectionDestructiveAction);
     document.getElementById('board-back-btn').addEventListener('click', () => {
       _activeBoardId = '';
+      _selectionMode = false;
+      _selectedKeys.clear();
       renderCurrentView();
     });
     document.getElementById('board-modal-cancel').addEventListener('click', closeBoardModal);
