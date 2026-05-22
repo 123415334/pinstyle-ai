@@ -1,7 +1,11 @@
 const FREE_MONTHLY_LIMIT = 3;
 const PRO_MONTHLY_LIMIT = 120;
 const STUDIO_MONTHLY_LIMIT = 600;
-const MAX_REFERENCE_IMAGES = 8;
+const API_VERSION = '2026-05-22.reference-stability-v2';
+const MAX_REFERENCE_IMAGES = 12;
+const MAX_CONDITIONING_IMAGES = 4;
+const MAX_GRAPHIC_CONDITIONING_IMAGES = 6;
+const MAX_REFERENCE_BYTES = 4 * 1024 * 1024;
 const DEFAULT_STYLE_PROMPT = 'professional photography, natural lighting, refined composition, high quality';
 const DEFAULT_STYLE_SCHEMA = Object.freeze({
   best_image_index: 0,
@@ -24,6 +28,12 @@ const DEFAULT_STYLE_SCHEMA = Object.freeze({
 const ANTHROPIC_STYLE_MODEL = process.env.ANTHROPIC_STYLE_MODEL || 'claude-sonnet-4-20250514';
 const REPLICATE_FLUX_MODEL  = process.env.REPLICATE_FLUX_MODEL || 'black-forest-labs/flux-2-pro';
 const EXPOSE_STYLE_DEBUG     = process.env.EXPOSE_STYLE_DEBUG === '1';
+let sharp = null;
+try {
+  sharp = require('sharp');
+} catch {
+  sharp = null;
+}
 
 // ── Supabase helpers ──────────────────────────────────────────────────────────
 
@@ -118,6 +128,23 @@ async function incrementUsage(userId, email, { currentUsed, effectiveMonthly, mo
 // ── Image fetching ────────────────────────────────────────────────────────────
 // Fetches reference images so Claude can analyze their visual style.
 
+async function normalizeImageBuffer(buffer, mediaType) {
+  if (!buffer || !buffer.length) return null;
+  if (!sharp) return { buffer, mediaType };
+
+  try {
+    const normalized = await sharp(buffer, { limitInputPixels: 36_000_000 })
+      .rotate()
+      .resize({ width: 1200, height: 1200, fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 86, mozjpeg: true })
+      .toBuffer();
+    return { buffer: normalized, mediaType: 'image/jpeg' };
+  } catch (err) {
+    console.warn('[tack] image normalization failed; using original:', err.message);
+    return { buffer, mediaType };
+  }
+}
+
 async function fetchImageData(url) {
   try {
     const controller = new AbortController();
@@ -134,9 +161,14 @@ async function fetchImageData(url) {
     if (!resp.ok) return null;
     const mediaType  = (resp.headers.get('content-type') || 'image/jpeg').split(';')[0].trim();
     const arrayBuf   = await resp.arrayBuffer();
-    const buffer     = Buffer.from(arrayBuf);
-    const base64     = buffer.toString('base64');
-    return { buffer, base64, mediaType };
+    const originalBuffer = Buffer.from(arrayBuf);
+    if (originalBuffer.length === 0 || originalBuffer.length > MAX_REFERENCE_BYTES * 3) return null;
+
+    const normalized = await normalizeImageBuffer(originalBuffer, mediaType);
+    if (!normalized?.buffer?.length || normalized.buffer.length > MAX_REFERENCE_BYTES) return null;
+
+    const base64 = normalized.buffer.toString('base64');
+    return { buffer: normalized.buffer, base64, mediaType: normalized.mediaType };
   } catch {
     return null;
   }
@@ -233,19 +265,37 @@ function parseStyleSchema(rawText, referenceCount) {
   }
 }
 
-function buildStyleAnalysisPrompt(referenceCount) {
+function isGraphicDesignRequest(subject = '') {
+  return /\b(poster|flyer|album cover|book cover|magazine|zine|typography|type treatment|lettering|logo|brand|branding|packaging|label|sticker|graphic|layout|collage|moodboard|ad campaign|banner|social post|web design|ui|icon|illustration)\b/i.test(subject);
+}
+
+function isStyleDrivenRequest(subject = '') {
+  return !isHumanSubjectRequest(subject) || isGraphicDesignRequest(subject);
+}
+
+function isHumanSubjectRequest(subject = '') {
+  return /\b(person|people|portrait|woman|man|lady|girl|boy|child|teen|adult|elderly|old|young|model|subject|face|couple|family|mother|father|grandmother|grandfather)\b/i.test(subject);
+}
+
+function buildStyleAnalysisPrompt(referenceCount, subject) {
+  const humanRequest = isHumanSubjectRequest(subject);
   return `Analyze these ${referenceCount} reference images and return a single JSON object describing their shared style DNA.
 
 Goal:
-- The output will be used to generate a new subject that belongs to the same visual family as these references.
+- The output will be used to generate this new subject: "${subject.trim()}".
+- The new subject must belong to the same visual family as the strongest compatible references.
 - Focus on aesthetic fidelity, art direction, lighting, rendering medium, palette, texture, composition, and mood.
 - Do NOT focus on copying the subject matter.
 
 Instructions:
-- Treat the references as a blended set, not a single-image copy task.
-- Identify which image best anchors the shared style across the whole set.
-- If one or more references are clear outliers, mark them as outliers.
-- Preserve the broad family resemblance across the set, not just one dominant trait.
+- Treat the references as a candidate style board, not all equally useful.
+- Identify which image best anchors the desired style for the requested subject.
+- Mark references as outliers when they conflict with the requested subject, have a different medium, are close body fragments, private/intimate scenes, or would pull the generation toward wrong content.
+- ${humanRequest
+    ? 'Because this is a human-subject request, treat reference people as style examples only. Do not preserve their identity, face, age, hairstyle, outfit, pose, or body type as required content.'
+    : 'Because this is not a human-subject request, preserve useful visual style signals from product renders, illustration, typography, layout, collage, material, lighting, color, photography, and graphic-design references when they support the requested subject.'}
+- When the board is mixed, prefer cohesive style signals that support the requested medium over unusual subjects or one-off compositions.
+- Preserve the broad family resemblance across the compatible references, not just one dominant trait.
 
 Return ONLY valid JSON with this exact shape:
 {
@@ -269,18 +319,18 @@ Return ONLY valid JSON with this exact shape:
 
 Field rules:
 - best_image_index: integer, zero-based index of the best anchor image
-- consistency_score: number from 0 to 1 for how cohesive the set is
-- outlier_indices: zero-based indices for references that pull away from the shared style
+- consistency_score: number from 0 to 1 for how cohesive the compatible style subset is
+- outlier_indices: zero-based indices for references that pull away from the shared style or conflict with the requested subject
 - must_preserve: 2-5 concise style traits that must survive generation
 - avoid: 0-5 drift risks or wrong directions
 - reference_subjects: 2-8 concise nouns for the main depicted subjects, objects, characters, or motifs recurring in the references
 - subject_leak_risks: 0-8 specific reference subjects or motifs that must NOT leak into a new generation unless explicitly requested
 - style_prompt: 90-140 words, dense and specific, describing the shared style for image generation
 
-Be concrete, visually specific, and faithful to the shared aesthetic. Output JSON only.`;
+Be concrete, visually specific, and faithful to the compatible shared aesthetic. Output JSON only.`;
 }
 
-async function analyzeStyleSchema(validReferences) {
+async function analyzeStyleSchema(validReferences, subject) {
   let rawResponse = '';
   try {
     const claudeResp = await fetch('https://api.anthropic.com/v1/messages', {
@@ -304,7 +354,7 @@ async function analyzeStyleSchema(validReferences) {
             })),
             {
               type: 'text',
-              text: buildStyleAnalysisPrompt(validReferences.length),
+              text: buildStyleAnalysisPrompt(validReferences.length, subject),
             },
           ],
         }],
@@ -327,7 +377,7 @@ async function analyzeStyleSchema(validReferences) {
   }
 }
 
-function buildConditioningReferences(validReferences, styleSchema) {
+function buildConditioningReferences(validReferences, styleSchema, subject = '') {
   const refs = [...validReferences];
   if (refs.length <= 1) return refs;
 
@@ -335,19 +385,30 @@ function buildConditioningReferences(validReferences, styleSchema) {
   const [bestRef] = refs.splice(bestIndex, 1);
   const ordered = [bestRef, ...refs];
 
-  const shouldExcludeOutliers = styleSchema.consistency_score < 0.7 && styleSchema.outlier_indices.length > 0;
-  if (!shouldExcludeOutliers) return ordered;
-
   const excluded = new Set(styleSchema.outlier_indices.map(index => validReferences[index]?.url).filter(Boolean));
   const filtered = ordered.filter((ref, index) => index === 0 || !excluded.has(ref.url));
-  return filtered.length >= 2 ? filtered : ordered;
+  const compatible = filtered.length >= 2 ? filtered : ordered;
+  const limit = isStyleDrivenRequest(subject) ? MAX_GRAPHIC_CONDITIONING_IMAGES : MAX_CONDITIONING_IMAGES;
+  return compatible.slice(0, limit);
 }
 
-function buildGenerationPrompt(subject, styleSchema) {
+function buildConditioningInput(ref) {
+  if (!ref?.base64 || !ref?.mediaType?.startsWith('image/')) return ref?.url || '';
+  return `data:${ref.mediaType};base64,${ref.base64}`;
+}
+
+function buildGenerationPrompt(subject, styleSchema, { styleDriven = false } = {}) {
   const lines = [
     `Create ${subject.trim()}.`,
     `Primary subject requirement: the image must clearly depict ${subject.trim()} as the hero subject.`,
+    'The requested subject overrides all reference image subjects.',
+    'Do not copy or preserve any reference person identity, face, age, hairstyle, outfit, body type, pose, or character.',
+    'If the requested subject differs from people in the references, replace the reference person completely while keeping only the photographic style.',
+    'Honor every concrete detail in the subject request, including quantity, color, age, objects, action, setting, and time of day.',
+    'Make one coherent, believable image with natural anatomy, realistic faces and hands, correct limb structure, and no duplicated bodies or fused objects.',
+    'If the subject includes people holding or carrying objects, make the grip, object count, and object placement visually legible.',
     'Match the shared visual family of the reference images, keeping the subject new but the aesthetic highly consistent.',
+    'Style fidelity is critical: the result should be immediately recognizable as belonging to the same visual world as the references.',
     'Translate style only. Do not copy the exact subject matter, character design, mascot, lettering, logo, pose, layout, or composition from the reference images.',
     'If the references contain recognizable objects or characters, carry over only their aesthetic treatment, not their identity.',
     `Style family: ${styleSchema.style_family}.`,
@@ -359,7 +420,12 @@ function buildGenerationPrompt(subject, styleSchema) {
     `Shape language: ${styleSchema.shape_language}.`,
     `Mood and art direction: ${styleSchema.mood}.`,
     `Preserve these traits: ${styleSchema.must_preserve.join(', ')}.`,
+    'Avoid AI artifacts, warped fingers, distorted faces, extra limbs, missing limbs, melting objects, illegible object counts, text/logos, collages, screenshots, and graphic-design layouts unless explicitly requested.',
   ];
+
+  if (styleDriven) {
+    lines.push('For stylized product, object, graphic, or illustrative references, preserve the rendering medium, material treatment, lighting logic, color behavior, edge quality, shadow style, and compositional boldness more strongly than generic photorealism.');
+  }
 
   if (styleSchema.avoid.length) {
     lines.push(`Avoid drifting into: ${styleSchema.avoid.join(', ')}.`);
@@ -378,7 +444,7 @@ function buildGenerationPrompt(subject, styleSchema) {
 }
 
 function buildVariationPrompt(subject, styleSchema) {
-  return `${buildGenerationPrompt(subject, styleSchema)} Keep the same style fidelity, but vary the framing, silhouette, crop, and composition so it feels like a second image from the same campaign rather than a duplicate. Do not reuse the same arrangement or recurring motifs from the references.`;
+  return `${buildGenerationPrompt(subject, styleSchema, { styleDriven: isStyleDrivenRequest(subject) })} Keep the same style fidelity, but vary the framing, silhouette, crop, and composition so it feels like a second image from the same campaign rather than a duplicate. Do not reuse the same arrangement or recurring motifs from the references.`;
 }
 
 // ── FLUX 2 Pro ────────────────────────────────────────────────────────────────
@@ -435,6 +501,32 @@ async function waitForResult(predictionId) {
     if (data.status === 'failed')    throw new Error(data.error || 'Generation failed');
   }
   throw new Error('Generation timed out — please try again');
+}
+
+async function runPredictionPair(prompt1, prompt2, conditioningInputs, requestedOutputCount) {
+  const id1 = await startFluxPrediction(prompt1, conditioningInputs, { aspectRatio: 'match_input_image' });
+  let id2 = null;
+  if (requestedOutputCount > 1) {
+    await sleep(3000);
+    id2 = await startFluxPrediction(prompt2, conditioningInputs, { aspectRatio: 'match_input_image' });
+  }
+
+  const settledResults = await Promise.allSettled([
+    waitForResult(id1),
+    ...(id2 ? [waitForResult(id2)] : []),
+  ]);
+
+  settledResults.forEach((result, index) => {
+    if (result.status === 'rejected') {
+      console.error(`[tack] prediction ${index + 1} failed:`, result.reason?.message);
+    }
+  });
+
+  return settledResults
+    .map(result => result.status === 'fulfilled'
+      ? (Array.isArray(result.value) ? result.value[0] : result.value)
+      : null)
+    .filter(Boolean);
 }
 
 // ── Main handler ──────────────────────────────────────────────────────────────
@@ -517,24 +609,26 @@ module.exports = async function handler(req, res) {
     }
 
     // ── Step 2: Claude structured style analysis ──────────────────────────
-    const { styleSchema, rawResponse } = await analyzeStyleSchema(validReferences);
-    const conditioningReferences = buildConditioningReferences(validReferences, styleSchema);
-    const conditioningUrls = conditioningReferences.map(ref => ref.url);
+    const { styleSchema, rawResponse } = await analyzeStyleSchema(validReferences, subject);
+    const conditioningReferences = buildConditioningReferences(validReferences, styleSchema, subject);
+    const shouldUseImageConditioning = !isHumanSubjectRequest(subject) || isStyleDrivenRequest(subject);
+    const conditioningInputs = shouldUseImageConditioning ? conditioningReferences.map(buildConditioningInput).filter(Boolean) : [];
 
     // ── Step 3: Build prompts ─────────────────────────────────────────────
-    const prompt1 = buildGenerationPrompt(subject, styleSchema);
+    const prompt1 = buildGenerationPrompt(subject, styleSchema, { styleDriven: isStyleDrivenRequest(subject) });
     const prompt2 = buildVariationPrompt(subject, styleSchema);
 
     console.log('[tack] prompt1:', prompt1.slice(0, 120) + '...');
 
     // ── Step 4: Launch both predictions with a stagger ────────────────────
-    // Pass the reference image URLs so FLUX 2 Pro can use them for conditioning.
+    // Human-subject prompts use text-only style transfer to prevent identity,
+    // face, age, clothing, and pose leakage from reference photos.
     let id1, id2;
     try {
-      id1 = await startFluxPrediction(prompt1, conditioningUrls, { aspectRatio: 'match_input_image' });
+      id1 = await startFluxPrediction(prompt1, conditioningInputs, { aspectRatio: 'match_input_image' });
       if (requestedOutputCount > 1) {
         await sleep(3000);
-        id2 = await startFluxPrediction(prompt2, conditioningUrls, { aspectRatio: 'match_input_image' });
+        id2 = await startFluxPrediction(prompt2, conditioningInputs, { aspectRatio: 'match_input_image' });
       }
     } catch (err) {
       console.error('[tack] prediction start failed:', err.message);
@@ -551,10 +645,19 @@ module.exports = async function handler(req, res) {
     if (result1.status === 'rejected') console.error('[tack] prediction 1 failed:', result1.reason?.message);
     if (result2?.status === 'rejected') console.error('[tack] prediction 2 failed:', result2.reason?.message);
 
-    const images = [
+    let images = [
       result1.status === 'fulfilled' ? (Array.isArray(result1.value) ? result1.value[0] : result1.value) : null,
       result2?.status === 'fulfilled' ? (Array.isArray(result2.value) ? result2.value[0] : result2.value) : null,
     ].filter(Boolean);
+
+    let usedFallbackConditioning = false;
+    if (images.length === 0 && conditioningInputs.length > 1) {
+      console.warn('[tack] conditioned predictions failed; retrying with strongest reference only');
+      const fallbackId = await startFluxPrediction(prompt1, conditioningInputs.slice(0, 1), { aspectRatio: 'match_input_image', retries: 1 });
+      const fallbackResult = await waitForResult(fallbackId);
+      images = [Array.isArray(fallbackResult) ? fallbackResult[0] : fallbackResult].filter(Boolean);
+      usedFallbackConditioning = images.length > 0;
+    }
 
     if (images.length === 0) {
       throw new Error(requestedOutputCount > 1 ? 'Both generations failed. Please try again.' : 'Generation failed. Please try again.');
@@ -582,7 +685,8 @@ module.exports = async function handler(req, res) {
       conditioningMeta: {
         selected_count: selectedUrls.length,
         valid_count: validReferences.length,
-        used_count: conditioningUrls.length,
+        used_count: usedFallbackConditioning ? 1 : conditioningInputs.length,
+        mode: usedFallbackConditioning ? 'image_conditioned_fallback' : (shouldUseImageConditioning ? 'image_conditioned' : 'style_text_only'),
         best_image_index: styleSchema.best_image_index,
         consistency_score: styleSchema.consistency_score,
         ...(EXPOSE_STYLE_DEBUG ? { raw_style_analysis: rawResponse || null } : {}),
