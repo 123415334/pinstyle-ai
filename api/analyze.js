@@ -1,7 +1,7 @@
 const FREE_MONTHLY_LIMIT = 3;
 const PRO_MONTHLY_LIMIT = 120;
 const STUDIO_MONTHLY_LIMIT = 600;
-const API_VERSION = '2026-05-22.reference-stability-v2';
+const API_VERSION = '2026-05-23.human-art-style-conditioning';
 const MAX_REFERENCE_IMAGES = 12;
 const MAX_CONDITIONING_IMAGES = 4;
 const MAX_GRAPHIC_CONDITIONING_IMAGES = 6;
@@ -277,6 +277,22 @@ function isHumanSubjectRequest(subject = '') {
   return /\b(person|people|portrait|woman|man|lady|girl|boy|child|teen|adult|elderly|old|young|model|subject|face|couple|family|mother|father|grandmother|grandfather)\b/i.test(subject);
 }
 
+function isNonPhotographicStyle(styleSchema = {}) {
+  const styleText = [
+    styleSchema.style_family,
+    styleSchema.rendering_medium,
+    styleSchema.texture_materials,
+    styleSchema.composition,
+    styleSchema.shape_language,
+    styleSchema.mood,
+    styleSchema.style_prompt,
+  ].filter(Boolean).join(' ').toLowerCase();
+
+  const artTerms = /\b(painting|painted|oil paint|oil painting|acrylic|watercolor|gouache|brushwork|canvas|illustration|illustrated|drawing|sketch|charcoal|pastel|collage|mixed media|printmaking|screenprint|linocut|woodcut|ink|anime|manga|cartoon|comic|3d render|cgi|sculptural)\b/;
+  const photoTerms = /\b(photo|photograph|photography|photographic|camera|film photo|35mm|flash photograph|snapshot|documentary photo|street photography|editorial photography|product photography)\b/;
+  return artTerms.test(styleText) && !photoTerms.test(styleText);
+}
+
 function buildStyleAnalysisPrompt(referenceCount, subject) {
   const humanRequest = isHumanSubjectRequest(subject);
   return `Analyze these ${referenceCount} reference images and return a single JSON object describing their shared style DNA.
@@ -397,13 +413,13 @@ function buildConditioningInput(ref) {
   return `data:${ref.mediaType};base64,${ref.base64}`;
 }
 
-function buildGenerationPrompt(subject, styleSchema, { styleDriven = false } = {}) {
+function buildGenerationPrompt(subject, styleSchema, { styleDriven = false, nonPhotographic = false } = {}) {
   const lines = [
     `Create ${subject.trim()}.`,
     `Primary subject requirement: the image must clearly depict ${subject.trim()} as the hero subject.`,
     'The requested subject overrides all reference image subjects.',
     'Do not copy or preserve any reference person identity, face, age, hairstyle, outfit, body type, pose, or character.',
-    'If the requested subject differs from people in the references, replace the reference person completely while keeping only the photographic style.',
+    'If the requested subject differs from people in the references, replace the reference person completely while keeping only the visual style.',
     'Honor every concrete detail in the subject request, including quantity, color, age, objects, action, setting, and time of day.',
     'Make one coherent, believable image with natural anatomy, realistic faces and hands, correct limb structure, and no duplicated bodies or fused objects.',
     'If the subject includes people holding or carrying objects, make the grip, object count, and object placement visually legible.',
@@ -427,6 +443,10 @@ function buildGenerationPrompt(subject, styleSchema, { styleDriven = false } = {
     lines.push('For stylized product, object, graphic, or illustrative references, preserve the rendering medium, material treatment, lighting logic, color behavior, edge quality, shadow style, and compositional boldness more strongly than generic photorealism.');
   }
 
+  if (nonPhotographic) {
+    lines.push('The final image must preserve the non-photographic medium of the references. Do not render this as a camera photo, stock photo, documentary photograph, or photorealistic snapshot.');
+  }
+
   if (styleSchema.avoid.length) {
     lines.push(`Avoid drifting into: ${styleSchema.avoid.join(', ')}.`);
   }
@@ -443,8 +463,8 @@ function buildGenerationPrompt(subject, styleSchema, { styleDriven = false } = {
   return lines.join(' ');
 }
 
-function buildVariationPrompt(subject, styleSchema) {
-  return `${buildGenerationPrompt(subject, styleSchema, { styleDriven: isStyleDrivenRequest(subject) })} Keep the same style fidelity, but vary the framing, silhouette, crop, and composition so it feels like a second image from the same campaign rather than a duplicate. Do not reuse the same arrangement or recurring motifs from the references.`;
+function buildVariationPrompt(subject, styleSchema, options = {}) {
+  return `${buildGenerationPrompt(subject, styleSchema, options)} Keep the same style fidelity, but vary the framing, silhouette, crop, and composition so it feels like a second image from the same campaign rather than a duplicate. Do not reuse the same arrangement or recurring motifs from the references.`;
 }
 
 // ── FLUX 2 Pro ────────────────────────────────────────────────────────────────
@@ -611,12 +631,17 @@ module.exports = async function handler(req, res) {
     // ── Step 2: Claude structured style analysis ──────────────────────────
     const { styleSchema, rawResponse } = await analyzeStyleSchema(validReferences, subject);
     const conditioningReferences = buildConditioningReferences(validReferences, styleSchema, subject);
-    const shouldUseImageConditioning = !isHumanSubjectRequest(subject) || isStyleDrivenRequest(subject);
+    const nonPhotographic = isNonPhotographicStyle(styleSchema);
+    const shouldUseImageConditioning = !isHumanSubjectRequest(subject)
+      || isStyleDrivenRequest(subject)
+      || nonPhotographic;
     const conditioningInputs = shouldUseImageConditioning ? conditioningReferences.map(buildConditioningInput).filter(Boolean) : [];
 
     // ── Step 3: Build prompts ─────────────────────────────────────────────
-    const prompt1 = buildGenerationPrompt(subject, styleSchema, { styleDriven: isStyleDrivenRequest(subject) });
-    const prompt2 = buildVariationPrompt(subject, styleSchema);
+    const styleDriven = isStyleDrivenRequest(subject) || nonPhotographic;
+    const promptOptions = { styleDriven, nonPhotographic };
+    const prompt1 = buildGenerationPrompt(subject, styleSchema, promptOptions);
+    const prompt2 = buildVariationPrompt(subject, styleSchema, promptOptions);
 
     console.log('[tack] prompt1:', prompt1.slice(0, 120) + '...');
 
