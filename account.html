@@ -431,18 +431,18 @@
       font-size: 13px;
       color: var(--ink-muted);
     }
-    /* ══ MASONRY GRID ══ */
+    /* ══ GENERATION GRID ══ */
     .masonry {
-      columns: 4;
-      column-gap: 12px;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      align-items: start;
+      gap: 12px;
     }
-    @media (max-width: 1100px) { .masonry { columns: 3; } }
-    @media (max-width: 720px)  { .masonry { columns: 2; } }
-    @media (max-width: 460px)  { .masonry { columns: 1; } }
+    @media (max-width: 1100px) { .masonry { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    @media (max-width: 720px)  { .masonry { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 460px)  { .masonry { grid-template-columns: 1fr; } }
 
     .masonry-item {
-      break-inside: avoid;
-      margin-bottom: 12px;
       border-radius: var(--radius-card);
       overflow: hidden;
       background: var(--bg-card);
@@ -1512,17 +1512,19 @@
 
     function flattenGenerations(generations) {
       const items = [];
-      generations.forEach(gen => {
-        (gen.image_urls || []).forEach((url, index) => {
-          items.push({
-            key: `${gen.id}:${index}`,
-            generationId: gen.id,
-            url,
-            prompt: gen.prompt || '',
-            created_at: gen.created_at,
+      [...generations]
+        .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+        .forEach(gen => {
+          (gen.image_urls || []).forEach((url, index) => {
+            items.push({
+              key: `${gen.id}:${index}`,
+              generationId: gen.id,
+              url,
+              prompt: gen.prompt || '',
+              created_at: gen.created_at,
+            });
           });
         });
-      });
       return items;
     }
 
@@ -1901,6 +1903,12 @@
       renderBoardsIndex();
     }
 
+    function applyInitialLibraryView() {
+      const view = new URLSearchParams(window.location.search).get('view');
+      if (view === 'boards') _view = 'boards';
+      if (view === 'generations') _view = 'all';
+    }
+
     function closeBoardModal() {
       document.getElementById('board-modal').classList.remove('open');
       document.getElementById('board-modal-error').textContent = '';
@@ -2203,6 +2211,7 @@
         _session = session;
         localStorage.setItem('tack_session', JSON.stringify(session));
         if (maybeRedirectAfterAuth()) return;
+        applyInitialLibraryView();
         showHistory();
         loadLibrary();
       } catch (err) {
@@ -2399,6 +2408,7 @@
           localStorage.setItem('tack_session', JSON.stringify(session));
           history.replaceState({}, document.title, `${window.location.pathname}${window.location.search}`);
           if (maybeRedirectAfterAuth()) return;
+          applyInitialLibraryView();
           showHistory();
           loadLibrary();
           return;
@@ -2419,6 +2429,7 @@
           if (session?.access_token) {
             _session = session;
             if (maybeRedirectAfterAuth()) return;
+            applyInitialLibraryView();
             showHistory();
             loadLibrary();
             return;
