@@ -1666,6 +1666,26 @@
       positionQuickSavePopover(anchor);
     }
 
+    function getMasonryColumnCount() {
+      const w = window.innerWidth;
+      if (w <= 460) return 1;
+      if (w <= 720) return 2;
+      if (w <= 1100) return 3;
+      return 4;
+    }
+
+    function reorderForColumns(items, numCols) {
+      if (numCols <= 1) return items;
+      const n = items.length;
+      return Array.from({ length: numCols }, (_, col) => {
+        const colItems = [];
+        for (let row = 0; row * numCols + col < n; row++) {
+          colItems.push(items[row * numCols + col]);
+        }
+        return colItems;
+      }).flat();
+    }
+
     function renderGalleryItems(items, { emptyTitle, emptyCopy, showSelect = false } = {}) {
       const wrap = document.getElementById('gallery-wrap');
       if (items.length === 0) {
@@ -1681,7 +1701,7 @@
       const grid = document.createElement('div');
       grid.className = 'masonry';
 
-      items.forEach(entry => {
+      reorderForColumns(items, getMasonryColumnCount()).forEach(entry => {
         const date = formatDate(entry.created_at);
         const boardsForEntry = getBoardsForEntry(entry);
         const item = document.createElement('div');

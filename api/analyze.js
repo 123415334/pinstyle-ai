@@ -477,7 +477,7 @@ Field rules:
 - avoid: 0-5 drift risks or wrong directions
 - reference_subjects: 2-8 concise nouns for the main depicted subjects, objects, characters, or motifs recurring in the references
 - subject_leak_risks: 0-8 specific reference subjects or motifs that must NOT leak into a new generation unless explicitly requested
-- style_prompt: 90-140 words, dense and specific, describing the shared style for image generation
+- style_prompt: 90-140 words, dense and specific, describing the shared style for image generation. For non-photographic illustration, drawing, or painting styles, name the exact medium character: whether lines are rough or clean, thick or thin, scratchy or geometric; whether fills are flat or textured; whether edges are hard or loose; whether the hand of the artist is visible (imperfect, gestural, hand-made) or the work looks digitally finished and smooth. Capture any grain, paper texture, ink bleed, or brushstroke quality that distinguishes the style
 
 Be concrete, visually specific, and faithful to the compatible shared aesthetic. Output JSON only.`;
 }
@@ -580,7 +580,7 @@ function buildGenerationPrompt(subject, styleSchema, { styleDriven = false, nonP
   }
 
   if (nonPhotographic) {
-    lines.push('The final image must preserve the non-photographic medium of the references. Do not render this as a camera photo, stock photo, documentary photograph, or photorealistic snapshot.');
+    lines.push('The final image must preserve the non-photographic medium of the references. Do not render this as a camera photo, stock photo, documentary photograph, or photorealistic snapshot. Faithfully replicate the medium\'s characteristic mark-making: if lines are rough and irregular, keep them rough; if fills show brushwork, grain, or texture, preserve it; if the style is flat with hard edges, stay flat; if edges are loose or sketchy, keep them loose. Do not smooth, polish, or render-out the handmade, imperfect, or constructed character of the source medium — that rawness is the style.');
   }
 
   if (styleSchema.avoid.length) {
