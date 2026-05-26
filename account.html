@@ -433,20 +433,19 @@
     }
     /* ══ GENERATION GRID ══ */
     .masonry {
-      columns: 4;
-      column-gap: 12px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-auto-rows: 10px;
+      gap: 12px;
       width: 100%;
     }
-    @media (max-width: 1100px) { .masonry { column-count: 3; } }
-    @media (max-width: 720px)  { .masonry { column-count: 2; } }
-    @media (max-width: 460px)  { .masonry { column-count: 1; } }
+    @media (max-width: 1100px) { .masonry { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 720px)  { .masonry { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 460px)  { .masonry { grid-template-columns: 1fr; } }
 
     .masonry-item {
-      break-inside: avoid;
-      -webkit-column-break-inside: avoid;
-      display: inline-block;
       width: 100%;
-      margin-bottom: 12px;
+      min-height: 80px;
       border-radius: var(--radius-card);
       overflow: hidden;
       background: var(--bg-card);
@@ -1666,27 +1665,22 @@
       positionQuickSavePopover(anchor);
     }
 
-    function getMasonryColumnCount() {
-      const w = window.innerWidth;
-      if (w <= 460) return 1;
-      if (w <= 720) return 2;
-      if (w <= 1100) return 3;
-      return 4;
-    }
+    let _masonryObserver = null;
 
-    function reorderForColumns(items, numCols) {
-      if (numCols <= 1) return items;
-      const n = items.length;
-      return Array.from({ length: numCols }, (_, col) => {
-        const colItems = [];
-        for (let row = 0; row * numCols + col < n; row++) {
-          colItems.push(items[row * numCols + col]);
-        }
-        return colItems;
-      }).flat();
+    function observeMasonryItem(item) {
+      if (!_masonryObserver) {
+        _masonryObserver = new ResizeObserver(entries => {
+          entries.forEach(({ target, contentRect }) => {
+            const h = contentRect.height;
+            if (h > 0) target.style.gridRowEnd = `span ${Math.ceil((h + 12) / 22)}`;
+          });
+        });
+      }
+      _masonryObserver.observe(item);
     }
 
     function renderGalleryItems(items, { emptyTitle, emptyCopy, showSelect = false } = {}) {
+      if (_masonryObserver) { _masonryObserver.disconnect(); }
       const wrap = document.getElementById('gallery-wrap');
       if (items.length === 0) {
         wrap.innerHTML = `
@@ -1701,7 +1695,7 @@
       const grid = document.createElement('div');
       grid.className = 'masonry';
 
-      reorderForColumns(items, getMasonryColumnCount()).forEach(entry => {
+      items.forEach(entry => {
         const date = formatDate(entry.created_at);
         const boardsForEntry = getBoardsForEntry(entry);
         const item = document.createElement('div');
@@ -1762,6 +1756,7 @@
           }
           openLightbox(entry.url, entry.prompt, date);
         });
+        observeMasonryItem(item);
         grid.appendChild(item);
       });
 
