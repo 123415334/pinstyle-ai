@@ -356,25 +356,36 @@ main { padding: 14px; display: flex; flex-direction: column; gap: 16px; }
   line-height: 1.5;
 }
 
+.reference-note {
+  margin: 7px 0 0;
+  color: var(--ink-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
 /* ── IMAGE GRID ─────────────────────────────────────────────────────────── */
 #image-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
+  column-count: 4;
+  column-gap: 6px;
   margin-top: 6px;
 }
 
 .img-item {
   position: relative;
-  aspect-ratio: 1;
   border-radius: 7px;
   overflow: hidden;
   cursor: pointer;
   border: 2px solid transparent;
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  margin: 0 0 6px;
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
   transition: border-color 0.15s, transform 0.12s;
   background: var(--bg3);
 }
-.img-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.img-item img { width: 100%; height: auto; display: block; }
 .img-item:hover { transform: scale(0.97); }
 .img-item.selected { border-color: var(--accent-light); }
 
@@ -395,7 +406,7 @@ main { padding: 14px; display: flex; flex-direction: column; gap: 16px; }
 .img-item.selected .img-check { display: flex; }
 
 .empty-state {
-  grid-column: 1 / -1;
+  column-span: all;
   text-align: center;
   padding: 24px 12px;
   color: var(--ink-muted);
@@ -403,6 +414,52 @@ main { padding: 14px; display: flex; flex-direction: column; gap: 16px; }
   line-height: 1.6;
 }
 .empty-state strong { display: block; font-size: 13px; color: var(--ink); margin-bottom: 4px; }
+
+/* ── DIMENSION PICKER ───────────────────────────────────────────────────── */
+.prompt-input-wrap {
+  position: relative;
+}
+
+.prompt-input-wrap textarea {
+  padding-bottom: 36px;
+}
+
+.dimension-options {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid rgba(240,235,227,0.08);
+  border-radius: 999px;
+  background: rgba(8,7,6,0.82);
+  backdrop-filter: blur(10px);
+}
+
+.dimension-option {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 6px 8px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.dimension-option:hover {
+  color: var(--ink);
+}
+
+.dimension-option.selected {
+  background: var(--accent);
+  color: #fff;
+}
 
 /* ── DIVIDER ────────────────────────────────────────────────────────────── */
 .divider { border: none; border-top: 1px solid var(--border); }
@@ -470,6 +527,9 @@ textarea#subject-input {
   transition: border-color 0.15s, box-shadow 0.15s;
   outline: none;
   min-height: 70px;
+}
+.prompt-input-wrap textarea#subject-input {
+  padding-bottom: 36px;
 }
 textarea#subject-input::placeholder { color: var(--ink-muted); }
 textarea#subject-input:focus {
@@ -1293,10 +1353,29 @@ textarea#subject-input:focus {
 }
 .btn-copy:hover { background: rgba(240,235,227,0.05); border-color: rgba(240,235,227,0.35); }
 
-.gen-images { display: flex; flex-direction: row; flex-wrap: wrap; gap: 8px; overflow: visible; }
-.gen-img-wrap { position: relative; display: block; flex: 1; min-width: min(120px, 100%); overflow: hidden; border-radius: 10px; background: var(--bg3); }
+.gen-images {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr));
+  gap: 8px;
+  overflow: visible;
+}
+.gen-images[data-aspect-ratio="16:9"] {
+  grid-template-columns: 1fr;
+}
+.gen-img-wrap {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--bg3);
+  aspect-ratio: 1 / 1;
+}
+.gen-images[data-aspect-ratio="16:9"] .gen-img-wrap { aspect-ratio: 16 / 9; }
+.gen-images[data-aspect-ratio="9:16"] .gen-img-wrap { aspect-ratio: 9 / 16; }
 .gen-img-wrap img {
   width: 100%;
+  height: 100%;
+  object-fit: cover;
   border-radius: 8px;
   display: block;
   position: relative;
@@ -1309,7 +1388,7 @@ textarea#subject-input:focus {
 }
 .gen-img-overlay {
   position: absolute;
-  inset: auto 10px 10px 10px;
+  inset: auto 10px 44px 10px;
   display: flex;
   justify-content: center;
   z-index: 2;
@@ -1335,9 +1414,15 @@ textarea#subject-input:focus {
   opacity: 1;
   transform: translateY(0);
 }
+.gen-img-wrap .img-actions {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 3;
+}
 .download-btn {
   display: inline-block;
-  margin-top: 6px;
+  margin-top: 0;
   font-family: inherit;
   font-size: 11px;
   font-weight: 500;

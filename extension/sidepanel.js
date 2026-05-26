@@ -15,8 +15,16 @@ const WORKSPACE_KEY     = 'ps_workspace_store';
 const EVENT_LOG_KEY     = 'ps_event_log';
 const ANON_ID_KEY       = 'tack_anonymous_id';
 const ONBOARDING_KEY    = 'ps_onboarding_dismissed';
+const ASPECT_RATIO_KEY  = 'ps_generation_aspect_ratio';
 const SCAN_CACHE_TTL_MS = 5 * 60 * 1000;
 const WORKSPACE_TTL_MS  = 24 * 60 * 60 * 1000;
+const DEFAULT_ASPECT_RATIO = '1:1';
+const ALLOWED_ASPECT_RATIOS = new Set(['16:9', '1:1', '9:16']);
+const OUTPUT_DIMENSIONS = Object.freeze({
+  '16:9': { width: 1600, height: 896 },
+  '1:1':  { width: 1024, height: 1024 },
+  '9:16': { width: 896, height: 1600 },
+});
 const {
   clearElement,
   createEl,
@@ -68,6 +76,43 @@ function getEffectiveMonthlyUsed() {
   return _monthlyUsed;
 }
 
+function getAspectRatioLabel(aspectRatio = _generationAspectRatio) {
+  if (aspectRatio === '16:9') return 'horizontal';
+  if (aspectRatio === '9:16') return 'vertical';
+  return 'square';
+}
+
+function normalizeAspectRatio(aspectRatio) {
+  return ALLOWED_ASPECT_RATIOS.has(aspectRatio) ? aspectRatio : DEFAULT_ASPECT_RATIO;
+}
+
+function getOutputDimensions(aspectRatio = _generationAspectRatio) {
+  return OUTPUT_DIMENSIONS[normalizeAspectRatio(aspectRatio)] || OUTPUT_DIMENSIONS[DEFAULT_ASPECT_RATIO];
+}
+
+function setGenerationAspectRatio(aspectRatio, options = {}) {
+  const { persist = false } = options;
+  const next = normalizeAspectRatio(aspectRatio);
+  _generationAspectRatio = next;
+  dimensionOptions.forEach(option => {
+    const selected = option.dataset.aspectRatio === next;
+    option.classList.toggle('selected', selected);
+    option.setAttribute('aria-checked', selected ? 'true' : 'false');
+  });
+  if (persist) {
+    chrome.storage.local.set({ [ASPECT_RATIO_KEY]: next }).catch(() => {});
+    trackEvent('generation_dimension_selected', {
+      aspectRatio: next,
+      dimension: getAspectRatioLabel(next),
+    });
+  }
+}
+
+async function loadGenerationAspectRatio() {
+  const stored = await chrome.storage.local.get([ASPECT_RATIO_KEY]).catch(() => ({}));
+  setGenerationAspectRatio(stored[ASPECT_RATIO_KEY] || DEFAULT_ASPECT_RATIO);
+}
+
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 const imageGrid    = document.getElementById('image-grid');
 const statusEl     = document.getElementById('status');
@@ -85,6 +130,7 @@ const onboardingCard = document.getElementById('onboarding-card');
 const styleMemoryBanner = document.getElementById('style-memory-banner');
 const accountMenuTrigger = document.getElementById('account-menu-trigger');
 const accountMenuPanel = document.getElementById('account-menu-panel');
+const dimensionOptions = Array.from(document.querySelectorAll('.dimension-option'));
 
 let _currentPageUrl        = '';
 let _pendingWorkspace      = null;
@@ -104,12 +150,17 @@ let _scanRequestId         = 0;
 let _generateRequestId     = 0;
 let _planRequestId         = 0;
 let _activeGenerationController = null;
+let _generationAspectRatio = DEFAULT_ASPECT_RATIO;
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   await initAnalyticsIdentity();
+  await loadGenerationAspectRatio();
   refreshBtn.addEventListener('click', () => loadImages({ forceRefresh: true }));
   generateBtn.addEventListener('click', generate);
+  dimensionOptions.forEach(option => {
+    option.addEventListener('click', () => setGenerationAspectRatio(option.dataset.aspectRatio, { persist: true }));
+  });
   subjectInput.addEventListener('input', () => {
     updateGenerateBtn();
     saveWorkspaceState().catch(() => {});
@@ -130,6 +181,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('logout-btn').addEventListener('click', () => {
     closeAccountMenu();
     logout();
+  });
+  document.getElementById('generations-btn').addEventListener('click', () => {
+    closeAccountMenu();
+    openTackLibrary('generations');
+  });
+  document.getElementById('boards-btn').addEventListener('click', () => {
+    closeAccountMenu();
+    openTackLibrary('boards');
   });
   document.getElementById('manage-plan-btn').addEventListener('click', () => {
     closeAccountMenu();
@@ -557,6 +616,13 @@ async function openUpgradeFlow(plan, options = {}) {
     document.getElementById('plan-cards').classList.add('hidden');
     document.getElementById('plan-waiting').classList.remove('hidden');
   }
+}
+
+function openTackLibrary(view = '') {
+  const url = new URL('https://tack.design/account');
+  if (view) url.searchParams.set('view', view);
+  chrome.tabs.create({ url: url.toString() });
+  trackEvent('tack_library_opened', { view: view || 'library' });
 }
 
 function startBillingRefreshPolling() {
@@ -1334,11 +1400,32 @@ async function loadImages(options = {}) {
 function collectImages(minSize) {
   const seen    = new Set();
   const results = [];
+  const MAX_GENERIC_IMAGES = 160;
 
   function add(src, width, height, alt) {
     if (!src || seen.has(src)) return;
     seen.add(src);
     results.push({ src, width: width || 0, height: height || 0, alt: alt || '' });
+  }
+
+  function isRenderedElement(el) {
+    if (!el || !el.isConnected) return false;
+    const rect = el.getBoundingClientRect();
+    if (rect.width < minSize || rect.height < minSize) return false;
+    if (rect.bottom < -window.innerHeight || rect.top > window.innerHeight * 4) return false;
+    const style = window.getComputedStyle(el);
+    if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) return false;
+    return true;
+  }
+
+  function positionFor(el) {
+    const rect = el.getBoundingClientRect();
+    return { top: rect.top + window.scrollY, left: rect.left + window.scrollX };
+  }
+
+  function addWithPosition(src, width, height, alt, posMap, el) {
+    add(src, width, height, alt);
+    if (src && !posMap[src]) posMap[src] = positionFor(el);
   }
 
   // ── Pinterest-specific path ────────────────────────────────────────────────
@@ -1454,21 +1541,33 @@ function collectImages(minSize) {
     return results;
   }
 
+  const posMap = {};
   document.querySelectorAll('img').forEach(img => {
+    if (!isRenderedElement(img)) return;
     const src = img.currentSrc || img.src;
     if (!src || src.startsWith('data:')) return;
     const w = img.naturalWidth  || img.offsetWidth;
     const h = img.naturalHeight || img.offsetHeight;
     if (w < minSize || h < minSize) return;
-    add(src, w, h, img.alt || '');
+    addWithPosition(src, w, h, img.alt || '', posMap, img);
   });
 
-  const posMap = {};
-  document.querySelectorAll('img').forEach(img => {
-    const src = img.currentSrc || img.src;
-    if (!src || src.startsWith('data:') || posMap[src]) return;
-    const rect = img.getBoundingClientRect();
-    posMap[src] = { top: rect.top + window.scrollY, left: rect.left };
+  document.querySelectorAll('[style], article, figure, a, div').forEach(el => {
+    if (!isRenderedElement(el)) return;
+    const bg = window.getComputedStyle(el).backgroundImage || '';
+    const match = bg.match(/url\(["']?([^"')]+)["']?\)/);
+    if (!match) return;
+    const src = match[1];
+    if (!src || src.startsWith('data:') || src.startsWith('blob:')) return;
+    const rect = el.getBoundingClientRect();
+    addWithPosition(
+      src,
+      rect.width,
+      rect.height,
+      el.getAttribute('aria-label') || el.textContent?.trim().slice(0, 120) || '',
+      posMap,
+      el,
+    );
   });
 
   results.sort((a, b) => {
@@ -1477,7 +1576,7 @@ function collectImages(minSize) {
     return pa.top !== pb.top ? pa.top - pb.top : pa.left - pb.left;
   });
 
-  return results;
+  return results.slice(0, MAX_GENERIC_IMAGES);
 }
 
 // ── Select / deselect ─────────────────────────────────────────────────────────
@@ -1521,7 +1620,12 @@ async function generate() {
   const requestId = ++_generateRequestId;
   const subject = subjectInput.value.trim();
   if (!subject || selectedUrls.size === 0) return;
-  trackEvent('generate_clicked', { count: selectedUrls.size, source: _savedStyleMemory ? 'history_memory' : 'page' });
+  trackEvent('generate_clicked', {
+    count: selectedUrls.size,
+    source: _savedStyleMemory ? 'history_memory' : 'page',
+    aspectRatio: _generationAspectRatio,
+    dimension: getAspectRatioLabel(),
+  });
 
   // Guest → allow 1 anonymous generation, then gate
   if (!_authToken) {
@@ -1567,12 +1671,22 @@ async function generate() {
   try {
     const headers = { 'Content-Type': 'application/json' };
     if (_authToken) headers.Authorization = `Bearer ${_authToken}`;
+    const outputDimensions = getOutputDimensions();
 
     const resp = await fetch(API_URL, {
       method: 'POST',
       headers,
       signal: controller.signal,
-      body: JSON.stringify({ imageUrls: [...selectedUrls], subject, anonymousId: _anonymousId }),
+      body: JSON.stringify({
+        imageUrls: [...selectedUrls],
+        subject,
+        anonymousId: _anonymousId,
+        aspectRatio: _generationAspectRatio,
+        aspect_ratio: _generationAspectRatio,
+        outputDimensions,
+        width: outputDimensions.width,
+        height: outputDimensions.height,
+      }),
     });
 
     const data = await resp.json().catch(() => ({}));
@@ -1621,8 +1735,10 @@ async function generate() {
       styleDescriptors: data.styleDescriptors || '',
       prompt: data.prompt || '',
       images: Array.isArray(data.images) ? data.images : [],
+      aspectRatio: data.aspectRatio || _generationAspectRatio,
+      outputDimensions: data.outputDimensions || outputDimensions,
     };
-    renderResults(data);
+    renderResults(_lastResultData);
 
     if (!_authToken) {
       // Anonymous generation completed — increment counter
@@ -1646,6 +1762,8 @@ async function generate() {
           pageUrl,
           styleDescriptors: data.styleDescriptors || '',
           prompt: data.prompt || '',
+          aspectRatio: data.aspectRatio || _generationAspectRatio,
+          outputDimensions: data.outputDimensions || outputDimensions,
           referenceUrls: [...selectedUrls],
         }).catch(e => console.warn('[tack] history save failed:', e));
       }
@@ -1677,6 +1795,7 @@ async function generate() {
 // ── Render results ────────────────────────────────────────────────────────────
 function renderResults(data) {
   const { styleDescriptors, prompt, images } = data;
+  const aspectRatio = normalizeAspectRatio(data.aspectRatio || _generationAspectRatio);
   clearElement(resultsEl);
 
   if (!styleDescriptors && !prompt && (!images || images.length === 0)) {
@@ -1710,7 +1829,10 @@ function renderResults(data) {
 
   if (images && images.length > 0) {
     const block = createResultBlock('Generated Images');
-    const imageWrap = createEl('div', { className: 'gen-images' });
+    const imageWrap = createEl('div', {
+      className: 'gen-images',
+      dataset: { aspectRatio },
+    });
     images.forEach((url, i) => {
       const filename = `tack-${i + 1}.png`;
       const wrap = createEl('div', {
@@ -1731,7 +1853,7 @@ function renderResults(data) {
       });
       wrap.addEventListener('click', e => {
         if (!e.target.closest('.img-actions')) {
-          showPreview(url, filename);
+          showPreview(url, filename, aspectRatio);
         }
       });
       downloadBtn.addEventListener('click', e => {
@@ -1965,6 +2087,8 @@ async function saveToHistory(imageUrls, subject = '') {
       subject: meta.subject || '',
       prompt: meta.prompt || '',
       styleDescriptors: meta.styleDescriptors || '',
+      aspectRatio: meta.aspectRatio || '',
+      outputDimensions: meta.outputDimensions || null,
       sourcePageUrl: meta.pageUrl || '',
       referenceUrls: Array.isArray(meta.referenceUrls) ? meta.referenceUrls : [],
       sourceUrls: imageUrls,
@@ -2075,21 +2199,11 @@ async function renderHistory() {
 
 // ── History panel wiring ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  const historyBtn   = document.getElementById('history-btn');
+  const libraryBtn   = document.getElementById('library-btn');
   const historyPanel = document.getElementById('history-panel');
   const historyClose = document.getElementById('history-close');
 
-  historyBtn.addEventListener('click', () => {
-    if (!_authToken) {
-      // Guest — nudge them to sign in rather than showing someone else's history
-      historyPanel.classList.remove('hidden');
-      document.getElementById('history-list').innerHTML =
-        '<p class="history-empty">Sign in to see your generation history.</p>';
-      return;
-    }
-    historyPanel.classList.toggle('hidden');
-    if (!historyPanel.classList.contains('hidden')) renderHistory();
-  });
+  libraryBtn.addEventListener('click', () => openTackLibrary());
   historyClose.addEventListener('click', () => {
     historyPanel.classList.add('hidden');
     _historyObjectUrls.forEach(u => URL.revokeObjectURL(u));
@@ -2098,12 +2212,27 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ── Image Preview ─────────────────────────────────────────────────────────────
-function showPreview(url, filename = 'tack-image.png') {
+function showPreview(url, filename = 'tack-image.png', aspectRatio = '') {
   const overlay = document.getElementById('preview-overlay');
   const img     = document.getElementById('preview-img');
   const dlButton = document.getElementById('preview-download');
   if (!overlay || !img) return;
   img.src = url;
+  img.style.objectFit = 'contain';
+  // Let the natural limiting dimension do the work.
+  // Vertical: height-constrained so the tall image fills the panel top-to-bottom.
+  // Horizontal: width-constrained so the wide image fills side-to-side.
+  // Square: balanced.
+  if (aspectRatio === '9:16') {
+    img.style.maxHeight = '88vh';
+    img.style.maxWidth  = '96%';
+  } else if (aspectRatio === '16:9') {
+    img.style.maxWidth  = '96%';
+    img.style.maxHeight = '58vh';
+  } else {
+    img.style.maxWidth  = '90%';
+    img.style.maxHeight = '80vh';
+  }
   if (dlButton) {
     dlButton.dataset.url = url;
     dlButton.dataset.filename = sanitizeFilename(filename);

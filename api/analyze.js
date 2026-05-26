@@ -7,6 +7,14 @@ const MAX_CONDITIONING_IMAGES = 4;
 const MAX_GRAPHIC_CONDITIONING_IMAGES = 6;
 const MAX_REFERENCE_BYTES = 4 * 1024 * 1024;
 const DEFAULT_STYLE_PROMPT = 'professional photography, natural lighting, refined composition, high quality';
+const DEFAULT_ASPECT_RATIO = '1:1';
+const ALLOWED_ASPECT_RATIOS = new Set(['16:9', '1:1', '9:16']);
+const OUTPUT_DIMENSIONS = Object.freeze({
+  '16:9': { width: 1600, height: 896 },
+  '1:1':  { width: 1024, height: 1024 },
+  '9:16': { width: 896, height: 1600 },
+});
+const OUTPUT_ASPECT_TOLERANCE = 0.02;
 const DEFAULT_STYLE_SCHEMA = Object.freeze({
   best_image_index: 0,
   consistency_score: 0.75,
@@ -105,6 +113,30 @@ function getNextMonthlyReset(monthlyResetAt) {
   return new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 }
 
+function normalizeAspectRatio(value) {
+  const normalized = String(value || '').toLowerCase();
+  if (normalized === 'horizontal') return '16:9';
+  if (normalized === 'square') return '1:1';
+  if (normalized === 'vertical') return '9:16';
+  return ALLOWED_ASPECT_RATIOS.has(value) ? value : DEFAULT_ASPECT_RATIO;
+}
+
+function getOutputDimensions(aspectRatio) {
+  return OUTPUT_DIMENSIONS[normalizeAspectRatio(aspectRatio)] || OUTPUT_DIMENSIONS[DEFAULT_ASPECT_RATIO];
+}
+
+function getAspectRatioPromptInstruction(aspectRatio) {
+  const normalized = normalizeAspectRatio(aspectRatio);
+  if (normalized === '16:9') return 'The generated file must be a native horizontal 16:9 landscape image, composed for the full wide canvas, not a square crop or square image inside a wide frame.';
+  if (normalized === '9:16') return 'The generated file must be a native vertical 9:16 portrait image, composed for the full tall canvas, not a square crop or square image inside a tall frame.';
+  return 'The generated file must be a native square 1:1 image composed for the full square canvas.';
+}
+
+function getOutputRatio(aspectRatio) {
+  const dims = getOutputDimensions(aspectRatio);
+  return dims.width / dims.height;
+}
+
 async function incrementUsage(userId, email, { currentUsed, effectiveMonthly, monthlyResetAt }) {
   // Ensure the profile row exists first (handles new Google / OAuth sign-ups
   // that don't yet have a row in user_profiles).
@@ -172,6 +204,110 @@ async function fetchImageData(url) {
   } catch {
     return null;
   }
+}
+
+async function fetchGeneratedBuffer(url) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    const resp = await fetch(url, { signal: controller.signal });
+    if (!resp.ok) return null;
+    const contentType = (resp.headers.get('content-type') || '').split(';')[0].trim();
+    if (contentType && !contentType.startsWith('image/')) return null;
+    const arrayBuf = await resp.arrayBuffer();
+    const buffer = Buffer.from(arrayBuf);
+    return buffer.length ? buffer : null;
+  } catch (err) {
+    console.warn('[tack] generated image fetch failed:', err.message);
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function uploadGeneratedBuffer(ownerId, buffer, index) {
+  if (!buffer?.length) return null;
+  const timestamp = Date.now();
+  const safeOwner = String(ownerId || 'anonymous')
+    .replace(/[^a-zA-Z0-9_-]+/g, '-')
+    .slice(0, 80) || 'anonymous';
+  const path = `${safeOwner}/api_${timestamp}_${index}.png`;
+  const resp = await fetch(`${process.env.SUPABASE_URL}/storage/v1/object/generated-images/${path}`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+      'apikey':        process.env.SUPABASE_SERVICE_KEY,
+      'Content-Type':  'image/png',
+      'x-upsert':      'false',
+    },
+    body: buffer,
+  });
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => '');
+    console.warn('[tack] generated image upload failed:', resp.status, body);
+    return null;
+  }
+  return `${process.env.SUPABASE_URL}/storage/v1/object/public/generated-images/${path}`;
+}
+
+async function enforceOutputAspect(url, aspectRatio, index, ownerId) {
+  const dimensions = getOutputDimensions(aspectRatio);
+  const expectedRatio = getOutputRatio(aspectRatio);
+
+  if (!sharp) {
+    console.warn(`[tack] enforceOutputAspect[${index}]: sharp not available — skipping correction for ${aspectRatio}`);
+    return url;
+  }
+
+  const sourceBuffer = await fetchGeneratedBuffer(url);
+  if (!sourceBuffer) {
+    console.warn(`[tack] enforceOutputAspect[${index}]: could not fetch generated image`);
+    return url;
+  }
+
+  try {
+    const meta = await sharp(sourceBuffer, { limitInputPixels: 64_000_000 }).rotate().metadata();
+    const sourceRatio = meta.width && meta.height ? meta.width / meta.height : 0;
+    console.log(`[tack] enforceOutputAspect[${index}]: flux=${meta.width}x${meta.height} (${sourceRatio.toFixed(3)}) expected=${dimensions.width}x${dimensions.height} (${expectedRatio.toFixed(3)}) aspectRatio=${aspectRatio}`);
+
+    if (sourceRatio && Math.abs(sourceRatio - expectedRatio) <= OUTPUT_ASPECT_TOLERANCE) {
+      console.log(`[tack] enforceOutputAspect[${index}]: ratio OK — no correction needed`);
+      return url;
+    }
+
+    console.log(`[tack] enforceOutputAspect[${index}]: correcting ${meta.width}x${meta.height} → ${dimensions.width}x${dimensions.height}`);
+
+    const background = await sharp(sourceBuffer, { limitInputPixels: 64_000_000 })
+      .rotate()
+      .resize(dimensions.width, dimensions.height, { fit: 'cover', position: 'attention' })
+      .blur(32)
+      .modulate({ brightness: 0.82, saturation: 0.82 })
+      .png()
+      .toBuffer();
+
+    const foreground = await sharp(sourceBuffer, { limitInputPixels: 64_000_000 })
+      .rotate()
+      .resize(dimensions.width, dimensions.height, { fit: 'contain', withoutEnlargement: false })
+      .png()
+      .toBuffer();
+
+    const finalBuffer = await sharp(background, { limitInputPixels: 64_000_000 })
+      .composite([{ input: foreground, gravity: 'center' }])
+      .png({ quality: 95 })
+      .toBuffer();
+
+    const correctedUrl = await uploadGeneratedBuffer(ownerId, finalBuffer, index);
+    console.log(`[tack] enforceOutputAspect[${index}]: correction ${correctedUrl ? 'uploaded OK' : 'upload FAILED — using original'}`);
+    return correctedUrl || url;
+  } catch (err) {
+    console.warn(`[tack] enforceOutputAspect[${index}]: correction failed:`, err.message);
+    return url;
+  }
+}
+
+async function enforceOutputAspects(urls, aspectRatio, ownerId) {
+  if (!Array.isArray(urls) || urls.length === 0) return [];
+  return Promise.all(urls.map((url, index) => enforceOutputAspect(url, aspectRatio, index, ownerId)));
 }
 
 function sleep(ms) {
@@ -472,8 +608,23 @@ function buildVariationPrompt(subject, styleSchema, options = {}) {
 // Combined with Claude's rich paragraph-style description this produced the
 // best style-accurate results in testing.
 
-async function startFluxPrediction(prompt, imageUrls = [], { retries = 3, backoffMs = 12000, aspectRatio = 'match_input_image' } = {}) {
+async function startFluxPrediction(prompt, imageUrls = [], { retries = 3, backoffMs = 12000, aspectRatio = DEFAULT_ASPECT_RATIO } = {}) {
+  const normalizedRatio = normalizeAspectRatio(aspectRatio);
+  const dims = OUTPUT_DIMENSIONS[normalizedRatio] || OUTPUT_DIMENSIONS[DEFAULT_ASPECT_RATIO];
   for (let attempt = 0; attempt <= retries; attempt++) {
+    const input = {
+      prompt,
+      aspect_ratio:     normalizedRatio,
+      width:            dims.width,
+      height:           dims.height,
+      output_format:    'png',
+      output_quality:   95,
+      safety_tolerance: 5,
+    };
+    if (imageUrls.length > 0) input.input_images = imageUrls.slice(0, MAX_REFERENCE_IMAGES);
+
+    console.log(`[tack] startFluxPrediction: model=${REPLICATE_FLUX_MODEL} aspect_ratio=${normalizedRatio} width=${dims.width} height=${dims.height} input_images=${imageUrls.length}`);
+
     const resp = await fetch(
       `https://api.replicate.com/v1/models/${REPLICATE_FLUX_MODEL}/predictions`,
       {
@@ -482,16 +633,7 @@ async function startFluxPrediction(prompt, imageUrls = [], { retries = 3, backof
           'Authorization': `Bearer ${process.env.REPLICATE_API_KEY}`,
           'Content-Type':  'application/json',
         },
-        body: JSON.stringify({
-          input: {
-            prompt,
-            input_images:      imageUrls.slice(0, MAX_REFERENCE_IMAGES),
-            aspect_ratio:      imageUrls.length > 0 ? aspectRatio : '1:1',
-            output_format:     'png',
-            output_quality:    95,
-            safety_tolerance:  5,
-          },
-        }),
+        body: JSON.stringify({ input }),
       }
     );
 
@@ -523,12 +665,12 @@ async function waitForResult(predictionId) {
   throw new Error('Generation timed out — please try again');
 }
 
-async function runPredictionPair(prompt1, prompt2, conditioningInputs, requestedOutputCount) {
-  const id1 = await startFluxPrediction(prompt1, conditioningInputs, { aspectRatio: 'match_input_image' });
+async function runPredictionPair(prompt1, prompt2, conditioningInputs, requestedOutputCount, aspectRatio = DEFAULT_ASPECT_RATIO) {
+  const id1 = await startFluxPrediction(prompt1, conditioningInputs, { aspectRatio });
   let id2 = null;
   if (requestedOutputCount > 1) {
     await sleep(3000);
-    id2 = await startFluxPrediction(prompt2, conditioningInputs, { aspectRatio: 'match_input_image' });
+    id2 = await startFluxPrediction(prompt2, conditioningInputs, { aspectRatio });
   }
 
   const settledResults = await Promise.allSettled([
@@ -604,6 +746,7 @@ module.exports = async function handler(req, res) {
 
   // ── Input validation ──────────────────────────────────────────────────────
   const { imageUrls, subject, outputCount } = req.body;
+  const aspectRatio = normalizeAspectRatio(req.body?.aspectRatio || req.body?.aspect_ratio);
   const defaultOutputCount = ['pro', 'studio'].includes(plan) ? 2 : 1;
   const requestedOutputCount = Math.max(1, Math.min(defaultOutputCount, Number(outputCount) || defaultOutputCount));
   if (!subject || !subject.trim()) {
@@ -632,16 +775,19 @@ module.exports = async function handler(req, res) {
     const { styleSchema, rawResponse } = await analyzeStyleSchema(validReferences, subject);
     const conditioningReferences = buildConditioningReferences(validReferences, styleSchema, subject);
     const nonPhotographic = isNonPhotographicStyle(styleSchema);
-    const shouldUseImageConditioning = !isHumanSubjectRequest(subject)
+    const requiresNativeAspectCanvas = aspectRatio !== '1:1';
+    const shouldUseImageConditioning = !requiresNativeAspectCanvas && (
+      !isHumanSubjectRequest(subject)
       || isStyleDrivenRequest(subject)
-      || nonPhotographic;
+      || nonPhotographic
+    );
     const conditioningInputs = shouldUseImageConditioning ? conditioningReferences.map(buildConditioningInput).filter(Boolean) : [];
 
     // ── Step 3: Build prompts ─────────────────────────────────────────────
     const styleDriven = isStyleDrivenRequest(subject) || nonPhotographic;
     const promptOptions = { styleDriven, nonPhotographic };
-    const prompt1 = buildGenerationPrompt(subject, styleSchema, promptOptions);
-    const prompt2 = buildVariationPrompt(subject, styleSchema, promptOptions);
+    const prompt1 = `${buildGenerationPrompt(subject, styleSchema, promptOptions)} ${getAspectRatioPromptInstruction(aspectRatio)}`;
+    const prompt2 = `${buildVariationPrompt(subject, styleSchema, promptOptions)} ${getAspectRatioPromptInstruction(aspectRatio)}`;
 
     console.log('[tack] prompt1:', prompt1.slice(0, 120) + '...');
 
@@ -650,10 +796,10 @@ module.exports = async function handler(req, res) {
     // face, age, clothing, and pose leakage from reference photos.
     let id1, id2;
     try {
-      id1 = await startFluxPrediction(prompt1, conditioningInputs, { aspectRatio: 'match_input_image' });
+      id1 = await startFluxPrediction(prompt1, conditioningInputs, { aspectRatio });
       if (requestedOutputCount > 1) {
         await sleep(3000);
-        id2 = await startFluxPrediction(prompt2, conditioningInputs, { aspectRatio: 'match_input_image' });
+        id2 = await startFluxPrediction(prompt2, conditioningInputs, { aspectRatio });
       }
     } catch (err) {
       console.error('[tack] prediction start failed:', err.message);
@@ -678,7 +824,7 @@ module.exports = async function handler(req, res) {
     let usedFallbackConditioning = false;
     if (images.length === 0 && conditioningInputs.length > 1) {
       console.warn('[tack] conditioned predictions failed; retrying with strongest reference only');
-      const fallbackId = await startFluxPrediction(prompt1, conditioningInputs.slice(0, 1), { aspectRatio: 'match_input_image', retries: 1 });
+      const fallbackId = await startFluxPrediction(prompt1, conditioningInputs.slice(0, 1), { aspectRatio, retries: 1 });
       const fallbackResult = await waitForResult(fallbackId);
       images = [Array.isArray(fallbackResult) ? fallbackResult[0] : fallbackResult].filter(Boolean);
       usedFallbackConditioning = images.length > 0;
@@ -687,6 +833,8 @@ module.exports = async function handler(req, res) {
     if (images.length === 0) {
       throw new Error(requestedOutputCount > 1 ? 'Both generations failed. Please try again.' : 'Generation failed. Please try again.');
     }
+
+    images = await enforceOutputAspects(images, aspectRatio, user?.id || req.body?.anonymousId || 'anonymous');
 
     // ── Step 6: Increment usage ───────────────────────────────────────────
     if (!isAnon) {
@@ -705,6 +853,8 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({
       images,
       prompt:           prompt1,
+      aspectRatio,
+      outputDimensions: getOutputDimensions(aspectRatio),
       styleDescriptors: styleSchema.style_prompt,
       styleSchema,
       conditioningMeta: {

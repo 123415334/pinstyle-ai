@@ -433,16 +433,20 @@
     }
     /* ══ GENERATION GRID ══ */
     .masonry {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      align-items: start;
-      gap: 12px;
+      columns: 4;
+      column-gap: 12px;
+      width: 100%;
     }
-    @media (max-width: 1100px) { .masonry { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-    @media (max-width: 720px)  { .masonry { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-    @media (max-width: 460px)  { .masonry { grid-template-columns: 1fr; } }
+    @media (max-width: 1100px) { .masonry { column-count: 3; } }
+    @media (max-width: 720px)  { .masonry { column-count: 2; } }
+    @media (max-width: 460px)  { .masonry { column-count: 1; } }
 
     .masonry-item {
+      break-inside: avoid;
+      -webkit-column-break-inside: avoid;
+      display: inline-block;
+      width: 100%;
+      margin-bottom: 12px;
       border-radius: var(--radius-card);
       overflow: hidden;
       background: var(--bg-card);
@@ -458,8 +462,8 @@
     }
     .masonry-item img {
       width: 100%;
+      height: auto;
       display: block;
-      object-fit: cover;
     }
     .tile-check {
       position: absolute;
@@ -1199,7 +1203,6 @@
     let _quickSaveEntry = null;
     let _quickSaveAnchor = null;
     let _deleteConfirmResolve = null;
-
     function getSafeNextPath() {
       const raw = new URLSearchParams(window.location.search).get('next') || '';
       if (!raw || !raw.startsWith('/')) return '';

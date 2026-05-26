@@ -146,8 +146,10 @@
                 <span id="header-email" class="header-email"></span>
                 <span id="header-plan-badge" class="header-plan-badge"></span>
               </div>
-              <button id="manage-plan-btn" class="menu-action-btn" type="button">Manage plan</button>
-              <button id="logout-btn" class="menu-action-btn menu-action-btn-muted" type="button">Sign out</button>
+              <button id="generations-btn" class="menu-action-btn" type="button">Generations</button>
+              <button id="boards-btn" class="menu-action-btn" type="button">Boards</button>
+              <button id="manage-plan-btn" class="menu-action-btn" type="button">Manage Plan</button>
+              <button id="logout-btn" class="menu-action-btn menu-action-btn-muted" type="button">Sign Out</button>
             </div>
             <button id="header-signin-btn" class="header-signin-btn hidden" type="button">Sign in</button>
           </div>
@@ -180,11 +182,19 @@
         What do you want to <em>create?</em>
       </label>
       <div id="style-memory-banner" class="style-memory-banner hidden"></div>
-      <textarea
-        id="subject-input"
-        placeholder="e.g. a cozy coffee shop interior, a woman in a linen dress, a minimalist product shot…"
-        rows="3"
-      ></textarea>
+      <div class="prompt-input-wrap">
+        <textarea
+          id="subject-input"
+          placeholder="e.g. a cozy coffee shop interior, a woman in a linen dress, a minimalist product shot…"
+          rows="3"
+        ></textarea>
+        <div class="dimension-options" role="radiogroup" aria-label="Image shape">
+          <button class="dimension-option" type="button" role="radio" aria-checked="false" data-aspect-ratio="16:9">Horizontal</button>
+          <button class="dimension-option selected" type="button" role="radio" aria-checked="true" data-aspect-ratio="1:1">Square</button>
+          <button class="dimension-option" type="button" role="radio" aria-checked="false" data-aspect-ratio="9:16">Vertical</button>
+        </div>
+      </div>
+      <p class="reference-note">Best results come from references that feel like one visual family.</p>
     </section>
 
     <!-- Generate button -->
@@ -208,9 +218,9 @@
   </div>
 
   <footer>
-    <button id="history-btn" class="history-toggle">
+    <button id="library-btn" class="history-toggle" type="button">
       <span class="history-toggle-mark">•</span>
-      <span class="history-toggle-copy"><strong>History</strong></span>
+      <span class="history-toggle-copy"><strong>Tack Library</strong></span>
     </button>
     <a href="https://tack.design" target="_blank" rel="noopener" class="footer-site-link">tack.design</a>
   </footer>
