@@ -776,11 +776,13 @@ module.exports = async function handler(req, res) {
     const conditioningReferences = buildConditioningReferences(validReferences, styleSchema, subject);
     const nonPhotographic = isNonPhotographicStyle(styleSchema);
     const requiresNativeAspectCanvas = aspectRatio !== '1:1';
-    const shouldUseImageConditioning = !requiresNativeAspectCanvas && (
+    // Non-photographic styles (paintings, illustrations) carry no face/identity leakage risk,
+    // so condition at any aspect ratio. Photo-based human references keep the 1:1 restriction.
+    const shouldUseImageConditioning = (
       !isHumanSubjectRequest(subject)
       || isStyleDrivenRequest(subject)
       || nonPhotographic
-    );
+    ) && (!requiresNativeAspectCanvas || nonPhotographic);
     const conditioningInputs = shouldUseImageConditioning ? conditioningReferences.map(buildConditioningInput).filter(Boolean) : [];
 
     // ── Step 3: Build prompts ─────────────────────────────────────────────
