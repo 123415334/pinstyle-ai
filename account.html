@@ -445,7 +445,6 @@
 
     .masonry-item {
       width: 100%;
-      min-height: 80px;
       border-radius: var(--radius-card);
       overflow: hidden;
       background: var(--bg-card);
@@ -1665,22 +1664,25 @@
       positionQuickSavePopover(anchor);
     }
 
-    let _masonryObserver = null;
+    let _masonryItems = [];
+    let _gridObserver = null;
 
-    function observeMasonryItem(item) {
-      if (!_masonryObserver) {
-        _masonryObserver = new ResizeObserver(entries => {
-          entries.forEach(({ target, contentRect }) => {
-            const h = contentRect.height;
-            if (h > 0) target.style.gridRowEnd = `span ${Math.ceil((h + 12) / 22)}`;
-          });
-        });
-      }
-      _masonryObserver.observe(item);
+    function setMasonryItemSpan(item, img) {
+      if (!img.naturalWidth || !img.naturalHeight) return;
+      const w = item.getBoundingClientRect().width;
+      if (!w) return;
+      const h = (img.naturalHeight / img.naturalWidth) * w;
+      item.style.gridRowEnd = `span ${Math.ceil((h + 12) / 22)}`;
+    }
+
+    function observeMasonryItem(item, img) {
+      _masonryItems.push({ item, img });
+      img.addEventListener('load', () => setMasonryItemSpan(item, img), { once: true });
     }
 
     function renderGalleryItems(items, { emptyTitle, emptyCopy, showSelect = false } = {}) {
-      if (_masonryObserver) { _masonryObserver.disconnect(); }
+      _masonryItems = [];
+      if (_gridObserver) { _gridObserver.disconnect(); _gridObserver = null; }
       const wrap = document.getElementById('gallery-wrap');
       if (items.length === 0) {
         wrap.innerHTML = `
@@ -1756,12 +1758,20 @@
           }
           openLightbox(entry.url, entry.prompt, date);
         });
-        observeMasonryItem(item);
+        observeMasonryItem(item, img);
         grid.appendChild(item);
       });
 
       wrap.innerHTML = '';
       wrap.appendChild(grid);
+
+      _gridObserver = new ResizeObserver(() => {
+        _masonryItems.forEach(({ item, img }) => setMasonryItemSpan(item, img));
+      });
+      _gridObserver.observe(grid);
+      requestAnimationFrame(() => {
+        _masonryItems.forEach(({ item, img }) => setMasonryItemSpan(item, img));
+      });
     }
 
     function renderBoardsIndex() {
