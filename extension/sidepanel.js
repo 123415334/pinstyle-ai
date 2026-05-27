@@ -1833,6 +1833,11 @@ function renderResults(data) {
       className: 'gen-images',
       dataset: { aspectRatio },
     });
+    const previewItems = images.map((url, i) => ({
+      url,
+      filename: `tack-${i + 1}.png`,
+      aspectRatio,
+    }));
     images.forEach((url, i) => {
       const filename = `tack-${i + 1}.png`;
       const wrap = createEl('div', {
@@ -1853,7 +1858,7 @@ function renderResults(data) {
       });
       wrap.addEventListener('click', e => {
         if (!e.target.closest('.img-actions')) {
-          showPreview(url, filename, aspectRatio);
+          showPreview(url, filename, aspectRatio, previewItems, i);
         }
       });
       downloadBtn.addEventListener('click', e => {
@@ -2171,9 +2176,17 @@ async function renderHistory() {
 
     if (assets.length === 0) return;
 
-    const coverBlob = new Blob([assets[0].buffer], { type: assets[0].type || 'image/png' });
-    const coverUrl  = URL.createObjectURL(coverBlob);
-    _historyObjectUrls.push(coverUrl);
+    const previewItems = assets.map((asset, index) => {
+      const blob = new Blob([asset.buffer], { type: asset.type || 'image/png' });
+      const url = URL.createObjectURL(blob);
+      _historyObjectUrls.push(url);
+      return {
+        url,
+        filename: `tack-history-${index + 1}.png`,
+        aspectRatio: entry.aspectRatio || '',
+      };
+    });
+    const coverUrl = previewItems[0].url;
 
     const card = createEl('article', { className: 'history-entry' });
     const media = createEl('div', { className: 'history-entry-media' });
@@ -2191,7 +2204,7 @@ async function renderHistory() {
     );
     card.append(media, body);
 
-    media.addEventListener('click', () => showPreview(coverUrl));
+    media.addEventListener('click', () => showPreview(coverUrl, previewItems[0].filename, entry.aspectRatio || '', previewItems, 0));
 
     listEl.appendChild(card);
   });
@@ -2212,21 +2225,41 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ── Image Preview ─────────────────────────────────────────────────────────────
-function showPreview(url, filename = 'tack-image.png', aspectRatio = '') {
+let _previewItems = [];
+let _previewIndex = -1;
+
+function normalizePreviewItems(url, filename, aspectRatio, items, index) {
+  const list = Array.isArray(items) && items.length
+    ? items
+    : [{ url, filename, aspectRatio }];
+  _previewItems = list
+    .filter(item => item?.url)
+    .map((item, i) => ({
+      url: item.url,
+      filename: item.filename || `tack-${i + 1}.png`,
+      aspectRatio: item.aspectRatio || aspectRatio || '',
+    }));
+  const requestedIndex = Number.isInteger(index) ? index : _previewItems.findIndex(item => item.url === url);
+  _previewIndex = requestedIndex >= 0 ? requestedIndex : 0;
+}
+
+function renderPreviewItem() {
   const overlay = document.getElementById('preview-overlay');
   const img     = document.getElementById('preview-img');
   const dlButton = document.getElementById('preview-download');
   if (!overlay || !img) return;
-  img.src = url;
+  const item = _previewItems[_previewIndex];
+  if (!item) return;
+  img.src = item.url;
   img.style.objectFit = 'contain';
   // Let the natural limiting dimension do the work.
   // Vertical: height-constrained so the tall image fills the panel top-to-bottom.
   // Horizontal: width-constrained so the wide image fills side-to-side.
   // Square: balanced.
-  if (aspectRatio === '9:16') {
+  if (item.aspectRatio === '9:16') {
     img.style.maxHeight = '88vh';
     img.style.maxWidth  = '96%';
-  } else if (aspectRatio === '16:9') {
+  } else if (item.aspectRatio === '16:9') {
     img.style.maxWidth  = '96%';
     img.style.maxHeight = '58vh';
   } else {
@@ -2234,10 +2267,25 @@ function showPreview(url, filename = 'tack-image.png', aspectRatio = '') {
     img.style.maxHeight = '80vh';
   }
   if (dlButton) {
-    dlButton.dataset.url = url;
-    dlButton.dataset.filename = sanitizeFilename(filename);
+    dlButton.dataset.url = item.url;
+    dlButton.dataset.filename = sanitizeFilename(item.filename);
   }
   overlay.style.display = 'flex';
+}
+
+function showPreview(url, filename = 'tack-image.png', aspectRatio = '', items = null, index = -1) {
+  normalizePreviewItems(url, filename, aspectRatio, items, index);
+  renderPreviewItem();
+}
+
+function isPreviewOpen() {
+  return document.getElementById('preview-overlay')?.style.display === 'flex';
+}
+
+function navigatePreview(delta) {
+  if (!isPreviewOpen() || _previewItems.length < 2) return;
+  _previewIndex = (_previewIndex + delta + _previewItems.length) % _previewItems.length;
+  renderPreviewItem();
 }
 
 function renderScannedImages(images, { isPinterest = false, isTackSite = false, fromCache = false } = {}) {
@@ -2575,6 +2623,8 @@ async function flushTelemetryQueue() {
 function hidePreview() {
   const overlay = document.getElementById('preview-overlay');
   if (overlay) overlay.style.display = 'none';
+  _previewItems = [];
+  _previewIndex = -1;
 }
 
 // Wire up preview close — X button, clicking the image, and Escape key
@@ -2603,4 +2653,12 @@ document.addEventListener('DOMContentLoaded', () => {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeAccountMenu();
   if (e.key === 'Escape') hidePreview();
+  if (e.key === 'ArrowLeft' && isPreviewOpen()) {
+    e.preventDefault();
+    navigatePreview(-1);
+  }
+  if (e.key === 'ArrowRight' && isPreviewOpen()) {
+    e.preventDefault();
+    navigatePreview(1);
+  }
 });

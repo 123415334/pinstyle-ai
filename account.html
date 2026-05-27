@@ -1563,20 +1563,52 @@
       );
     }
 
-    function openLightbox(url, subject, dateStr) {
+    let _lightboxItems = [];
+    let _lightboxIndex = -1;
+
+    function setLightboxItems(url, subject, dateStr, items, index) {
+      const list = Array.isArray(items) && items.length
+        ? items
+        : [{ url, prompt: subject || '', created_at: dateStr || '' }];
+      _lightboxItems = list.filter(item => item?.url);
+      const requestedIndex = Number.isInteger(index) ? index : _lightboxItems.findIndex(item => item.url === url);
+      _lightboxIndex = requestedIndex >= 0 ? requestedIndex : 0;
+    }
+
+    function renderLightboxItem() {
       const lb   = document.getElementById('lightbox');
       const img  = document.getElementById('lightbox-img');
       const dl   = document.getElementById('lightbox-download');
       const meta = document.getElementById('lightbox-meta');
-      img.src    = url;
-      dl.href    = url;
-      meta.textContent = [subject, dateStr].filter(Boolean).join(' · ');
+      const item = _lightboxItems[_lightboxIndex];
+      if (!item) return;
+      const date = item.created_at ? formatDate(item.created_at) : '';
+      img.src    = item.url;
+      dl.href    = item.url;
+      meta.textContent = [item.prompt || '', date].filter(Boolean).join(' · ');
       lb.classList.add('open');
+    }
+
+    function openLightbox(url, subject, dateStr, items = null, index = -1) {
+      setLightboxItems(url, subject, dateStr, items, index);
+      renderLightboxItem();
     }
 
     function closeLightbox() {
       document.getElementById('lightbox').classList.remove('open');
       document.getElementById('lightbox-img').src = '';
+      _lightboxItems = [];
+      _lightboxIndex = -1;
+    }
+
+    function isLightboxOpen() {
+      return document.getElementById('lightbox').classList.contains('open');
+    }
+
+    function navigateLightbox(delta) {
+      if (!isLightboxOpen() || _lightboxItems.length < 2) return;
+      _lightboxIndex = (_lightboxIndex + delta + _lightboxItems.length) % _lightboxItems.length;
+      renderLightboxItem();
     }
 
     function closeQuickSavePopover() {
@@ -1698,7 +1730,7 @@
       const grid = document.createElement('div');
       grid.className = 'masonry';
 
-      items.forEach(entry => {
+      items.forEach((entry, index) => {
         const date = formatDate(entry.created_at);
         const boardsForEntry = getBoardsForEntry(entry);
         const item = document.createElement('div');
@@ -1757,7 +1789,7 @@
             renderCurrentView();
             return;
           }
-          openLightbox(entry.url, entry.prompt, date);
+          openLightbox(entry.url, entry.prompt, date, items, index);
         });
         observeMasonryItem(item, img);
         grid.appendChild(item);
@@ -2214,6 +2246,14 @@
         closeDeleteConfirmModal(false);
         document.getElementById('nav-account')?.classList.remove('open');
         document.getElementById('nav-account-trigger')?.setAttribute('aria-expanded', 'false');
+      }
+      if (e.key === 'ArrowLeft' && isLightboxOpen()) {
+        e.preventDefault();
+        navigateLightbox(-1);
+      }
+      if (e.key === 'ArrowRight' && isLightboxOpen()) {
+        e.preventDefault();
+        navigateLightbox(1);
       }
     });
 
