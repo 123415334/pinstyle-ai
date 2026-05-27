@@ -1957,7 +1957,7 @@ function showScanBlockedMessage(tab) {
   retry.addEventListener('click', () => loadImages({ forceRefresh: true }).catch(() => {}));
   message.append(
     createEl('strong', { textContent: 'This page blocked scanning' }),
-    createEl('p', { textContent: 'Try scrolling so images load, accepting cookies, or using Pinterest, Instagram, Behance, Dribbble, Google Images, or another image-rich page.' }),
+    createEl('p', { textContent: 'Try scrolling so images load, accepting cookies, or opening another image-rich page. Some sites hide images in ways Chrome extensions cannot scan.' }),
     retry,
   );
   imageGrid.appendChild(message);

@@ -6,9 +6,9 @@
 tack
 
 ## Short Description (132 chars max)
-Select reference images on supported sites and generate new AI images in the same visual style.
+Select reference images across the web and generate new AI images in the same visual style.
 
-*(89 chars — within limit)*
+*(88 chars — within limit)*
 
 ---
 
@@ -19,12 +19,12 @@ Select reference images on supported sites and generate new AI images in the sam
 
 ## Long Description
 
-tack turns visual references from supported sites into new images with the same aesthetic.
+tack turns visual references from image-rich pages across the web into new images with the same aesthetic.
 
-Open tack on a supported site with images. Select the references whose style you want to borrow. Type what you want to make. tack analyzes the shared look of your selections and generates original images in that same visual family.
+Open tack on a page with images. Select the references whose style you want to borrow. Type what you want to make. tack analyzes the shared look of your selections and generates original images in that same visual family.
 
 **How it works:**
-1. Open tack from your Chrome toolbar on a supported site
+1. Open tack from your Chrome toolbar on an image-rich page
 2. Select images whose style you want to capture
 3. Type a subject (e.g. "a coffee mug", "a pair of sneakers")
 4. Hit Generate and tack creates original images in that aesthetic
@@ -32,8 +32,8 @@ Open tack on a supported site with images. Select the references whose style you
 **What makes tack different:**
 tack does more than apply a filter. It reads the shared visual language of your references, including composition, palette, rendering style, and mood, then uses that analysis to generate something new that still feels stylistically coherent.
 
-**Currently supported:**
-tack includes direct support for tack.design, Pinterest, Instagram, Behance, and Dribbble. It may also work on other regular image-based pages when the user opens tack on the current tab.
+**Where it works:**
+tack is designed for image-rich pages across the web, including tack.design, inspiration boards, portfolios, marketplaces, image searches, and other standard webpages. Some sites may block scanning or hide images in ways Chrome extensions cannot access.
 
 **What gets sent:**
 When you generate, tack sends only the image URLs you select and the prompt you type so it can analyze style and create results. It does not send the rest of the page for generation.
