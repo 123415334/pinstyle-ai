@@ -1263,7 +1263,7 @@
         ...(opts.headers || {}),
       };
       if (_session) headers['Authorization'] = `Bearer ${_session.access_token}`;
-      const resp = await fetch(`${SUPABASE_URL}${path}`, { ...opts, headers });
+      const resp = await fetch(`${SUPABASE_URL}${path}`, { cache: 'no-store', ...opts, headers });
       const body = await resp.json().catch(() => ({}));
       return { ok: resp.ok, status: resp.status, data: body };
     }
@@ -1325,7 +1325,7 @@
 
     async function fetchGenerations() {
       const { ok, data } = await sbFetch(
-        '/rest/v1/generations?select=id,created_at,prompt,image_urls&order=created_at.desc',
+        '/rest/v1/generations?select=id,created_at,prompt,image_urls&order=created_at.desc,id.desc',
         { method: 'GET', headers: { 'Accept': 'application/json' } }
       );
       if (!ok) throw new Error('Could not load generations');
@@ -1515,7 +1515,11 @@
     function flattenGenerations(generations) {
       const items = [];
       [...generations]
-        .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+        .sort((a, b) => {
+          const byDate = new Date(b.created_at || 0) - new Date(a.created_at || 0);
+          if (byDate !== 0) return byDate;
+          return String(b.id || '').localeCompare(String(a.id || ''));
+        })
         .forEach(gen => {
           (gen.image_urls || []).forEach((url, index) => {
             items.push({
@@ -1699,18 +1703,22 @@
 
     let _masonryItems = [];
     let _gridObserver = null;
+    const MASONRY_FALLBACK_RATIO = 1;
 
-    function setMasonryItemSpan(item, img) {
-      if (!img.naturalWidth || !img.naturalHeight) return;
+    function setMasonryItemSpan(item, img, options = {}) {
       const w = item.getBoundingClientRect().width;
       if (!w) return;
-      const h = (img.naturalHeight / img.naturalWidth) * w;
+      const ratio = img.naturalWidth && img.naturalHeight
+        ? img.naturalHeight / img.naturalWidth
+        : options.fallbackRatio || MASONRY_FALLBACK_RATIO;
+      const h = ratio * w;
       item.style.gridRowEnd = `span ${Math.ceil(h + 12)}`;
     }
 
     function observeMasonryItem(item, img) {
       _masonryItems.push({ item, img });
       img.addEventListener('load', () => setMasonryItemSpan(item, img), { once: true });
+      if (img.complete) setMasonryItemSpan(item, img);
     }
 
     function renderGalleryItems(items, { emptyTitle, emptyCopy, showSelect = false } = {}) {
@@ -1741,8 +1749,9 @@
         const img = document.createElement('img');
         img.src     = entry.url;
         img.alt     = entry.prompt || '';
-        img.loading = 'lazy';
+        img.loading = index < 12 ? 'eager' : 'lazy';
         img.decoding = 'async';
+        if (index < 8) img.fetchPriority = 'high';
 
         const check = document.createElement('div');
         check.className = 'tile-check';
@@ -1798,12 +1807,13 @@
       wrap.innerHTML = '';
       wrap.appendChild(grid);
 
+      _masonryItems.forEach(({ item, img }) => setMasonryItemSpan(item, img, { fallbackRatio: MASONRY_FALLBACK_RATIO }));
       _gridObserver = new ResizeObserver(() => {
-        _masonryItems.forEach(({ item, img }) => setMasonryItemSpan(item, img));
+        _masonryItems.forEach(({ item, img }) => setMasonryItemSpan(item, img, { fallbackRatio: MASONRY_FALLBACK_RATIO }));
       });
       _gridObserver.observe(grid);
       requestAnimationFrame(() => {
-        _masonryItems.forEach(({ item, img }) => setMasonryItemSpan(item, img));
+        _masonryItems.forEach(({ item, img }) => setMasonryItemSpan(item, img, { fallbackRatio: MASONRY_FALLBACK_RATIO }));
       });
     }
 
