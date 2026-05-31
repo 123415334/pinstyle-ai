@@ -1743,6 +1743,7 @@
         const boardsForEntry = getBoardsForEntry(entry);
         const item = document.createElement('div');
         item.className = 'masonry-item';
+        item.dataset.itemKey = entry.key;
         if (showSelect && _selectionMode) item.classList.add('selecting');
         if (_selectedKeys.has(entry.key)) item.classList.add('selected');
 
@@ -1890,6 +1891,16 @@
 
       wrap.innerHTML = '';
       wrap.appendChild(grid);
+    }
+
+    function syncRenderedSelectionState() {
+      const canSelect = _view === 'all' || (_view === 'boards' && Boolean(_activeBoardId));
+      const selecting = canSelect && _selectionMode;
+      document.querySelectorAll('#gallery-wrap .masonry-item').forEach(item => {
+        const key = item.dataset.itemKey;
+        item.classList.toggle('selecting', selecting);
+        item.classList.toggle('selected', selecting && key && _selectedKeys.has(key));
+      });
     }
 
     function updateSelectionUi() {
@@ -2395,14 +2406,14 @@
       _selectedKeys.clear();
       closeQuickSavePopover();
       updateSelectionUi();
-      renderCurrentView();
+      syncRenderedSelectionState();
     });
     document.getElementById('cancel-select-btn').addEventListener('click', () => {
       _selectionMode = false;
       _selectedKeys.clear();
       closeQuickSavePopover();
       updateSelectionUi();
-      renderCurrentView();
+      syncRenderedSelectionState();
     });
     document.getElementById('save-to-board-btn').addEventListener('click', () => openBoardModal('save'));
     document.getElementById('delete-selected-btn').addEventListener('click', handleSelectionDestructiveAction);
