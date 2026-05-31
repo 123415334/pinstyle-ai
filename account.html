@@ -596,12 +596,6 @@
     .board-card-meta {
       padding: 0 16px 16px;
     }
-    .board-card-meta-row {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 12px;
-    }
     .board-card-title {
       font-family: 'Cormorant Garamond', serif;
       font-size: 26px;
@@ -615,23 +609,6 @@
       margin-top: 6px;
       font-size: 12px;
       color: var(--ink-muted);
-    }
-    .board-card-action {
-      border: 1px solid var(--border-hi);
-      border-radius: 999px;
-      background: rgba(13,11,9,0.72);
-      color: var(--ink-muted);
-      font-family: 'DM Sans', sans-serif;
-      font-size: 11px;
-      padding: 7px 10px;
-      cursor: pointer;
-      flex: 0 0 auto;
-      transition: border-color 0.18s, background 0.18s, color 0.18s;
-    }
-    .board-card-action:hover {
-      border-color: var(--ink-muted);
-      background: rgba(20,18,16,0.94);
-      color: var(--ink);
     }
     @media (max-width: 900px) {
       .boards-grid {
@@ -1914,26 +1891,13 @@
 
         const meta = document.createElement('div');
         meta.className = 'board-card-meta';
-        const metaRow = document.createElement('div');
-        metaRow.className = 'board-card-meta-row';
-        const metaText = document.createElement('div');
         const title = document.createElement('div');
         title.className = 'board-card-title';
         title.textContent = board.name;
         const count = document.createElement('div');
         count.className = 'board-card-count';
         count.textContent = `${items.length} image${items.length !== 1 ? 's' : ''}`;
-        const renameBtn = document.createElement('button');
-        renameBtn.type = 'button';
-        renameBtn.className = 'board-card-action';
-        renameBtn.textContent = 'Rename';
-        renameBtn.addEventListener('click', e => {
-          e.stopPropagation();
-          openBoardModal('rename', board);
-        });
-        metaText.append(title, count);
-        metaRow.append(metaText, renameBtn);
-        meta.appendChild(metaRow);
+        meta.append(title, count);
         card.append(preview, meta);
         card.addEventListener('click', () => {
           closeQuickSavePopover();
