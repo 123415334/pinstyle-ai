@@ -596,17 +596,42 @@
     .board-card-meta {
       padding: 0 16px 16px;
     }
+    .board-card-meta-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
     .board-card-title {
       font-family: 'Cormorant Garamond', serif;
       font-size: 26px;
       line-height: 0.98;
       letter-spacing: -0.025em;
       color: var(--ink);
+      min-width: 0;
+      overflow-wrap: anywhere;
     }
     .board-card-count {
       margin-top: 6px;
       font-size: 12px;
       color: var(--ink-muted);
+    }
+    .board-card-action {
+      border: 1px solid var(--border-hi);
+      border-radius: 999px;
+      background: rgba(13,11,9,0.72);
+      color: var(--ink-muted);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px;
+      padding: 7px 10px;
+      cursor: pointer;
+      flex: 0 0 auto;
+      transition: border-color 0.18s, background 0.18s, color 0.18s;
+    }
+    .board-card-action:hover {
+      border-color: var(--ink-muted);
+      background: rgba(20,18,16,0.94);
+      color: var(--ink);
     }
     @media (max-width: 900px) {
       .boards-grid {
@@ -1124,6 +1149,7 @@
         <div>
           <div class="board-breadcrumb">
             <button class="board-back" id="board-back-btn" type="button">← All boards</button>
+            <button class="board-back" id="board-rename-btn" type="button">Rename</button>
           </div>
           <h2 class="board-title" id="board-title"></h2>
           <p class="board-subtitle" id="board-subtitle"></p>
@@ -1199,6 +1225,7 @@
     let _selectedKeys = new Set();
     let _boardModalMode = 'create';
     let _boardModalSelectedId = '';
+    let _boardModalBoardId = '';
     let _quickSaveEntry = null;
     let _quickSaveAnchor = null;
     let _deleteConfirmResolve = null;
@@ -1372,6 +1399,19 @@
       });
       if (!ok) throw new Error(data?.message || 'Could not create board');
       return Array.isArray(data) ? data[0] : data;
+    }
+
+    async function renameBoard(boardId, name) {
+      const userId = getSessionUserId();
+      const { ok, data } = await sbFetch(`/rest/v1/boards?id=eq.${encodeURIComponent(boardId)}&user_id=eq.${encodeURIComponent(userId)}`, {
+        method: 'PATCH',
+        headers: { 'Prefer': 'return=representation' },
+        body: JSON.stringify({ name, updated_at: new Date().toISOString() }),
+      });
+      if (!ok) throw new Error(data?.message || 'Could not rename board');
+      const board = Array.isArray(data) ? data[0] : data;
+      if (!board) throw new Error('Could not find that board.');
+      return board;
     }
 
     async function addImagesToBoard(boardId, items) {
@@ -1874,10 +1914,26 @@
 
         const meta = document.createElement('div');
         meta.className = 'board-card-meta';
-        meta.innerHTML = `
-          <div class="board-card-title">${board.name}</div>
-          <div class="board-card-count">${items.length} image${items.length !== 1 ? 's' : ''}</div>
-        `;
+        const metaRow = document.createElement('div');
+        metaRow.className = 'board-card-meta-row';
+        const metaText = document.createElement('div');
+        const title = document.createElement('div');
+        title.className = 'board-card-title';
+        title.textContent = board.name;
+        const count = document.createElement('div');
+        count.className = 'board-card-count';
+        count.textContent = `${items.length} image${items.length !== 1 ? 's' : ''}`;
+        const renameBtn = document.createElement('button');
+        renameBtn.type = 'button';
+        renameBtn.className = 'board-card-action';
+        renameBtn.textContent = 'Rename';
+        renameBtn.addEventListener('click', e => {
+          e.stopPropagation();
+          openBoardModal('rename', board);
+        });
+        metaText.append(title, count);
+        metaRow.append(metaText, renameBtn);
+        meta.appendChild(metaRow);
         card.append(preview, meta);
         card.addEventListener('click', () => {
           closeQuickSavePopover();
@@ -1931,12 +1987,14 @@
       const boardContext = document.getElementById('board-context');
       const title = document.getElementById('board-title');
       const subtitle = document.getElementById('board-subtitle');
+      const renameBtn = document.getElementById('board-rename-btn');
       if (_view === 'boards' && _activeBoardId) {
         const board = _boards.find(entry => entry.id === _activeBoardId);
         const items = getBoardItems(_activeBoardId);
         boardContext.classList.remove('hidden');
         title.textContent = board?.name || 'Board';
         subtitle.textContent = `${items.length} image${items.length !== 1 ? 's' : ''} ready to scan and reuse`;
+        renameBtn.disabled = !board;
       } else {
         boardContext.classList.add('hidden');
       }
@@ -2000,6 +2058,7 @@
       document.getElementById('board-modal-list').classList.add('hidden');
       document.getElementById('board-modal-divider').classList.add('hidden');
       _boardModalSelectedId = '';
+      _boardModalBoardId = '';
     }
 
     function closeDeleteConfirmModal(confirmed = false) {
@@ -2040,8 +2099,9 @@
       });
     }
 
-    function openBoardModal(mode) {
+    function openBoardModal(mode, board = null) {
       _boardModalMode = mode;
+      _boardModalBoardId = board?.id || '';
       const title = document.getElementById('board-modal-title');
       const sub = document.getElementById('board-modal-sub');
       const list = document.getElementById('board-modal-list');
@@ -2060,6 +2120,15 @@
         list.classList.add('hidden');
         divider.classList.add('hidden');
         input.placeholder = 'Board name';
+      } else if (mode === 'rename') {
+        title.innerHTML = `Rename <em>board</em>`;
+        sub.textContent = 'Update this board name. The images inside it will stay exactly where they are.';
+        confirmBtn.textContent = 'Save name';
+        list.classList.add('hidden');
+        divider.classList.add('hidden');
+        input.placeholder = 'Board name';
+        input.value = board?.name || '';
+        input.select();
       } else {
         title.innerHTML = `Save to <em>board</em>`;
         sub.textContent = 'Choose an existing board, or create a new one for the images you selected.';
@@ -2102,7 +2171,14 @@
         let boardId = _boardModalSelectedId;
         const newBoardName = input.value.trim();
 
-        if (_boardModalMode === 'create' || newBoardName) {
+        if (_boardModalMode === 'rename') {
+          if (!_boardModalBoardId) throw new Error('Choose a board to rename.');
+          if (!newBoardName) throw new Error('Give this board a name.');
+          const board = await renameBoard(_boardModalBoardId, newBoardName);
+          boardId = board.id;
+        }
+
+        if (_boardModalMode !== 'rename' && (_boardModalMode === 'create' || newBoardName)) {
           const board = await createBoard(newBoardName || 'Untitled board');
           boardId = board.id;
           if (_boardModalMode === 'create') {
@@ -2422,6 +2498,10 @@
       _selectionMode = false;
       _selectedKeys.clear();
       renderCurrentView();
+    });
+    document.getElementById('board-rename-btn').addEventListener('click', () => {
+      const board = _boards.find(entry => entry.id === _activeBoardId);
+      if (board) openBoardModal('rename', board);
     });
     document.getElementById('board-modal-cancel').addEventListener('click', closeBoardModal);
     document.getElementById('board-modal-confirm').addEventListener('click', confirmBoardModal);
