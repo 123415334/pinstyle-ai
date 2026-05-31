@@ -1792,10 +1792,11 @@
         item.appendChild(label);
         item.addEventListener('click', () => {
           if (showSelect && _selectionMode) {
-            if (_selectedKeys.has(entry.key)) _selectedKeys.delete(entry.key);
+            const selected = _selectedKeys.has(entry.key);
+            if (selected) _selectedKeys.delete(entry.key);
             else _selectedKeys.add(entry.key);
+            item.classList.toggle('selected', !selected);
             updateSelectionUi();
-            renderCurrentView();
             return;
           }
           openLightbox(entry.url, entry.prompt, date, items, index);
