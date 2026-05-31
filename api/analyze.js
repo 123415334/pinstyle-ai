@@ -429,6 +429,14 @@ function isNonPhotographicStyle(styleSchema = {}) {
   return artTerms.test(styleText) && !photoTerms.test(styleText);
 }
 
+function getStyleMatchMode(styleSchema = {}, { styleDriven = false, nonPhotographic = false } = {}) {
+  const score = Number(styleSchema.consistency_score) || 0;
+  if (nonPhotographic || styleDriven) {
+    return score < 0.62 ? 'strict_cohesive_style_lock' : 'strict_style_lock';
+  }
+  return score < 0.62 ? 'cohesive_style_lock' : 'balanced_style_transfer';
+}
+
 function buildStyleAnalysisPrompt(referenceCount, subject) {
   const humanRequest = isHumanSubjectRequest(subject);
   return `Analyze these ${referenceCount} reference images and return a single JSON object describing their shared style DNA.
@@ -540,7 +548,9 @@ function buildConditioningReferences(validReferences, styleSchema, subject = '')
   const excluded = new Set(styleSchema.outlier_indices.map(index => validReferences[index]?.url).filter(Boolean));
   const filtered = ordered.filter((ref, index) => index === 0 || !excluded.has(ref.url));
   const compatible = filtered.length >= 2 ? filtered : ordered;
-  const limit = isStyleDrivenRequest(subject) ? MAX_GRAPHIC_CONDITIONING_IMAGES : MAX_CONDITIONING_IMAGES;
+  const baseLimit = isStyleDrivenRequest(subject) ? MAX_GRAPHIC_CONDITIONING_IMAGES : MAX_CONDITIONING_IMAGES;
+  const score = Number(styleSchema.consistency_score) || 0;
+  const limit = score < 0.62 ? Math.min(baseLimit, 3) : baseLimit;
   return compatible.slice(0, limit);
 }
 
@@ -549,7 +559,7 @@ function buildConditioningInput(ref) {
   return `data:${ref.mediaType};base64,${ref.base64}`;
 }
 
-function buildGenerationPrompt(subject, styleSchema, { styleDriven = false, nonPhotographic = false } = {}) {
+function buildGenerationPrompt(subject, styleSchema, { styleDriven = false, nonPhotographic = false, styleMatchMode = 'balanced_style_transfer' } = {}) {
   const lines = [
     `Create ${subject.trim()}.`,
     `Primary subject requirement: the image must clearly depict ${subject.trim()} as the hero subject.`,
@@ -574,6 +584,14 @@ function buildGenerationPrompt(subject, styleSchema, { styleDriven = false, nonP
     `Preserve these traits: ${styleSchema.must_preserve.join(', ')}.`,
     'Avoid AI artifacts, warped fingers, distorted faces, extra limbs, missing limbs, melting objects, illegible object counts, text/logos, collages, screenshots, and graphic-design layouts unless explicitly requested.',
   ];
+
+  if (styleMatchMode.includes('strict')) {
+    lines.push('STRICT STYLE LOCK: the reference aesthetic must dominate the result. The new subject may change, but the rendering medium, palette behavior, edge quality, texture, lighting logic, background treatment, shape language, and overall art direction must stay tightly aligned with the compatible references. Do not merely borrow colors while switching to a different illustration, render, or photography style.');
+  }
+
+  if (styleMatchMode === 'strict_cohesive_style_lock' || styleMatchMode === 'cohesive_style_lock') {
+    lines.push('The selected references may be mixed. Follow the most cohesive compatible subset and the named must-preserve traits. Ignore outlier subjects, one-off layouts, or references that would pull the result into another visual family.');
+  }
 
   if (styleDriven) {
     lines.push('For stylized product, object, graphic, or illustrative references, preserve the rendering medium, material treatment, lighting logic, color behavior, edge quality, shadow style, and compositional boldness more strongly than generic photorealism.');
@@ -787,7 +805,8 @@ module.exports = async function handler(req, res) {
 
     // ── Step 3: Build prompts ─────────────────────────────────────────────
     const styleDriven = isStyleDrivenRequest(subject) || nonPhotographic;
-    const promptOptions = { styleDriven, nonPhotographic };
+    const styleMatchMode = getStyleMatchMode(styleSchema, { styleDriven, nonPhotographic });
+    const promptOptions = { styleDriven, nonPhotographic, styleMatchMode };
     const prompt1 = `${buildGenerationPrompt(subject, styleSchema, promptOptions)} ${getAspectRatioPromptInstruction(aspectRatio)}`;
     const prompt2 = `${buildVariationPrompt(subject, styleSchema, promptOptions)} ${getAspectRatioPromptInstruction(aspectRatio)}`;
 
@@ -864,6 +883,8 @@ module.exports = async function handler(req, res) {
         valid_count: validReferences.length,
         used_count: usedFallbackConditioning ? 1 : conditioningInputs.length,
         mode: usedFallbackConditioning ? 'image_conditioned_fallback' : (shouldUseImageConditioning ? 'image_conditioned' : 'style_text_only'),
+        style_match_mode: styleMatchMode,
+        conditioning_reference_indices: conditioningReferences.map(ref => ref.index).filter(Number.isInteger),
         best_image_index: styleSchema.best_image_index,
         consistency_score: styleSchema.consistency_score,
         ...(EXPOSE_STYLE_DEBUG ? { raw_style_analysis: rawResponse || null } : {}),
