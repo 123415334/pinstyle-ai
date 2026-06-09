@@ -6,12 +6,19 @@
   },
   "redirects": [
     {
+      "source": "/c",
+      "destination": "https://chromewebstore.google.com/detail/tack/immnogdobhdocmmfceoeofjcmbohaobi",
+      "permanent": true
+    },
+    {
       "source": "/chrome",
       "destination": "https://chromewebstore.google.com/detail/tack/immnogdobhdocmmfceoeofjcmbohaobi",
       "permanent": true
     }
   ],
   "rewrites": [
+    { "source": "/a",         "destination": "/account.html" },
+    { "source": "/n",         "destination": "/account.html" },
     { "source": "/account",   "destination": "/account.html" },
     { "source": "/privacy",   "destination": "/privacy.html" },
     { "source": "/upgrade",   "destination": "/upgrade.html" },
