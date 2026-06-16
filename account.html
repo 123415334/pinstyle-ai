@@ -153,6 +153,7 @@
     }
     .nav-account-action {
       width: 100%;
+      display: block;
       border-radius: 18px;
       border: 1px solid var(--border-hi);
       background: rgba(240,235,227,0.05);
@@ -163,6 +164,7 @@
       cursor: pointer;
       margin-bottom: 10px;
       text-align: left;
+      text-decoration: none;
       transition: border-color 0.2s, background 0.2s;
     }
     .nav-account-action:hover {
@@ -1045,6 +1047,8 @@
         <div class="nav-account-email" id="nav-account-email"></div>
         <div class="nav-account-plan" id="nav-account-plan">Free</div>
         <div class="nav-account-divider"></div>
+        <a class="nav-account-action" href="/whats-new">What's new</a>
+        <a class="nav-account-action" href="/account">My generations</a>
         <button class="nav-account-action" id="manage-plan-btn" type="button">Manage plan</button>
         <button class="nav-account-action" id="signout-btn" type="button">Sign out</button>
       </div>

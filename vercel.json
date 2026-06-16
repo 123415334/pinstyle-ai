@@ -20,6 +20,7 @@
     { "source": "/a",         "destination": "/account.html" },
     { "source": "/n",         "destination": "/account.html" },
     { "source": "/account",   "destination": "/account.html" },
+    { "source": "/whats-new", "destination": "/whats-new.html" },
     { "source": "/privacy",   "destination": "/privacy.html" },
     { "source": "/upgrade",   "destination": "/upgrade.html" },
     { "source": "/confirmed", "destination": "/confirmed.html" }

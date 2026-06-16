@@ -92,6 +92,46 @@
       transition: color 0.2s;
     }
     .nav-link:hover { color: var(--ink); }
+    .nav-public-menu {
+      position: relative;
+    }
+    .nav-public-trigger {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--border-hi);
+      background: rgba(240,235,227,0.04);
+      color: var(--ink);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 400;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s, transform 0.2s;
+    }
+    .nav-public-trigger:hover {
+      background: rgba(240,235,227,0.07);
+      border-color: rgba(143,190,247,0.34);
+      transform: translateY(-1px);
+    }
+    .nav-public-menu.open .nav-public-dropdown {
+      display: block;
+    }
+    .nav-public-dropdown {
+      position: absolute;
+      top: calc(100% + 10px);
+      right: 0;
+      width: 210px;
+      padding: 14px;
+      border-radius: 22px;
+      border: 1px solid var(--border-hi);
+      background: rgba(20,18,16,0.97);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      box-shadow: 0 24px 70px rgba(0,0,0,0.5);
+      display: none;
+    }
     .nav-account {
       position: relative;
       display: none;
@@ -648,7 +688,18 @@
     <a href="/" class="nav-logo"><img src="tack_logo.svg" alt="tack"></a>
     <div class="nav-actions">
       <div id="nav-marketing-actions" class="nav-actions">
-        <a href="/account" class="nav-link">My Account</a>
+        <div class="nav-public-menu" id="nav-public-menu">
+          <button class="nav-public-trigger" id="nav-public-trigger" type="button" aria-expanded="false">
+            <span>Menu</span>
+            <span class="nav-account-caret">▾</span>
+          </button>
+          <div class="nav-public-dropdown">
+            <div class="nav-account-actions">
+              <a class="nav-account-btn" href="/account">Sign In</a>
+              <a class="nav-account-btn" href="/whats-new">What's new</a>
+            </div>
+          </div>
+        </div>
         <div class="nav-install-wrap signed-out-cta">
           <a href="/chrome" class="nav-cta">Install for Chrome</a>
           <span class="mobile-desktop-note nav-desktop-note">Desktop Chrome only</span>
@@ -664,6 +715,7 @@
           <div class="nav-account-email" id="nav-account-email"></div>
           <div class="nav-account-plan" id="nav-account-plan"></div>
           <div class="nav-account-actions">
+            <a class="nav-account-btn" href="/whats-new">What's new</a>
             <a class="nav-account-btn" href="/account">My generations</a>
             <a class="nav-account-btn" href="/upgrade">Manage plan</a>
             <button class="nav-account-btn signout" id="nav-signout-btn" type="button">Sign out</button>
@@ -1116,7 +1168,7 @@
       const plan = formatPlanLabel(planOverride || session?.user?.user_metadata?.plan || 'free');
       document.body.classList.add('is-signed-in');
       document.getElementById('nav-marketing-actions').classList.add('hidden-auth');
-      document.getElementById('nav-generations-link').classList.remove('hidden-auth');
+      document.getElementById('nav-generations-link').classList.add('hidden-auth');
       document.getElementById('nav-account').classList.add('is-visible');
       document.getElementById('nav-account-email').textContent = email;
       document.getElementById('nav-account-plan').textContent = plan;
@@ -1128,6 +1180,8 @@
       document.body.classList.remove('is-signed-in');
       document.getElementById('nav-marketing-actions').classList.remove('hidden-auth');
       document.getElementById('nav-generations-link').classList.add('hidden-auth');
+      document.getElementById('nav-public-menu').classList.remove('open');
+      document.getElementById('nav-public-trigger').setAttribute('aria-expanded', 'false');
       document.getElementById('nav-account').classList.remove('is-visible', 'open');
       document.getElementById('nav-account-trigger').setAttribute('aria-expanded', 'false');
     }
@@ -1178,12 +1232,24 @@
       account.classList.toggle('open', willOpen);
       document.getElementById('nav-account-trigger').setAttribute('aria-expanded', willOpen ? 'true' : 'false');
     });
+    document.getElementById('nav-public-trigger').addEventListener('click', e => {
+      e.stopPropagation();
+      const menu = document.getElementById('nav-public-menu');
+      const willOpen = !menu.classList.contains('open');
+      menu.classList.toggle('open', willOpen);
+      document.getElementById('nav-public-trigger').setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    });
     document.getElementById('nav-signout-btn').addEventListener('click', signOutHomepage);
     document.addEventListener('click', e => {
       const account = document.getElementById('nav-account');
       if (account.classList.contains('open') && !account.contains(e.target)) {
         account.classList.remove('open');
         document.getElementById('nav-account-trigger').setAttribute('aria-expanded', 'false');
+      }
+      const publicMenu = document.getElementById('nav-public-menu');
+      if (publicMenu.classList.contains('open') && !publicMenu.contains(e.target)) {
+        publicMenu.classList.remove('open');
+        document.getElementById('nav-public-trigger').setAttribute('aria-expanded', 'false');
       }
     });
     restoreHomepageSession();
