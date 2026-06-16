@@ -298,11 +298,20 @@
       min-width: 0;
     }
     .update-media {
+      position: relative;
       aspect-ratio: 1 / 1;
       border-radius: 8px;
       overflow: hidden;
       background: var(--bg-card);
       box-shadow: 0 24px 70px rgba(0,0,0,0.34);
+    }
+    .update-media::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border: 1px solid rgba(240,235,227,0.72);
+      border-radius: inherit;
+      pointer-events: none;
     }
     .update-media img {
       display: block;
