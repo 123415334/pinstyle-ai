@@ -26,14 +26,14 @@
       --radius-card:  28px;
     }
 
-    html { scroll-behavior: smooth; }
+    html { scroll-behavior: smooth; overflow-x: clip; }
 
     body {
       background: var(--bg);
       color: var(--ink);
       font-family: 'DM Sans', sans-serif;
       font-weight: 300;
-      overflow-x: hidden;
+      overflow-x: clip;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
     }
@@ -372,11 +372,114 @@
     }
     .btn-ghost:hover { color: var(--ink); }
 
+    /* ══ CROSS-WEB LOGO MOMENT ══ */
+    .web-marquee-section {
+      position: relative;
+      z-index: 4;
+      padding: clamp(110px, 12vw, 190px) 0 clamp(72px, 8vw, 126px);
+      background: #0d0b09;
+    }
+    .web-marquee-headline {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.22em;
+      margin: 0 24px 54px;
+      color: var(--ink);
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(32px, 3.8vw, 58px);
+      line-height: 0.98;
+      font-weight: 300;
+      letter-spacing: 0;
+      text-align: center;
+      text-wrap: balance;
+    }
+    .web-marquee-headline span {
+      color: var(--accent-light);
+      font-style: italic;
+    }
+    .web-marquee {
+      position: relative;
+      overflow: clip;
+      height: 88px;
+      padding: 0;
+      background:
+        linear-gradient(180deg, rgba(240,235,227,0.05), rgba(240,235,227,0.00)),
+        #020202;
+      border-top: 1px solid rgba(240,235,227,0.08);
+      border-bottom: 1px solid rgba(240,235,227,0.08);
+      box-shadow:
+        0 0 34px rgba(1,63,244,0.065),
+        0 0 74px rgba(143,190,247,0.035);
+    }
+    .web-marquee::before,
+    .web-marquee::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: min(18vw, 220px);
+      z-index: 3;
+      pointer-events: none;
+    }
+    .web-marquee::before {
+      left: 0;
+      background: linear-gradient(90deg, #020202 0%, rgba(2,2,2,0.82) 42%, rgba(2,2,2,0) 100%);
+    }
+    .web-marquee::after {
+      right: 0;
+      background: linear-gradient(270deg, #020202 0%, rgba(2,2,2,0.82) 42%, rgba(2,2,2,0) 100%);
+    }
+    .web-marquee-inner {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      display: flex;
+      align-items: center;
+      gap: clamp(28px, 4vw, 64px);
+      width: max-content;
+      animation: webMarquee 34s linear infinite;
+      will-change: transform;
+    }
+    .web-marquee:hover .web-marquee-inner {
+      animation-play-state: paused;
+    }
+    .web-marquee-track {
+      display: flex;
+      align-items: center;
+      gap: clamp(38px, 5vw, 82px);
+      padding-right: clamp(38px, 5vw, 82px);
+    }
+    .web-logo {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: clamp(104px, 9vw, 150px);
+      height: 48px;
+      opacity: 0.72;
+      filter: drop-shadow(0 0 16px rgba(143,190,247,0.04));
+    }
+    .web-logo img {
+      display: block;
+      width: auto;
+      max-width: 100%;
+      height: auto;
+      max-height: 42px;
+      object-fit: contain;
+    }
+    .web-logo.mark-wide { width: clamp(132px, 11vw, 188px); }
+    .web-logo.mark-small img { max-height: 34px; }
+
+    @keyframes webMarquee {
+      from { transform: translate3d(0, -50%, 0); }
+      to { transform: translate3d(-50%, -50%, 0); }
+    }
+
 
     /* ══ EDITORIAL ══ */
     .editorial-wrap {
       max-width: 1360px; margin: 0 auto;
-      padding: 160px 52px 100px;
+      padding: 74px 52px 100px;
     }
     .section-label {
       font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;
@@ -634,7 +737,30 @@
       .hero-line-mobile { display: block; }
       .hero-line-keep { white-space: normal; }
       .hero-tiles { display: none; }
-      .editorial-wrap { padding: 100px 24px 60px; }
+      .web-marquee-section {
+        padding: 82px 0 58px;
+      }
+      .web-marquee-headline {
+        margin-bottom: 42px;
+        font-size: clamp(31px, 10vw, 44px);
+        flex-wrap: wrap;
+      }
+      .web-marquee { height: 72px; }
+      .web-marquee-inner,
+      .web-marquee-track {
+        gap: 34px;
+      }
+      .web-marquee-track {
+        padding-right: 34px;
+      }
+      .web-logo {
+        width: 96px;
+        height: 40px;
+      }
+      .web-logo.mark-wide { width: 128px; }
+      .web-logo img { max-height: 34px; }
+      .web-logo.mark-small img { max-height: 29px; }
+      .editorial-wrap { padding: 68px 24px 60px; }
       .section-label { margin-bottom: 60px; }
       .ed-step { grid-template-columns: 1fr; gap: 48px; margin-bottom: 100px; }
       .ed-step.flip { direction: ltr; }
@@ -677,6 +803,11 @@
     }
     @media (min-width: 1180px) {
       .hero-sub { white-space: nowrap; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .web-marquee-inner {
+        animation-duration: 90s;
+      }
     }
   </style>
 </head>
@@ -858,6 +989,42 @@
       </div>
 
     </div><!-- /hero-sticky -->
+  </section>
+
+
+  <!-- ══ CROSS-WEB LOGO MOMENT ══ -->
+  <section class="web-marquee-section" aria-label="Tack works across visual inspiration sites">
+    <p class="web-marquee-headline">Works <span>across the web</span></p>
+    <div class="web-marquee" aria-hidden="true">
+      <div class="web-marquee-inner">
+        <div class="web-marquee-track">
+          <span class="web-logo mark-small"><img src="web_logos/tack_pin.png" alt=""></span>
+          <span class="web-logo mark-small"><img src="web_logos/tack_des.png" alt=""></span>
+          <span class="web-logo mark-small"><img src="web_logos/tack_one.png" alt=""></span>
+          <span class="web-logo mark-small"><img src="web_logos/tack_google.png" alt=""></span>
+          <span class="web-logo mark-wide"><img src="web_logos/tack_cm.png" alt=""></span>
+          <span class="web-logo mark-small"><img src="web_logos/tack_behance.png" alt=""></span>
+          <span class="web-logo mark-small"><img src="web_logos/tack_getty.png" alt=""></span>
+          <span class="web-logo"><img src="web_logos/tack_booom.png" alt=""></span>
+          <span class="web-logo mark-small"><img src="web_logos/tack_w.png" alt=""></span>
+          <span class="web-logo mark-small"><img src="web_logos/tack_dribble.png" alt=""></span>
+          <span class="web-logo mark-small"><img src="web_logos/tack_cosmos.png" alt=""></span>
+        </div>
+        <div class="web-marquee-track">
+          <span class="web-logo mark-small"><img src="web_logos/tack_pin.png" alt=""></span>
+          <span class="web-logo mark-small"><img src="web_logos/tack_des.png" alt=""></span>
+          <span class="web-logo mark-small"><img src="web_logos/tack_one.png" alt=""></span>
+          <span class="web-logo mark-small"><img src="web_logos/tack_google.png" alt=""></span>
+          <span class="web-logo mark-wide"><img src="web_logos/tack_cm.png" alt=""></span>
+          <span class="web-logo mark-small"><img src="web_logos/tack_behance.png" alt=""></span>
+          <span class="web-logo mark-small"><img src="web_logos/tack_getty.png" alt=""></span>
+          <span class="web-logo"><img src="web_logos/tack_booom.png" alt=""></span>
+          <span class="web-logo mark-small"><img src="web_logos/tack_w.png" alt=""></span>
+          <span class="web-logo mark-small"><img src="web_logos/tack_dribble.png" alt=""></span>
+          <span class="web-logo mark-small"><img src="web_logos/tack_cosmos.png" alt=""></span>
+        </div>
+      </div>
+    </div>
   </section>
 
 
