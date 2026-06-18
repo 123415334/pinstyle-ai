@@ -1,7 +1,7 @@
 const FREE_MONTHLY_LIMIT = 3;
 const PRO_MONTHLY_LIMIT = 120;
 const STUDIO_MONTHLY_LIMIT = 600;
-const API_VERSION = '2026-06-17.structured-medium-subgenre-style-lock';
+const API_VERSION = '2026-06-17.reference-first-style-transfer';
 const MAX_REFERENCE_IMAGES = 12;
 const MAX_FLUX_INPUT_IMAGES = 8;
 const MAX_CONDITIONING_IMAGES = 4;
@@ -480,6 +480,28 @@ function assertUsableStyleSchema(styleSchema = {}) {
   }
 }
 
+function buildReferenceFirstFallbackStyleSchema(referenceCount) {
+  return {
+    ...DEFAULT_STYLE_SCHEMA,
+    consistency_score: referenceCount > 1 ? 0.68 : 0.82,
+    medium_subgenre: 'direct reference image style',
+    style_family: 'style visible in the selected reference images',
+    rendering_medium: 'same visible medium as the selected references',
+    production_style: 'same visible art direction and production style as the references',
+    palette: 'palette sampled from the selected references',
+    lighting: 'lighting design visible in the selected references',
+    camera_viewpoint: 'viewpoint, crop, and perspective visible in the selected references',
+    texture_materials: 'texture, grain, material, and surface treatment visible in the selected references',
+    composition: 'composition logic visible in the selected references',
+    shape_language: 'shape language visible in the selected references',
+    mood: 'mood visible in the selected references',
+    subject_translation: 'replace reference subject matter with the requested subject while matching the selected references as closely as possible',
+    positive_style_contract: 'Use the provided reference images as the authoritative style source. Create the requested subject in the same visible medium, palette, lighting, texture, composition, crop, shape language, mood, and production style shown in those references.',
+    must_preserve: ['visible reference style', 'reference palette and lighting', 'reference composition logic'],
+    style_prompt: 'Direct reference-conditioned style transfer from the selected images. Match the visible medium, palette, lighting, texture, composition, crop, shape language, mood, and production style of the references while replacing their subject matter with the requested subject.',
+  };
+}
+
 function isGraphicDesignRequest(subject = '') {
   return /\b(poster|flyer|album cover|book cover|magazine|zine|typography|type treatment|lettering|logo|brand|branding|packaging|label|sticker|graphic|layout|collage|moodboard|ad campaign|banner|social post|web design|ui|icon|illustration)\b/i.test(subject);
 }
@@ -789,13 +811,38 @@ function buildStructuredPromptPayload(subject, styleSchema, options = {}) {
 }
 
 function buildGenerationPrompt(subject, styleSchema, options = {}) {
-  const payload = buildStructuredPromptPayload(subject, styleSchema, options);
-  return [
-    `${subject.trim()} - ${styleSchema.medium_type} / ${styleSchema.medium_subgenre}.`,
-    styleSchema.positive_style_contract,
-    'Create one cohesive finished image on a single canvas with one hero subject. Use the selected reference images only for style, not as panels or copied compositions.',
-    JSON.stringify(payload),
-  ].filter(Boolean).join('\n');
+  const nonPhotographic = Boolean(options.nonPhotographic);
+  const lines = [
+    `Create ${subject.trim()} as one cohesive finished image on a single canvas.`,
+    `Use the provided reference images as the authoritative style source: ${styleSchema.positive_style_contract}`,
+    `Match this medium/subgenre as closely as the references show it: ${styleSchema.medium_type} / ${styleSchema.medium_subgenre}.`,
+    `Preserve the reference art direction: ${styleSchema.production_style}.`,
+    `Preserve palette: ${styleSchema.palette}.`,
+    `Preserve lighting: ${styleSchema.lighting}.`,
+    `Preserve camera/viewpoint/crop: ${styleSchema.camera_viewpoint}.`,
+    `Preserve texture/material treatment: ${styleSchema.texture_materials}.`,
+    `Preserve composition logic and shape language: ${styleSchema.composition}; ${styleSchema.shape_language}.`,
+    `Preserve mood: ${styleSchema.mood}.`,
+    `Translate only the style. Replace reference subject matter with the requested subject: ${subject.trim()}.`,
+    'Do not create a grid, diptych, triptych, contact sheet, moodboard, screenshot, comparison image, or copied reference layout.',
+  ];
+
+  if (styleSchema.must_preserve.length) {
+    lines.push(`Must preserve: ${styleSchema.must_preserve.join(', ')}.`);
+  }
+  if (nonPhotographic) {
+    lines.push('The requested subject itself must be rendered in the same non-photographic medium as the references, not as a realistic object placed on a styled background.');
+  } else if (isPhotographicStyle(styleSchema)) {
+    lines.push('The result should read as a real photograph from the same shoot or campaign style as the references.');
+  }
+  if (isMicroGrainStyle(styleSchema)) {
+    lines.push('Carry the visible grain, speckling, stippling, dithering, or airbrushed noise across both the subject and background.');
+  }
+  if (options.variation) {
+    lines.push('Vary the framing and object placement while preserving the same reference style.');
+  }
+  lines.push(`Reference style synthesis: ${styleSchema.style_prompt}`);
+  return lines.join(' ');
 }
 
 function buildVariationPrompt(subject, styleSchema, options = {}) {
@@ -971,17 +1018,14 @@ module.exports = async function handler(req, res) {
     }
 
     // ── Step 2: Claude structured style analysis ──────────────────────────
-    let styleSchema, rawResponse;
+    let styleSchema, rawResponse, styleAnalysisMode = 'claude_style_contract';
     try {
       ({ styleSchema, rawResponse } = await analyzeStyleSchema(validReferences, subject));
     } catch (err) {
-      const friendly = 'Could not read a specific enough style from those references. Please try again or select a tighter visual family.';
-      return res.status(502).json({
-        error: friendly,
-        code: 'style_analysis_failed',
-        message: friendly,
-        ...(EXPOSE_STYLE_DEBUG ? { raw_style_analysis: err.rawStyleAnalysis || null, detail: err.message } : {}),
-      });
+      console.warn('[tack] using direct reference fallback style contract:', err.message);
+      styleSchema = buildReferenceFirstFallbackStyleSchema(validReferences.length);
+      rawResponse = err.rawStyleAnalysis || '';
+      styleAnalysisMode = 'direct_reference_fallback';
     }
     const conditioningReferences = buildConditioningReferences(validReferences, styleSchema, subject);
     const nonPhotographic = isNonPhotographicStyle(styleSchema);
@@ -1076,6 +1120,7 @@ module.exports = async function handler(req, res) {
         used_count: usedFallbackConditioning ? 1 : conditioningInputs.length,
         mode: usedFallbackConditioning ? 'image_conditioned_fallback' : (shouldUseImageConditioning ? 'image_conditioned' : 'style_text_only'),
         style_match_mode: styleMatchMode,
+        style_analysis_mode: styleAnalysisMode,
         medium_type: styleSchema.medium_type,
         medium_subgenre: styleSchema.medium_subgenre,
         conditioning_reference_indices: conditioningReferences.map(ref => ref.index).filter(Number.isInteger),
