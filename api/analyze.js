@@ -7,7 +7,7 @@ const MAX_FLUX_INPUT_IMAGES = 8;
 const MAX_CONDITIONING_IMAGES = 4;
 const MAX_GRAPHIC_CONDITIONING_IMAGES = 6;
 const MAX_REFERENCE_BYTES = 4 * 1024 * 1024;
-const DEFAULT_STYLE_PROMPT = 'professional photography, natural lighting, refined composition, high quality';
+const DEFAULT_STYLE_PROMPT = 'reference-matched visual style from the selected images';
 const DEFAULT_ASPECT_RATIO = '1:1';
 const ALLOWED_ASPECT_RATIOS = new Set(['16:9', '1:1', '9:16']);
 const OUTPUT_DIMENSIONS = Object.freeze({
@@ -21,21 +21,21 @@ const DEFAULT_STYLE_SCHEMA = Object.freeze({
   consistency_score: 0.75,
   outlier_indices: [],
   medium_type: 'photograph',
-  medium_subgenre: 'refined commercial photography',
-  style_family: 'refined commercial photography',
-  rendering_medium: 'high-quality image making',
-  production_style: 'polished art-directed commercial image',
-  palette: 'balanced, cohesive color palette',
-  lighting: 'natural, polished lighting',
-  camera_viewpoint: 'clean camera angle and deliberate crop',
-  texture_materials: 'considered materials and tactile surface detail',
-  composition: 'clean, deliberate framing',
-  shape_language: 'cohesive forms and silhouettes',
-  mood: 'elevated and art directed',
-  subject_translation: 'render the requested subject as a new hero subject in the reference style',
-  generic_drift_risks: ['generic stock imagery'],
-  positive_style_contract: 'A polished, art-directed image that preserves the references medium, subgenre, palette, lighting, texture, composition, and mood.',
-  must_preserve: ['shared aesthetic family', 'overall art direction'],
+  medium_subgenre: 'reference-matched photographic style',
+  style_family: 'selected reference image style',
+  rendering_medium: 'same visible medium as the selected references',
+  production_style: 'same visible art direction as the selected references',
+  palette: 'same visible palette strategy as the selected references',
+  lighting: 'same visible lighting design as the selected references',
+  camera_viewpoint: 'same visible viewpoint and crop logic as the selected references',
+  texture_materials: 'same visible texture and surface treatment as the selected references',
+  composition: 'same visible composition logic as the selected references',
+  shape_language: 'same visible shape language as the selected references',
+  mood: 'same visible mood as the selected references',
+  subject_translation: 'render the requested subject as a new hero subject in the exact visible style of the selected references',
+  generic_drift_risks: ['generic output'],
+  positive_style_contract: 'Use the selected reference images as the authoritative style guide. Match their exact visible medium, subgenre, palette, lighting, texture, composition, camera/viewpoint, shape language, mood, and production style while replacing the reference subject matter with the requested subject.',
+  must_preserve: ['exact visible reference style', 'specific art direction'],
   avoid: [],
   reference_subjects: [],
   subject_leak_risks: [],
@@ -44,6 +44,7 @@ const DEFAULT_STYLE_SCHEMA = Object.freeze({
 const ANTHROPIC_STYLE_MODEL = process.env.ANTHROPIC_STYLE_MODEL || 'claude-sonnet-4-20250514';
 const REPLICATE_FLUX_MODEL  = process.env.REPLICATE_FLUX_MODEL || 'black-forest-labs/flux-2-pro';
 const EXPOSE_STYLE_DEBUG     = process.env.EXPOSE_STYLE_DEBUG === '1';
+const MIN_STYLE_CONTRACT_FIELDS = 7;
 let sharp = null;
 try {
   sharp = require('sharp');
@@ -438,11 +439,44 @@ function normalizeStyleSchema(rawSchema, referenceCount) {
 
 function parseStyleSchema(rawText, referenceCount) {
   const jsonPayload = extractJsonObject(rawText);
-  if (!jsonPayload) return { ...DEFAULT_STYLE_SCHEMA };
+  if (!jsonPayload) throw new Error('Style analysis did not return JSON');
   try {
     return normalizeStyleSchema(JSON.parse(jsonPayload), referenceCount);
-  } catch {
-    return { ...DEFAULT_STYLE_SCHEMA };
+  } catch (err) {
+    throw new Error(`Style analysis JSON could not be parsed: ${err.message}`);
+  }
+}
+
+function countSpecificStyleFields(styleSchema = {}) {
+  return [
+    styleSchema.medium_subgenre,
+    styleSchema.style_family,
+    styleSchema.rendering_medium,
+    styleSchema.production_style,
+    styleSchema.palette,
+    styleSchema.lighting,
+    styleSchema.camera_viewpoint,
+    styleSchema.texture_materials,
+    styleSchema.composition,
+    styleSchema.shape_language,
+    styleSchema.mood,
+    styleSchema.positive_style_contract,
+    styleSchema.style_prompt,
+  ].filter(value => {
+    const text = String(value || '').toLowerCase();
+    return text && !text.includes('selected reference') && !text.includes('same visible') && !text.includes('reference-matched');
+  }).length;
+}
+
+function assertUsableStyleSchema(styleSchema = {}) {
+  if (!styleSchema || typeof styleSchema !== 'object') {
+    throw new Error('Style analysis returned an empty style contract');
+  }
+  if (countSpecificStyleFields(styleSchema) < MIN_STYLE_CONTRACT_FIELDS) {
+    throw new Error('Style analysis was too generic to generate reliably');
+  }
+  if (!styleSchema.positive_style_contract || styleSchema.positive_style_contract === DEFAULT_STYLE_SCHEMA.positive_style_contract) {
+    throw new Error('Style analysis did not produce a specific positive style contract');
   }
 }
 
@@ -614,7 +648,7 @@ async function analyzeStyleSchema(validReferences, subject) {
       },
       body: JSON.stringify({
         model:      ANTHROPIC_STYLE_MODEL,
-        max_tokens: 1300,
+        max_tokens: 1800,
         temperature: 0.3,
         system: 'You are an elite art director and reference-image style analyst. Your job is to extract the shared visual DNA across multiple references so a downstream image generator can create a new subject in the exact same aesthetic family.',
         messages: [{
@@ -639,13 +673,12 @@ async function analyzeStyleSchema(validReferences, subject) {
 
     rawResponse = extractClaudeText(await claudeResp.json());
     const styleSchema = parseStyleSchema(rawResponse, validReferences.length);
+    assertUsableStyleSchema(styleSchema);
     return { styleSchema, rawResponse };
   } catch (err) {
-    console.warn('[tack] Claude style analysis failed (non-fatal):', err.message);
-    return {
-      styleSchema: { ...DEFAULT_STYLE_SCHEMA },
-      rawResponse,
-    };
+    console.warn('[tack] Claude style analysis failed:', err.message);
+    err.rawStyleAnalysis = rawResponse;
+    throw err;
   }
 }
 
@@ -689,7 +722,7 @@ function buildStructuredPromptPayload(subject, styleSchema, options = {}) {
   const styleMatchMode = options.styleMatchMode || 'balanced_style_transfer';
   const strict = styleMatchMode.includes('strict');
   const payload = {
-    task: 'Generate a new image from the requested subject while transferring only the visual style of the reference board.',
+    task: 'Generate one complete, single-scene image from the requested subject while transferring only the visual style of the selected reference images.',
     subject: {
       prompt: subject.trim(),
       priority: 'The requested subject is the hero subject and replaces the reference image subject matter.',
@@ -717,6 +750,7 @@ function buildStructuredPromptPayload(subject, styleSchema, options = {}) {
     reference_handling: {
       use_references_for: 'medium, subgenre, art direction, palette, lighting, texture, composition, camera/viewpoint, and mood',
       replace_reference_subjects_with_requested_subject: true,
+      output_format: 'One continuous image on one canvas. Compose a single finished scene, not a grid, diptych, triptych, before-and-after layout, contact sheet, moodboard, collage, screenshot, or reference comparison.',
       reference_subjects_seen: styleSchema.reference_subjects,
       subject_leak_risks: styleSchema.subject_leak_risks,
     },
@@ -725,6 +759,7 @@ function buildStructuredPromptPayload(subject, styleSchema, options = {}) {
         ? 'The result should be immediately recognizable as belonging to the same specific visual subgenre as the strongest compatible references.'
         : 'The result should preserve the reference visual family while allowing natural variation.',
       specificity_floor: 'Use the named medium_subgenre and concrete art-direction traits as the style floor. A broad label like professional photo, illustration, render, or high quality is insufficient by itself.',
+      single_scene_standard: 'The whole output is one cohesive final image with one main hero subject and one coherent environment or designed set.',
       artifact_control: 'Keep anatomy, object count, object placement, hands, faces, edges, and perspective coherent. Include text or logos only when the user explicitly asks for them.',
     },
     style_synthesis: styleSchema.style_prompt,
@@ -744,6 +779,7 @@ function buildGenerationPrompt(subject, styleSchema, options = {}) {
   return [
     `${subject.trim()} - ${styleSchema.medium_type} / ${styleSchema.medium_subgenre}.`,
     styleSchema.positive_style_contract,
+    'Create one cohesive finished image on a single canvas with one hero subject. Use the selected reference images only for style, not as panels or copied compositions.',
     JSON.stringify(payload),
   ].filter(Boolean).join('\n');
 }
@@ -921,7 +957,16 @@ module.exports = async function handler(req, res) {
     }
 
     // ── Step 2: Claude structured style analysis ──────────────────────────
-    const { styleSchema, rawResponse } = await analyzeStyleSchema(validReferences, subject);
+    let styleSchema, rawResponse;
+    try {
+      ({ styleSchema, rawResponse } = await analyzeStyleSchema(validReferences, subject));
+    } catch (err) {
+      return res.status(502).json({
+        error: 'style_analysis_failed',
+        message: 'Could not read a specific enough style from those references. Please try again or select a tighter visual family.',
+        ...(EXPOSE_STYLE_DEBUG ? { raw_style_analysis: err.rawStyleAnalysis || null, detail: err.message } : {}),
+      });
+    }
     const conditioningReferences = buildConditioningReferences(validReferences, styleSchema, subject);
     const nonPhotographic = isNonPhotographicStyle(styleSchema);
     const requiresNativeAspectCanvas = aspectRatio !== '1:1';
