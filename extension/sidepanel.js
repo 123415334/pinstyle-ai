@@ -1728,7 +1728,7 @@ async function generate() {
       return;
     }
 
-    if (!resp.ok) throw new Error(data.error || `API returned ${resp.status}`);
+    if (!resp.ok) throw new Error(data.message || data.error || `API returned ${resp.status}`);
 
     stopGenerationProgress();
     _lastResultData = {

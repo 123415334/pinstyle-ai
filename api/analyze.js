@@ -562,7 +562,7 @@ function getStyleMatchMode(styleSchema = {}, { styleDriven = false, nonPhotograp
   return score < 0.62 ? 'cohesive_style_lock' : 'balanced_style_transfer';
 }
 
-function buildStyleAnalysisPrompt(referenceCount, subject) {
+function buildStyleAnalysisPrompt(referenceCount, subject, { repair = false } = {}) {
   const humanRequest = isHumanSubjectRequest(subject);
   return `Analyze these ${referenceCount} reference images and return a single JSON object describing their shared style DNA.
 
@@ -573,6 +573,9 @@ Goal:
 - Do NOT focus on copying the subject matter.
 
 Instructions:
+- ${repair
+    ? 'This is a retry because the prior style analysis was too generic. Be more concrete. Name the exact medium/subgenre and visible art-direction traits from the images. Do not use generic placeholders like "selected reference style", "same visible style", "high quality", "professional photography", or "polished image".'
+    : 'Be specific enough that a generator could recreate the board\'s visual direction without seeing the images.'}
 - Treat the references as a candidate style board, not all equally useful.
 - Identify which image best anchors the desired style for the requested subject.
 - Mark references as outliers when they conflict with the requested subject, have a different medium, are close body fragments, private/intimate scenes, or would pull the generation toward wrong content.
@@ -636,50 +639,61 @@ Field rules:
 Be concrete, visually specific, and faithful to the compatible shared aesthetic. Output JSON only.`;
 }
 
+async function requestStyleAnalysis(validReferences, subject, { repair = false } = {}) {
+  const claudeResp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type':      'application/json',
+      'anthropic-version': '2023-06-01',
+      'x-api-key':         process.env.ANTHROPIC_API_KEY,
+    },
+    body: JSON.stringify({
+      model:      ANTHROPIC_STYLE_MODEL,
+      max_tokens: 1800,
+      temperature: repair ? 0.15 : 0.3,
+      system: 'You are an elite art director and reference-image style analyst. Your job is to extract the shared visual DNA across multiple references so a downstream image generator can create a new subject in the exact same aesthetic family.',
+      messages: [{
+        role: 'user',
+        content: [
+          ...validReferences.map(ref => ({
+            type: 'image',
+            source: { type: 'base64', media_type: ref.mediaType, data: ref.base64 },
+          })),
+          {
+            type: 'text',
+            text: buildStyleAnalysisPrompt(validReferences.length, subject, { repair }),
+          },
+        ],
+      }],
+    }),
+  });
+
+  if (!claudeResp.ok) {
+    throw new Error(`Claude returned ${claudeResp.status}`);
+  }
+  return extractClaudeText(await claudeResp.json());
+}
+
 async function analyzeStyleSchema(validReferences, subject) {
   let rawResponse = '';
-  try {
-    const claudeResp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type':      'application/json',
-        'anthropic-version': '2023-06-01',
-        'x-api-key':         process.env.ANTHROPIC_API_KEY,
-      },
-      body: JSON.stringify({
-        model:      ANTHROPIC_STYLE_MODEL,
-        max_tokens: 1800,
-        temperature: 0.3,
-        system: 'You are an elite art director and reference-image style analyst. Your job is to extract the shared visual DNA across multiple references so a downstream image generator can create a new subject in the exact same aesthetic family.',
-        messages: [{
-          role: 'user',
-          content: [
-            ...validReferences.map(ref => ({
-              type: 'image',
-              source: { type: 'base64', media_type: ref.mediaType, data: ref.base64 },
-            })),
-            {
-              type: 'text',
-              text: buildStyleAnalysisPrompt(validReferences.length, subject),
-            },
-          ],
-        }],
-      }),
-    });
+  let lastError = null;
 
-    if (!claudeResp.ok) {
-      throw new Error(`Claude returned ${claudeResp.status}`);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      rawResponse = await requestStyleAnalysis(validReferences, subject, { repair: attempt > 0 });
+      const styleSchema = parseStyleSchema(rawResponse, validReferences.length);
+      assertUsableStyleSchema(styleSchema);
+      if (attempt > 0) console.log('[tack] style analysis repair succeeded');
+      return { styleSchema, rawResponse };
+    } catch (err) {
+      lastError = err;
+      console.warn(`[tack] Claude style analysis attempt ${attempt + 1} failed:`, err.message);
+      if (/Claude returned/.test(err.message)) break;
     }
-
-    rawResponse = extractClaudeText(await claudeResp.json());
-    const styleSchema = parseStyleSchema(rawResponse, validReferences.length);
-    assertUsableStyleSchema(styleSchema);
-    return { styleSchema, rawResponse };
-  } catch (err) {
-    console.warn('[tack] Claude style analysis failed:', err.message);
-    err.rawStyleAnalysis = rawResponse;
-    throw err;
   }
+
+  lastError.rawStyleAnalysis = rawResponse;
+  throw lastError;
 }
 
 function buildConditioningReferences(validReferences, styleSchema, subject = '') {
@@ -961,9 +975,11 @@ module.exports = async function handler(req, res) {
     try {
       ({ styleSchema, rawResponse } = await analyzeStyleSchema(validReferences, subject));
     } catch (err) {
+      const friendly = 'Could not read a specific enough style from those references. Please try again or select a tighter visual family.';
       return res.status(502).json({
-        error: 'style_analysis_failed',
-        message: 'Could not read a specific enough style from those references. Please try again or select a tighter visual family.',
+        error: friendly,
+        code: 'style_analysis_failed',
+        message: friendly,
         ...(EXPOSE_STYLE_DEBUG ? { raw_style_analysis: err.rawStyleAnalysis || null, detail: err.message } : {}),
       });
     }
