@@ -813,7 +813,9 @@ function buildStructuredPromptPayload(subject, styleSchema, options = {}) {
 function buildGenerationPrompt(subject, styleSchema, options = {}) {
   const nonPhotographic = Boolean(options.nonPhotographic);
   const lines = [
+    `CONTENT LOCK: the image must clearly show ${subject.trim()} as the main hero subject.`,
     `Create ${subject.trim()} as one cohesive finished image on a single canvas.`,
+    'The typed subject overrides all reference image subject matter.',
     `Use the provided reference images as the authoritative style source: ${styleSchema.positive_style_contract}`,
     `Match this medium/subgenre as closely as the references show it: ${styleSchema.medium_type} / ${styleSchema.medium_subgenre}.`,
     `Preserve the reference art direction: ${styleSchema.production_style}.`,
@@ -823,7 +825,7 @@ function buildGenerationPrompt(subject, styleSchema, options = {}) {
     `Preserve texture/material treatment: ${styleSchema.texture_materials}.`,
     `Preserve composition logic and shape language: ${styleSchema.composition}; ${styleSchema.shape_language}.`,
     `Preserve mood: ${styleSchema.mood}.`,
-    `Translate only the style. Replace reference subject matter with the requested subject: ${subject.trim()}.`,
+    `Translate only the style. Replace all reference subject matter with the requested subject: ${subject.trim()}.`,
     'Do not create a grid, diptych, triptych, contact sheet, moodboard, screenshot, comparison image, or copied reference layout.',
   ];
 

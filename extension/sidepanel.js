@@ -93,6 +93,7 @@ function getOutputDimensions(aspectRatio = _generationAspectRatio) {
 function setGenerationAspectRatio(aspectRatio, options = {}) {
   const { persist = false } = options;
   const next = normalizeAspectRatio(aspectRatio);
+  const changed = _generationAspectRatio !== next;
   _generationAspectRatio = next;
   dimensionOptions.forEach(option => {
     const selected = option.dataset.aspectRatio === next;
@@ -100,6 +101,7 @@ function setGenerationAspectRatio(aspectRatio, options = {}) {
     option.setAttribute('aria-checked', selected ? 'true' : 'false');
   });
   if (persist) {
+    if (changed) clearStaleResultsForWorkspaceChange();
     chrome.storage.local.set({ [ASPECT_RATIO_KEY]: next }).catch(() => {});
     trackEvent('generation_dimension_selected', {
       aspectRatio: next,
@@ -162,6 +164,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     option.addEventListener('click', () => setGenerationAspectRatio(option.dataset.aspectRatio, { persist: true }));
   });
   subjectInput.addEventListener('input', () => {
+    clearStaleResultsForWorkspaceChange();
     updateGenerateBtn();
     saveWorkspaceState().catch(() => {});
     if (!_promptEnteredTracked && subjectInput.value.trim().length > 0) {
@@ -1596,6 +1599,7 @@ function toggleSelect(item, src) {
     item.classList.add('selected');
     trackEvent('image_selected', { selectedCount: selectedUrls.size });
   }
+  clearStaleResultsForWorkspaceChange();
   updateGenerateBtn();
   saveWorkspaceState().catch(() => {});
 }
@@ -1615,11 +1619,36 @@ function updateGenerateBtn() {
   generateBtn.disabled = monthlyExhausted || !hasImages || !hasSubject;
 }
 
+function getRequestSignature(subject = subjectInput.value.trim(), urls = [...selectedUrls]) {
+  return JSON.stringify({
+    subject: String(subject || '').trim(),
+    refs: [...urls].filter(Boolean).sort(),
+    aspectRatio: _generationAspectRatio,
+  });
+}
+
+function clearGeneratedResults(options = {}) {
+  const { skipSave = false } = options;
+  if (!_lastResultData && resultsEl.classList.contains('hidden')) return;
+  _lastResultData = null;
+  clearElement(resultsEl);
+  resultsEl.className = 'hidden';
+  if (!skipSave) saveWorkspaceState().catch(() => {});
+}
+
+function clearStaleResultsForWorkspaceChange() {
+  if (!_lastResultData) return;
+  if (_lastResultData.requestSignature === getRequestSignature()) return;
+  clearGeneratedResults({ skipSave: true });
+}
+
 // ── Generate ──────────────────────────────────────────────────────────────────
 async function generate() {
   const requestId = ++_generateRequestId;
   const subject = subjectInput.value.trim();
   if (!subject || selectedUrls.size === 0) return;
+  const requestUrls = [...selectedUrls];
+  const requestSignature = getRequestSignature(subject, requestUrls);
   trackEvent('generate_clicked', {
     count: selectedUrls.size,
     source: _savedStyleMemory ? 'history_memory' : 'page',
@@ -1678,7 +1707,7 @@ async function generate() {
       headers,
       signal: controller.signal,
       body: JSON.stringify({
-        imageUrls: [...selectedUrls],
+        imageUrls: requestUrls,
         subject,
         anonymousId: _anonymousId,
         aspectRatio: _generationAspectRatio,
@@ -1730,6 +1759,19 @@ async function generate() {
 
     if (!resp.ok) throw new Error(data.message || data.error || `API returned ${resp.status}`);
 
+    if (getRequestSignature() !== requestSignature) {
+      if (data.usage && _authToken) {
+        _generationsUsed = data.usage.used;
+        if (data.usage.monthly_used !== undefined) _monthlyUsed = data.usage.monthly_used;
+        await persistUsageState({ used: _generationsUsed, monthly: _monthlyUsed });
+        updateTrialBadge();
+      }
+      clearGeneratedResults({ skipSave: true });
+      setStatus('A previous generation finished after you changed the prompt or references. Generate again to use the current workspace.');
+      await saveWorkspaceState();
+      return;
+    }
+
     stopGenerationProgress();
     _lastResultData = {
       styleDescriptors: data.styleDescriptors || '',
@@ -1737,6 +1779,9 @@ async function generate() {
       images: Array.isArray(data.images) ? data.images : [],
       aspectRatio: data.aspectRatio || _generationAspectRatio,
       outputDimensions: data.outputDimensions || outputDimensions,
+      requestSubject: subject,
+      requestReferenceUrls: requestUrls,
+      requestSignature,
     };
     renderResults(_lastResultData);
 
@@ -1764,7 +1809,7 @@ async function generate() {
           prompt: data.prompt || '',
           aspectRatio: data.aspectRatio || _generationAspectRatio,
           outputDimensions: data.outputDimensions || outputDimensions,
-          referenceUrls: [...selectedUrls],
+          referenceUrls: requestUrls,
         }).catch(e => console.warn('[tack] history save failed:', e));
       }
     }
@@ -2431,8 +2476,15 @@ function restoreWorkspaceUI() {
   _savedStyleMemory = _pendingWorkspace.savedStyleMemory || null;
   renderStyleMemoryBanner();
   if (_pendingWorkspace.resultData?.images?.length) {
-    _lastResultData = _pendingWorkspace.resultData;
-    renderResults(_pendingWorkspace.resultData);
+    const resultData = _pendingWorkspace.resultData;
+    const expectedSignature = resultData.requestSignature
+      || getRequestSignature(resultData.requestSubject || _pendingWorkspace.subject || '', resultData.requestReferenceUrls || _pendingWorkspace.selectedUrls || []);
+    if (expectedSignature === getRequestSignature(_pendingWorkspace.subject || '', _pendingWorkspace.selectedUrls || [])) {
+      _lastResultData = resultData;
+      renderResults(resultData);
+    } else {
+      _lastResultData = null;
+    }
   }
 }
 
