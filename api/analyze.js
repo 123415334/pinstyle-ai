@@ -1,7 +1,7 @@
 const FREE_MONTHLY_LIMIT = 3;
 const PRO_MONTHLY_LIMIT = 120;
 const STUDIO_MONTHLY_LIMIT = 600;
-const API_VERSION = '2026-05-23.human-art-style-conditioning';
+const API_VERSION = '2026-06-17.modality-preserving-style-conditioning';
 const MAX_REFERENCE_IMAGES = 12;
 const MAX_CONDITIONING_IMAGES = 4;
 const MAX_GRAPHIC_CONDITIONING_IMAGES = 6;
@@ -422,11 +422,28 @@ function isNonPhotographicStyle(styleSchema = {}) {
     styleSchema.shape_language,
     styleSchema.mood,
     styleSchema.style_prompt,
+    ...(styleSchema.must_preserve || []),
   ].filter(Boolean).join(' ').toLowerCase();
 
-  const artTerms = /\b(painting|painted|oil paint|oil painting|acrylic|watercolor|gouache|brushwork|canvas|illustration|illustrated|drawing|sketch|charcoal|pastel|collage|mixed media|printmaking|screenprint|linocut|woodcut|ink|anime|manga|cartoon|comic|3d render|cgi|sculptural)\b/;
+  const artTerms = /\b(painting|painted|oil paint|oil painting|acrylic|watercolor|gouache|brushwork|canvas|illustration|illustrated|drawing|sketch|charcoal|pastel|collage|mixed media|printmaking|screenprint|linocut|woodcut|ink|anime|manga|cartoon|comic|airbrush|airbrushed|dither|dithered|stipple|stippled|risograph|riso|posterized|flat vector|gradient mesh|grain|grainy|fine grain|micro[-\s]?grain|noise texture|textured gradient|speckle|speckled|halftone|sculptural)\b/;
   const photoTerms = /\b(photo|photograph|photography|photographic|camera|film photo|35mm|flash photograph|snapshot|documentary photo|street photography|editorial photography|product photography)\b/;
-  return artTerms.test(styleText) && !photoTerms.test(styleText);
+  const negativePhotoTerms = /\b(non[-\s]?photographic|not photorealistic|not photographic|avoid photorealism|avoid photographic|avoid photo|no photo|no photorealism|not a camera photo)\b/;
+  return artTerms.test(styleText) && (!photoTerms.test(styleText) || negativePhotoTerms.test(styleText));
+}
+
+function isMicroGrainStyle(styleSchema = {}) {
+  const styleText = [
+    styleSchema.style_family,
+    styleSchema.rendering_medium,
+    styleSchema.texture_materials,
+    styleSchema.composition,
+    styleSchema.shape_language,
+    styleSchema.mood,
+    styleSchema.style_prompt,
+    ...(styleSchema.must_preserve || []),
+  ].filter(Boolean).join(' ').toLowerCase();
+
+  return /\b(micro[-\s]?grain|fine grain|grainy|noise texture|grain texture|dither|dithered|stipple|stippled|speckle|speckled|halftone|airbrush|airbrushed|soft grain|texture overlay|paper tooth|posterized gradient)\b/.test(styleText);
 }
 
 function getStyleMatchMode(styleSchema = {}, { styleDriven = false, nonPhotographic = false } = {}) {
@@ -456,6 +473,9 @@ Instructions:
     : 'Because this is not a human-subject request, preserve useful visual style signals from product renders, illustration, typography, layout, collage, material, lighting, color, photography, and graphic-design references when they support the requested subject.'}
 - When the board is mixed, prefer cohesive style signals that support the requested medium over unusual subjects or one-off compositions.
 - Preserve the broad family resemblance across the compatible references, not just one dominant trait.
+- Treat rendering modality as mandatory style DNA. If the references are illustration, painting, airbrush, grain-textured digital art, vector art, collage, or another non-photographic medium, say so plainly in rendering_medium and style_prompt.
+- Treat surface texture as a first-class style signal. If the references use visible fine grain, micro-grain, stippling, dithering, airbrushed noise, posterized gradients, paper tooth, or speckled color transitions, explicitly name that texture and whether it appears globally, only in shadows, only in gradients, or on subject edges.
+- If the references are illustration, painting, airbrush, grain-textured, or otherwise non-photographic, include photorealism, glossy 3D rendering, product mockup lighting, and camera-photo treatment in "avoid" unless the references actually use those qualities.
 
 Return ONLY valid JSON with this exact shape:
 {
@@ -485,7 +505,7 @@ Field rules:
 - avoid: 0-5 drift risks or wrong directions
 - reference_subjects: 2-8 concise nouns for the main depicted subjects, objects, characters, or motifs recurring in the references
 - subject_leak_risks: 0-8 specific reference subjects or motifs that must NOT leak into a new generation unless explicitly requested
-- style_prompt: 90-140 words, dense and specific, describing the shared style for image generation. For non-photographic illustration, drawing, or painting styles, name the exact medium character: whether lines are rough or clean, thick or thin, scratchy or geometric; whether fills are flat or textured; whether edges are hard or loose; whether the hand of the artist is visible (imperfect, gestural, hand-made) or the work looks digitally finished and smooth. Capture any grain, paper texture, ink bleed, or brushstroke quality that distinguishes the style
+- style_prompt: 90-140 words, dense and specific, describing the shared style for image generation. For non-photographic illustration, drawing, airbrush, grain-textured digital art, vector art, or painting styles, name the exact medium character: whether lines are rough or clean, thick or thin, scratchy or geometric; whether fills are flat, gradient, posterized, speckled, dithered, or textured; whether edges are hard, feathered, hazy, or loose; whether the hand of the artist is visible or the work looks digitally finished and smooth. Capture any micro-grain, noise texture, paper texture, ink bleed, stippling, dithering, airbrush haze, or brushstroke quality that distinguishes the style
 
 Be concrete, visually specific, and faithful to the compatible shared aesthetic. Output JSON only.`;
 }
@@ -567,7 +587,6 @@ function buildGenerationPrompt(subject, styleSchema, { styleDriven = false, nonP
     'Do not copy or preserve any reference person identity, face, age, hairstyle, outfit, body type, pose, or character.',
     'If the requested subject differs from people in the references, replace the reference person completely while keeping only the visual style.',
     'Honor every concrete detail in the subject request, including quantity, color, age, objects, action, setting, and time of day.',
-    'Make one coherent, believable image with natural anatomy, realistic faces and hands, correct limb structure, and no duplicated bodies or fused objects.',
     'If the subject includes people holding or carrying objects, make the grip, object count, and object placement visually legible.',
     'Match the shared visual family of the reference images, keeping the subject new but the aesthetic highly consistent.',
     'Style fidelity is critical: the result should be immediately recognizable as belonging to the same visual world as the references.',
@@ -585,8 +604,18 @@ function buildGenerationPrompt(subject, styleSchema, { styleDriven = false, nonP
     'Avoid AI artifacts, warped fingers, distorted faces, extra limbs, missing limbs, melting objects, illegible object counts, text/logos, collages, screenshots, and graphic-design layouts unless explicitly requested.',
   ];
 
+  if (nonPhotographic) {
+    lines.splice(6, 0,
+      'Render the entire image, including the new subject itself, in the same non-photographic medium as the references.',
+      'Do not make a realistic object, 3D product render, CGI mockup, studio photo, or glossy physically rendered item merely placed on a styled background.',
+      'Any real-world material named in the subject must be translated into the reference medium. For example, metallic, glass, plastic, or fabric should be suggested through the reference style\'s simplified highlights, gradients, linework, grain, palette, and edge treatment rather than photorealistic shaders.'
+    );
+  } else {
+    lines.splice(6, 0, 'Make one coherent, believable image with natural anatomy, realistic faces and hands, correct limb structure, and no duplicated bodies or fused objects.');
+  }
+
   if (styleMatchMode.includes('strict')) {
-    lines.push('STRICT STYLE LOCK: the reference aesthetic must dominate the result. The new subject may change, but the rendering medium, palette behavior, edge quality, texture, lighting logic, background treatment, shape language, and overall art direction must stay tightly aligned with the compatible references. Do not merely borrow colors while switching to a different illustration, render, or photography style.');
+    lines.push('STRICT STYLE LOCK: the reference aesthetic must dominate the result. The new subject may change, but the rendering medium, palette behavior, edge quality, texture, lighting logic, background treatment, shape language, and overall art direction must stay tightly aligned with the compatible references. Do not merely borrow colors while switching to a different illustration, render, photography, or 3D style.');
   }
 
   if (styleMatchMode === 'strict_cohesive_style_lock' || styleMatchMode === 'cohesive_style_lock') {
@@ -594,11 +623,15 @@ function buildGenerationPrompt(subject, styleSchema, { styleDriven = false, nonP
   }
 
   if (styleDriven) {
-    lines.push('For stylized product, object, graphic, or illustrative references, preserve the rendering medium, material treatment, lighting logic, color behavior, edge quality, shadow style, and compositional boldness more strongly than generic photorealism.');
+    lines.push('For stylized product, object, graphic, or illustrative references, preserve the rendering medium, material treatment, lighting logic, color behavior, edge quality, shadow style, and compositional boldness more strongly than generic photorealism. The subject should inherit the reference style, not a default product-rendering style.');
   }
 
   if (nonPhotographic) {
-    lines.push('The final image must preserve the non-photographic medium of the references. Do not render this as a camera photo, stock photo, documentary photograph, or photorealistic snapshot. Faithfully replicate the medium\'s characteristic mark-making: if lines are rough and irregular, keep them rough; if fills show brushwork, grain, or texture, preserve it; if the style is flat with hard edges, stay flat; if edges are loose or sketchy, keep them loose. Do not smooth, polish, or render-out the handmade, imperfect, or constructed character of the source medium — that rawness is the style.');
+    lines.push('The final image must preserve the non-photographic medium of the references. Do not render this as a camera photo, stock photo, documentary photograph, photorealistic snapshot, 3D render, CGI object, glossy product mockup, or realistic studio render. Faithfully replicate the medium\'s characteristic mark-making: if lines are rough and irregular, keep them rough; if fills show brushwork, grain, or texture, preserve it; if the style is flat with hard edges, stay flat; if edges are loose or sketchy, keep them loose. Do not smooth, polish, or render-out the handmade, imperfect, or constructed character of the source medium - that rawness is the style.');
+  }
+
+  if (isMicroGrainStyle(styleSchema)) {
+    lines.push('MICRO-GRAIN STYLE REQUIREMENT: preserve the visible fine-grain, speckled, stippled, dithered, or airbrushed texture across the subject and background, especially inside gradients, shadows, and soft color transitions. The object itself must carry this grain and softened edge treatment; do not leave the subject clean, glossy, plastic, or photoreal while only the background has texture.');
   }
 
   if (styleSchema.avoid.length) {
