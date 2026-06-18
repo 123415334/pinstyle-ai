@@ -1,8 +1,9 @@
 const FREE_MONTHLY_LIMIT = 3;
 const PRO_MONTHLY_LIMIT = 120;
 const STUDIO_MONTHLY_LIMIT = 600;
-const API_VERSION = '2026-06-17.modality-preserving-style-conditioning';
+const API_VERSION = '2026-06-17.structured-medium-subgenre-style-lock';
 const MAX_REFERENCE_IMAGES = 12;
+const MAX_FLUX_INPUT_IMAGES = 8;
 const MAX_CONDITIONING_IMAGES = 4;
 const MAX_GRAPHIC_CONDITIONING_IMAGES = 6;
 const MAX_REFERENCE_BYTES = 4 * 1024 * 1024;
@@ -19,14 +20,21 @@ const DEFAULT_STYLE_SCHEMA = Object.freeze({
   best_image_index: 0,
   consistency_score: 0.75,
   outlier_indices: [],
+  medium_type: 'photograph',
+  medium_subgenre: 'refined commercial photography',
   style_family: 'refined commercial photography',
   rendering_medium: 'high-quality image making',
+  production_style: 'polished art-directed commercial image',
   palette: 'balanced, cohesive color palette',
   lighting: 'natural, polished lighting',
+  camera_viewpoint: 'clean camera angle and deliberate crop',
   texture_materials: 'considered materials and tactile surface detail',
   composition: 'clean, deliberate framing',
   shape_language: 'cohesive forms and silhouettes',
   mood: 'elevated and art directed',
+  subject_translation: 'render the requested subject as a new hero subject in the reference style',
+  generic_drift_risks: ['generic stock imagery'],
+  positive_style_contract: 'A polished, art-directed image that preserves the references medium, subgenre, palette, lighting, texture, composition, and mood.',
   must_preserve: ['shared aesthetic family', 'overall art direction'],
   avoid: [],
   reference_subjects: [],
@@ -351,6 +359,33 @@ function cleanList(value, limit = 4) {
     .slice(0, limit);
 }
 
+function normalizeMediumType(value) {
+  const normalized = cleanString(value, DEFAULT_STYLE_SCHEMA.medium_type).toLowerCase().replace(/[^a-z0-9]+/g, '_');
+  const aliases = {
+    photo: 'photograph',
+    photography: 'photograph',
+    photographic: 'photograph',
+    illustration: 'illustration',
+    illustrated: 'illustration',
+    vector: 'illustration',
+    painting: 'painting',
+    painted: 'painting',
+    graphic: 'graphic_design',
+    graphic_art: 'graphic_design',
+    graphic_design: 'graphic_design',
+    design: 'graphic_design',
+    render: '3d_render',
+    '3d': '3d_render',
+    cgi: '3d_render',
+    collage: 'collage',
+    mixed: 'mixed_media',
+    mixed_media: 'mixed_media',
+  };
+  const medium = aliases[normalized] || normalized;
+  const allowed = new Set(['photograph', 'illustration', 'painting', 'graphic_design', '3d_render', 'collage', 'mixed_media']);
+  return allowed.has(medium) ? medium : DEFAULT_STYLE_SCHEMA.medium_type;
+}
+
 function cleanNumericList(value, limit = 8) {
   if (!Array.isArray(value)) return [];
   return value
@@ -367,14 +402,21 @@ function normalizeStyleSchema(rawSchema, referenceCount) {
     outlier_indices: cleanNumericList(parsed.outlier_indices, MAX_REFERENCE_IMAGES)
       .map(v => clampIndex(v, referenceCount))
       .filter((value, index, arr) => arr.indexOf(value) === index),
+    medium_type: normalizeMediumType(parsed.medium_type),
+    medium_subgenre: cleanString(parsed.medium_subgenre, parsed.style_subgenre || DEFAULT_STYLE_SCHEMA.medium_subgenre),
     style_family: cleanString(parsed.style_family, DEFAULT_STYLE_SCHEMA.style_family),
     rendering_medium: cleanString(parsed.rendering_medium, DEFAULT_STYLE_SCHEMA.rendering_medium),
+    production_style: cleanString(parsed.production_style, DEFAULT_STYLE_SCHEMA.production_style),
     palette: cleanString(parsed.palette, DEFAULT_STYLE_SCHEMA.palette),
     lighting: cleanString(parsed.lighting, DEFAULT_STYLE_SCHEMA.lighting),
+    camera_viewpoint: cleanString(parsed.camera_viewpoint, DEFAULT_STYLE_SCHEMA.camera_viewpoint),
     texture_materials: cleanString(parsed.texture_materials, DEFAULT_STYLE_SCHEMA.texture_materials),
     composition: cleanString(parsed.composition, DEFAULT_STYLE_SCHEMA.composition),
     shape_language: cleanString(parsed.shape_language, DEFAULT_STYLE_SCHEMA.shape_language),
     mood: cleanString(parsed.mood, DEFAULT_STYLE_SCHEMA.mood),
+    subject_translation: cleanString(parsed.subject_translation, DEFAULT_STYLE_SCHEMA.subject_translation),
+    generic_drift_risks: cleanList(parsed.generic_drift_risks, 6),
+    positive_style_contract: cleanString(parsed.positive_style_contract, DEFAULT_STYLE_SCHEMA.positive_style_contract),
     must_preserve: cleanList(parsed.must_preserve, 5),
     avoid: cleanList(parsed.avoid, 5),
     reference_subjects: cleanList(parsed.reference_subjects, 8),
@@ -384,6 +426,9 @@ function normalizeStyleSchema(rawSchema, referenceCount) {
 
   if (normalized.must_preserve.length === 0) {
     normalized.must_preserve = [...DEFAULT_STYLE_SCHEMA.must_preserve];
+  }
+  if (normalized.generic_drift_risks.length === 0) {
+    normalized.generic_drift_risks = [...DEFAULT_STYLE_SCHEMA.generic_drift_risks];
   }
   if (!normalized.style_prompt) {
     normalized.style_prompt = DEFAULT_STYLE_SCHEMA.style_prompt;
@@ -413,10 +458,28 @@ function isHumanSubjectRequest(subject = '') {
   return /\b(person|people|portrait|woman|man|lady|girl|boy|child|teen|adult|elderly|old|young|model|subject|face|couple|family|mother|father|grandmother|grandfather)\b/i.test(subject);
 }
 
-function isNonPhotographicStyle(styleSchema = {}) {
+function isPhotographicStyle(styleSchema = {}) {
+  if (styleSchema.medium_type === 'photograph') return true;
   const styleText = [
+    styleSchema.medium_subgenre,
     styleSchema.style_family,
     styleSchema.rendering_medium,
+    styleSchema.production_style,
+    styleSchema.camera_viewpoint,
+    styleSchema.style_prompt,
+  ].filter(Boolean).join(' ').toLowerCase();
+  return /\b(photo|photograph|photography|photographic|camera|lens|film|flash|studio|editorial|product campaign|still life|lifestyle|documentary|snapshot|digicam)\b/.test(styleText)
+    && !isNonPhotographicStyle(styleSchema);
+}
+
+function isNonPhotographicStyle(styleSchema = {}) {
+  if (['illustration', 'painting', 'graphic_design', 'collage', 'mixed_media'].includes(styleSchema.medium_type)) return true;
+  if (styleSchema.medium_type === '3d_render') return false;
+  const styleText = [
+    styleSchema.medium_subgenre,
+    styleSchema.style_family,
+    styleSchema.rendering_medium,
+    styleSchema.production_style,
     styleSchema.texture_materials,
     styleSchema.composition,
     styleSchema.shape_language,
@@ -429,6 +492,17 @@ function isNonPhotographicStyle(styleSchema = {}) {
   const photoTerms = /\b(photo|photograph|photography|photographic|camera|film photo|35mm|flash photograph|snapshot|documentary photo|street photography|editorial photography|product photography)\b/;
   const negativePhotoTerms = /\b(non[-\s]?photographic|not photorealistic|not photographic|avoid photorealism|avoid photographic|avoid photo|no photo|no photorealism|not a camera photo)\b/;
   return artTerms.test(styleText) && (!photoTerms.test(styleText) || negativePhotoTerms.test(styleText));
+}
+
+function isThreeDStyle(styleSchema = {}) {
+  if (styleSchema.medium_type === '3d_render') return true;
+  const styleText = [
+    styleSchema.medium_subgenre,
+    styleSchema.rendering_medium,
+    styleSchema.production_style,
+    styleSchema.style_prompt,
+  ].filter(Boolean).join(' ').toLowerCase();
+  return /\b(3d render|cgi|octane|blender|cinema 4d|c4d|physically based|pbr|clay render|toy render|isometric render)\b/.test(styleText);
 }
 
 function isMicroGrainStyle(styleSchema = {}) {
@@ -461,7 +535,7 @@ function buildStyleAnalysisPrompt(referenceCount, subject) {
 Goal:
 - The output will be used to generate this new subject: "${subject.trim()}".
 - The new subject must belong to the same visual family as the strongest compatible references.
-- Focus on aesthetic fidelity, art direction, lighting, rendering medium, palette, texture, composition, and mood.
+- Focus on aesthetic fidelity, art direction, exact medium, subgenre, lighting, palette, texture, composition, camera/viewpoint, and mood.
 - Do NOT focus on copying the subject matter.
 
 Instructions:
@@ -473,23 +547,34 @@ Instructions:
     : 'Because this is not a human-subject request, preserve useful visual style signals from product renders, illustration, typography, layout, collage, material, lighting, color, photography, and graphic-design references when they support the requested subject.'}
 - When the board is mixed, prefer cohesive style signals that support the requested medium over unusual subjects or one-off compositions.
 - Preserve the broad family resemblance across the compatible references, not just one dominant trait.
-- Treat rendering modality as mandatory style DNA. If the references are illustration, painting, airbrush, grain-textured digital art, vector art, collage, or another non-photographic medium, say so plainly in rendering_medium and style_prompt.
+- Treat rendering modality as mandatory style DNA. Classify medium_type as exactly one of: photograph, illustration, painting, graphic_design, 3d_render, collage, mixed_media.
+- Identify the most specific medium_subgenre you can see. For photographs, examples include editorial tabletop still life, product campaign photography, flash-lit digicam snapshot, analog documentary, luxury studio product, food editorial, architectural interior, fashion editorial, lifestyle photography, e-commerce product photo. For illustration, examples include micro-grain airbrush illustration, risograph poster, flat vector editorial, painterly gouache, ink comic, watercolor children's book, anime cel, 3D clay-like illustration, paper-cut collage.
+- If medium_type is photograph, the output should remain a photograph and must preserve the photographic subgenre, art direction, camera viewpoint, lighting design, color strategy, prop styling, crop, depth of field, lens feel, grain/noise, and post-processing. Do not collapse it into generic professional photography.
+- If medium_type is illustration, painting, graphic_design, collage, mixed_media, or 3d_render, the output should remain that same medium family and subgenre. The requested subject must be translated into that medium, not placed as a realistic object on a styled background.
 - Treat surface texture as a first-class style signal. If the references use visible fine grain, micro-grain, stippling, dithering, airbrushed noise, posterized gradients, paper tooth, or speckled color transitions, explicitly name that texture and whether it appears globally, only in shadows, only in gradients, or on subject edges.
-- If the references are illustration, painting, airbrush, grain-textured, or otherwise non-photographic, include photorealism, glossy 3D rendering, product mockup lighting, and camera-photo treatment in "avoid" unless the references actually use those qualities.
+- In generic_drift_risks, name the bland defaults this board could accidentally become, such as generic stock photo, neutral studio product photo, rustic lifestyle photography, glossy 3D mockup, generic vector art, or generic anime, depending on the references.
+- positive_style_contract must be written as a compact, affirmative generation instruction. Put the exact medium and subgenre first, then the most important visual traits. Avoid vague terms like "high quality" unless the references are actually generic.
 
 Return ONLY valid JSON with this exact shape:
 {
   "best_image_index": 0,
   "consistency_score": 0.0,
   "outlier_indices": [],
+  "medium_type": "photograph",
+  "medium_subgenre": "",
   "style_family": "",
   "rendering_medium": "",
+  "production_style": "",
   "palette": "",
   "lighting": "",
+  "camera_viewpoint": "",
   "texture_materials": "",
   "composition": "",
   "shape_language": "",
   "mood": "",
+  "subject_translation": "",
+  "generic_drift_risks": ["", ""],
+  "positive_style_contract": "",
   "must_preserve": ["", "", ""],
   "avoid": ["", ""],
   "reference_subjects": ["", ""],
@@ -501,6 +586,13 @@ Field rules:
 - best_image_index: integer, zero-based index of the best anchor image
 - consistency_score: number from 0 to 1 for how cohesive the compatible style subset is
 - outlier_indices: zero-based indices for references that pull away from the shared style or conflict with the requested subject
+- medium_type: one of photograph, illustration, painting, graphic_design, 3d_render, collage, mixed_media
+- medium_subgenre: 2-8 words naming the specific subgenre or production mode, never just "photo" or "illustration" when more detail is visible
+- production_style: campaign/editorial/design production category, including prop styling and art direction when visible
+- camera_viewpoint: for photographs, include angle, crop, lens feel, depth of field, and perspective; for non-photo media, describe viewpoint/framing
+- subject_translation: one sentence explaining how a new subject should inherit this medium and subgenre while replacing reference subject matter
+- generic_drift_risks: 2-6 concise labels for generic styles this should not degrade into
+- positive_style_contract: 35-70 words, affirmative and specific, starting with the exact medium_type and medium_subgenre, suitable to paste near the top of an image generation prompt
 - must_preserve: 2-5 concise style traits that must survive generation
 - avoid: 0-5 drift risks or wrong directions
 - reference_subjects: 2-8 concise nouns for the main depicted subjects, objects, characters, or motifs recurring in the references
@@ -522,7 +614,7 @@ async function analyzeStyleSchema(validReferences, subject) {
       },
       body: JSON.stringify({
         model:      ANTHROPIC_STYLE_MODEL,
-        max_tokens: 900,
+        max_tokens: 1300,
         temperature: 0.3,
         system: 'You are an elite art director and reference-image style analyst. Your job is to extract the shared visual DNA across multiple references so a downstream image generator can create a new subject in the exact same aesthetic family.',
         messages: [{
@@ -579,79 +671,85 @@ function buildConditioningInput(ref) {
   return `data:${ref.mediaType};base64,${ref.base64}`;
 }
 
-function buildGenerationPrompt(subject, styleSchema, { styleDriven = false, nonPhotographic = false, styleMatchMode = 'balanced_style_transfer' } = {}) {
-  const lines = [
-    `Create ${subject.trim()}.`,
-    `Primary subject requirement: the image must clearly depict ${subject.trim()} as the hero subject.`,
-    'The requested subject overrides all reference image subjects.',
-    'Do not copy or preserve any reference person identity, face, age, hairstyle, outfit, body type, pose, or character.',
-    'If the requested subject differs from people in the references, replace the reference person completely while keeping only the visual style.',
-    'Honor every concrete detail in the subject request, including quantity, color, age, objects, action, setting, and time of day.',
-    'If the subject includes people holding or carrying objects, make the grip, object count, and object placement visually legible.',
-    'Match the shared visual family of the reference images, keeping the subject new but the aesthetic highly consistent.',
-    'Style fidelity is critical: the result should be immediately recognizable as belonging to the same visual world as the references.',
-    'Translate style only. Do not copy the exact subject matter, character design, mascot, lettering, logo, pose, layout, or composition from the reference images.',
-    'If the references contain recognizable objects or characters, carry over only their aesthetic treatment, not their identity.',
-    `Style family: ${styleSchema.style_family}.`,
-    `Rendering medium: ${styleSchema.rendering_medium}.`,
-    `Color palette: ${styleSchema.palette}.`,
-    `Lighting: ${styleSchema.lighting}.`,
-    `Texture and materials: ${styleSchema.texture_materials}.`,
-    `Composition: ${styleSchema.composition}.`,
-    `Shape language: ${styleSchema.shape_language}.`,
-    `Mood and art direction: ${styleSchema.mood}.`,
-    `Preserve these traits: ${styleSchema.must_preserve.join(', ')}.`,
-    'Avoid AI artifacts, warped fingers, distorted faces, extra limbs, missing limbs, melting objects, illegible object counts, text/logos, collages, screenshots, and graphic-design layouts unless explicitly requested.',
-  ];
-
+function getMediumContract(styleSchema = {}, { nonPhotographic = false } = {}) {
+  if (isPhotographicStyle(styleSchema)) {
+    return `Produce a photograph in the same photographic subgenre: ${styleSchema.medium_subgenre}. Preserve the reference camera viewpoint, lens feel, crop, depth of field, lighting design, color grade, set/prop styling, surface texture, and post-processing. The result should read as another image from the same shoot or campaign, with the requested subject replacing the reference subject matter.`;
+  }
+  if (isThreeDStyle(styleSchema)) {
+    return `Produce a 3D/CGI image in the same render subgenre: ${styleSchema.medium_subgenre}. Preserve the reference material model, lighting rig, camera angle, simplified or realistic geometry, surface finish, color behavior, and render polish. The requested subject should be modeled in that same render language.`;
+  }
   if (nonPhotographic) {
-    lines.splice(6, 0,
-      'Render the entire image, including the new subject itself, in the same non-photographic medium as the references.',
-      'Do not make a realistic object, 3D product render, CGI mockup, studio photo, or glossy physically rendered item merely placed on a styled background.',
-      'Any real-world material named in the subject must be translated into the reference medium. For example, metallic, glass, plastic, or fabric should be suggested through the reference style\'s simplified highlights, gradients, linework, grain, palette, and edge treatment rather than photorealistic shaders.'
-    );
-  } else {
-    lines.splice(6, 0, 'Make one coherent, believable image with natural anatomy, realistic faces and hands, correct limb structure, and no duplicated bodies or fused objects.');
+    return `Produce ${styleSchema.medium_type} in the same subgenre: ${styleSchema.medium_subgenre}. Translate the requested subject into the reference medium using the same mark-making, line quality, edge treatment, fill behavior, texture, color system, composition, and finish. The whole image, including the subject itself, belongs to that medium.`;
   }
+  return `Produce a new image in the same medium and subgenre: ${styleSchema.medium_subgenre}. Preserve the reference art direction, palette, lighting, texture, composition, shape language, and finish.`;
+}
 
-  if (styleMatchMode.includes('strict')) {
-    lines.push('STRICT STYLE LOCK: the reference aesthetic must dominate the result. The new subject may change, but the rendering medium, palette behavior, edge quality, texture, lighting logic, background treatment, shape language, and overall art direction must stay tightly aligned with the compatible references. Do not merely borrow colors while switching to a different illustration, render, photography, or 3D style.');
-  }
-
-  if (styleMatchMode === 'strict_cohesive_style_lock' || styleMatchMode === 'cohesive_style_lock') {
-    lines.push('The selected references may be mixed. Follow the most cohesive compatible subset and the named must-preserve traits. Ignore outlier subjects, one-off layouts, or references that would pull the result into another visual family.');
-  }
-
-  if (styleDriven) {
-    lines.push('For stylized product, object, graphic, or illustrative references, preserve the rendering medium, material treatment, lighting logic, color behavior, edge quality, shadow style, and compositional boldness more strongly than generic photorealism. The subject should inherit the reference style, not a default product-rendering style.');
-  }
-
-  if (nonPhotographic) {
-    lines.push('The final image must preserve the non-photographic medium of the references. Do not render this as a camera photo, stock photo, documentary photograph, photorealistic snapshot, 3D render, CGI object, glossy product mockup, or realistic studio render. Faithfully replicate the medium\'s characteristic mark-making: if lines are rough and irregular, keep them rough; if fills show brushwork, grain, or texture, preserve it; if the style is flat with hard edges, stay flat; if edges are loose or sketchy, keep them loose. Do not smooth, polish, or render-out the handmade, imperfect, or constructed character of the source medium - that rawness is the style.');
-  }
+function buildStructuredPromptPayload(subject, styleSchema, options = {}) {
+  const nonPhotographic = Boolean(options.nonPhotographic);
+  const styleMatchMode = options.styleMatchMode || 'balanced_style_transfer';
+  const strict = styleMatchMode.includes('strict');
+  const payload = {
+    task: 'Generate a new image from the requested subject while transferring only the visual style of the reference board.',
+    subject: {
+      prompt: subject.trim(),
+      priority: 'The requested subject is the hero subject and replaces the reference image subject matter.',
+      fidelity: 'Honor all concrete subject details including quantity, object type, color, action, setting, and aspect ratio.',
+    },
+    style_contract: {
+      lock_strength: strict ? 'strict' : 'balanced',
+      medium_type: styleSchema.medium_type,
+      medium_subgenre: styleSchema.medium_subgenre,
+      positive_contract: styleSchema.positive_style_contract,
+      medium_rule: getMediumContract(styleSchema, { nonPhotographic }),
+      style_family: styleSchema.style_family,
+      rendering_medium: styleSchema.rendering_medium,
+      production_style: styleSchema.production_style,
+      palette: styleSchema.palette,
+      lighting: styleSchema.lighting,
+      camera_or_viewpoint: styleSchema.camera_viewpoint,
+      texture_and_materials: styleSchema.texture_materials,
+      composition: styleSchema.composition,
+      shape_language: styleSchema.shape_language,
+      mood: styleSchema.mood,
+      subject_translation: styleSchema.subject_translation,
+      must_preserve: styleSchema.must_preserve,
+    },
+    reference_handling: {
+      use_references_for: 'medium, subgenre, art direction, palette, lighting, texture, composition, camera/viewpoint, and mood',
+      replace_reference_subjects_with_requested_subject: true,
+      reference_subjects_seen: styleSchema.reference_subjects,
+      subject_leak_risks: styleSchema.subject_leak_risks,
+    },
+    quality_controls: {
+      result_standard: strict
+        ? 'The result should be immediately recognizable as belonging to the same specific visual subgenre as the strongest compatible references.'
+        : 'The result should preserve the reference visual family while allowing natural variation.',
+      specificity_floor: 'Use the named medium_subgenre and concrete art-direction traits as the style floor. A broad label like professional photo, illustration, render, or high quality is insufficient by itself.',
+      artifact_control: 'Keep anatomy, object count, object placement, hands, faces, edges, and perspective coherent. Include text or logos only when the user explicitly asks for them.',
+    },
+    style_synthesis: styleSchema.style_prompt,
+  };
 
   if (isMicroGrainStyle(styleSchema)) {
-    lines.push('MICRO-GRAIN STYLE REQUIREMENT: preserve the visible fine-grain, speckled, stippled, dithered, or airbrushed texture across the subject and background, especially inside gradients, shadows, and soft color transitions. The object itself must carry this grain and softened edge treatment; do not leave the subject clean, glossy, plastic, or photoreal while only the background has texture.');
+    payload.style_contract.texture_requirement = 'Visible fine grain, speckling, stippling, dithering, or airbrushed noise carries across the subject and background, especially in gradients, shadows, color transitions, and softened edges.';
   }
-
-  if (styleSchema.avoid.length) {
-    lines.push(`Avoid drifting into: ${styleSchema.avoid.join(', ')}.`);
+  if (options.variation) {
+    payload.variation = 'Create a second campaign-matched variation with different framing, silhouette, crop, and object placement while keeping the same medium, subgenre, palette, lighting, texture, and production style.';
   }
+  return payload;
+}
 
-  if (styleSchema.reference_subjects.length) {
-    lines.push(`Reference subjects present in the board: ${styleSchema.reference_subjects.join(', ')}.`);
-  }
-
-  if (styleSchema.subject_leak_risks.length) {
-    lines.push(`Do not let these reference subjects or motifs leak into the result unless explicitly requested: ${styleSchema.subject_leak_risks.join(', ')}.`);
-  }
-
-  lines.push(`Reference style synthesis: ${styleSchema.style_prompt}`);
-  return lines.join(' ');
+function buildGenerationPrompt(subject, styleSchema, options = {}) {
+  const payload = buildStructuredPromptPayload(subject, styleSchema, options);
+  return [
+    `${subject.trim()} - ${styleSchema.medium_type} / ${styleSchema.medium_subgenre}.`,
+    styleSchema.positive_style_contract,
+    JSON.stringify(payload),
+  ].filter(Boolean).join('\n');
 }
 
 function buildVariationPrompt(subject, styleSchema, options = {}) {
-  return `${buildGenerationPrompt(subject, styleSchema, options)} Keep the same style fidelity, but vary the framing, silhouette, crop, and composition so it feels like a second image from the same campaign rather than a duplicate. Do not reuse the same arrangement or recurring motifs from the references.`;
+  return buildGenerationPrompt(subject, styleSchema, { ...options, variation: true });
 }
 
 // ── FLUX 2 Pro ────────────────────────────────────────────────────────────────
@@ -672,9 +770,9 @@ async function startFluxPrediction(prompt, imageUrls = [], { retries = 3, backof
       output_quality:   95,
       safety_tolerance: 5,
     };
-    if (imageUrls.length > 0) input.input_images = imageUrls.slice(0, MAX_REFERENCE_IMAGES);
+    if (imageUrls.length > 0) input.input_images = imageUrls.slice(0, MAX_FLUX_INPUT_IMAGES);
 
-    console.log(`[tack] startFluxPrediction: model=${REPLICATE_FLUX_MODEL} aspect_ratio=${normalizedRatio} width=${dims.width} height=${dims.height} input_images=${imageUrls.length}`);
+    console.log(`[tack] startFluxPrediction: model=${REPLICATE_FLUX_MODEL} aspect_ratio=${normalizedRatio} width=${dims.width} height=${dims.height} input_images=${input.input_images?.length || 0}`);
 
     const resp = await fetch(
       `https://api.replicate.com/v1/models/${REPLICATE_FLUX_MODEL}/predictions`,
@@ -917,6 +1015,8 @@ module.exports = async function handler(req, res) {
         used_count: usedFallbackConditioning ? 1 : conditioningInputs.length,
         mode: usedFallbackConditioning ? 'image_conditioned_fallback' : (shouldUseImageConditioning ? 'image_conditioned' : 'style_text_only'),
         style_match_mode: styleMatchMode,
+        medium_type: styleSchema.medium_type,
+        medium_subgenre: styleSchema.medium_subgenre,
         conditioning_reference_indices: conditioningReferences.map(ref => ref.index).filter(Number.isInteger),
         best_image_index: styleSchema.best_image_index,
         consistency_score: styleSchema.consistency_score,
