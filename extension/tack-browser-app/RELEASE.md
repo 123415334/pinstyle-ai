@@ -1,6 +1,6 @@
 # Tack Browser Release Checklist
 
-This app can be distributed today as a downloadable Mac build from GitHub Releases. The current local build produces:
+This app can produce downloadable Mac builds today, but public downloads should stay hidden until the official Mac App Store listing is ready. The current local build produces:
 
 - `dist/Tack-Browser-<version>-mac-arm64.zip`
 - `dist/Tack-Browser-<version>-mac-arm64.dmg`
@@ -22,7 +22,20 @@ If a Developer ID Application certificate is installed, force that public signin
 CODESIGN_IDENTITY="Developer ID Application: Your Company (TEAMID)" npm run dist:mac
 ```
 
+## Mac App Store Release
+
+Use this as the public path when Tack Browser is ready for customers:
+
+1. Create the macOS app listing in App Store Connect.
+2. Upload the production build for review.
+3. Wait for Apple approval.
+4. Copy the App Store URL from App Store Connect.
+5. Update `download.html` so its main button links to that App Store URL.
+6. Add the homepage "Mac app" link back only after the App Store URL works.
+
 ## GitHub Release
+
+GitHub Releases are useful for private/internal testing, but they should not be the customer-facing Mac download page.
 
 1. Commit and push the app source.
 2. If your GitHub token has the `workflow` scope, copy `RELEASE_WORKFLOW_TEMPLATE.yml` to `.github/workflows/release-mac.yml` from the repository root and commit it. Without that scope, GitHub rejects workflow changes over HTTPS.
@@ -34,7 +47,7 @@ git push origin tack-browser-v0.1.1
 ```
 
 4. If the workflow is installed, GitHub Actions will build the Mac ZIP and DMG and create a draft release.
-5. Review the draft release, attach notarized artifacts if available, then publish it.
+5. Keep the release as a draft unless you explicitly want a public direct-download build.
 
 ## Apple Production Distribution
 

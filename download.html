@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tack Browser for Mac</title>
-  <meta name="description" content="Download Tack Browser for Mac, the desktop app for browsing visual references and generating images in the same direction.">
+  <meta name="description" content="Preview the upcoming Tack Browser for Mac app.">
+  <meta name="robots" content="noindex,nofollow">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
@@ -104,6 +105,11 @@
       border-color: var(--border);
       box-shadow: none;
     }
+    .button.disabled {
+      cursor: not-allowed;
+      opacity: 0.62;
+      pointer-events: none;
+    }
     .panel {
       background: rgba(22,20,16,0.82);
       border: 1px solid var(--border);
@@ -175,25 +181,26 @@
 
   <main>
     <section class="hero">
-      <p class="eyebrow">Mac desktop app</p>
+      <p class="eyebrow">Hidden preview</p>
       <h1>Tack Browser for <em>visual reference</em> work.</h1>
-      <p class="lede">Browse inspiration sites, collect visible references, capture regions when direct image URLs are not enough, and generate new images from the same visual direction.</p>
+      <p class="lede">This page is intentionally not linked from the public site yet. When the Mac app is approved, the download button should point to the official Mac App Store listing instead of GitHub.</p>
       <div class="actions">
-        <a class="button" href="https://github.com/123415334/pinstyle-ai/releases/latest">Download latest release</a>
-        <a class="button secondary" href="https://github.com/123415334/pinstyle-ai/tree/main/extension/tack-browser-app">View source on GitHub</a>
+        <!-- Replace this disabled button with the Mac App Store URL once App Store Connect provides it. -->
+        <a class="button disabled" aria-disabled="true" href="#">Mac App Store link coming soon</a>
+        <a class="button secondary" href="/">Back to tack</a>
       </div>
     </section>
 
     <aside class="panel">
       <img class="app-icon" src="extension/tack-browser-app/src/assets/tack_app_icon.png" alt="Tack Browser app icon">
       <h2>Current build</h2>
-      <p>The first Mac release is prepared for Apple silicon Macs and will be published through GitHub Releases.</p>
+      <p>The Mac release pipeline is prepared, but public downloads stay hidden until the App Store listing is live.</p>
       <ul>
         <li>Mac ARM64 ZIP and DMG artifacts</li>
         <li>Signed local build with SHA-256 checksums</li>
-        <li>GitHub Actions release workflow for tagged builds</li>
+        <li>Release workflow template for tagged builds</li>
       </ul>
-      <p class="note">Public installs still need Apple Developer ID signing and notarization before macOS Gatekeeper will approve the app without warnings.</p>
+      <p class="note">Next public download target: the official Mac App Store URL from App Store Connect.</p>
     </aside>
   </main>
 
