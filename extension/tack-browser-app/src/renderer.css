@@ -670,12 +670,9 @@ webview {
   gap: 12px;
 }
 
-.panel-logo {
-  display: block;
-  width: 82px;
-  height: auto;
-  margin-bottom: 10px;
-  filter: brightness(0) invert(1);
+.panel-head {
+  justify-content: flex-end;
+  min-height: 0;
 }
 
 .panel-actions {
@@ -731,18 +728,6 @@ webview {
   border-radius: inherit;
   background: var(--accent-light);
   transition: width 180ms ease;
-}
-
-.panel-tagline {
-  margin: 0;
-  color: var(--tack-ink);
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1.35;
-}
-
-.panel-tagline span {
-  color: var(--accent-light);
 }
 
 .scan-status {
@@ -868,10 +853,14 @@ webview {
 .result-card {
   position: relative;
   display: block;
+  width: 100%;
+  border: 0;
+  padding: 0;
   overflow: hidden;
   border-radius: 10px;
   background: var(--tack-bg3);
   aspect-ratio: 1 / 1;
+  cursor: zoom-in;
 }
 
 .result-card img {
@@ -889,6 +878,41 @@ webview {
   display: grid;
   gap: 10px;
   padding-bottom: 8px;
+}
+
+.generation-details {
+  border: 1px solid var(--tack-border);
+  border-radius: 12px;
+  background: rgba(240, 235, 227, 0.026);
+  overflow: hidden;
+}
+
+.generation-details summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 11px 12px;
+  color: var(--accent-light);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.generation-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.generation-details summary::after {
+  content: "Show";
+  float: right;
+  color: var(--tack-muted);
+  font-size: 11px;
+}
+
+.generation-details[open] summary::after {
+  content: "Hide";
+}
+
+.generation-details .compact-block {
+  margin: 0 10px 10px;
 }
 
 .compact-block {
@@ -1029,13 +1053,6 @@ webview {
 .generate-card textarea:focus {
   border-color: rgba(143, 190, 247, 0.6);
   box-shadow: 0 0 0 4px rgba(143, 190, 247, 0.1);
-}
-
-.reference-note {
-  margin: 9px 0 0;
-  color: var(--tack-muted);
-  font-size: 11px;
-  line-height: 1.45;
 }
 
 .generate-btn {

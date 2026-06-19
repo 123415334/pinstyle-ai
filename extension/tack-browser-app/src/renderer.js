@@ -2161,6 +2161,25 @@ function createCompactTextBlock(title, text, options = {}) {
   return block;
 }
 
+function createGenerationDetails(styleDescriptors, prompt) {
+  const details = document.createElement('details');
+  details.className = 'generation-details';
+
+  const summary = document.createElement('summary');
+  summary.textContent = 'Generation details';
+  details.appendChild(summary);
+
+  if (styleDescriptors) {
+    details.appendChild(createCompactTextBlock('Style Analysis', styleDescriptors));
+  }
+
+  if (prompt) {
+    details.appendChild(createCompactTextBlock('Image Prompt', prompt, { copyValue: prompt }));
+  }
+
+  return details;
+}
+
 function renderResults(data) {
   const styleDescriptors = data?.styleDescriptors || '';
   const prompt = data?.prompt || '';
@@ -2171,14 +2190,6 @@ function renderResults(data) {
 
   const sections = document.createElement('div');
   sections.className = 'result-section is-generated';
-
-  if (styleDescriptors) {
-    sections.appendChild(createCompactTextBlock('Style Analysis', styleDescriptors));
-  }
-
-  if (prompt) {
-    sections.appendChild(createCompactTextBlock('Image Prompt', prompt, { copyValue: prompt }));
-  }
 
   if (images.length) {
     const imageBlock = document.createElement('div');
@@ -2192,13 +2203,28 @@ function renderResults(data) {
     const grid = document.createElement('div');
     grid.className = 'result-grid';
     grid.innerHTML = images.map((image, index) => `
-      <a class="result-card" href="${escapeAttr(image)}" target="_blank" rel="noreferrer">
+      <button class="result-card" type="button" data-result-index="${index}">
         <img src="${escapeAttr(image)}" alt="Generated image ${index + 1}">
         <span>Generated ${index + 1}</span>
-      </a>
+      </button>
     `).join('');
+    grid.querySelectorAll('.result-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const index = Number(card.dataset.resultIndex || 0);
+        openLightbox(images.map((url, itemIndex) => ({
+          key: `generated:${itemIndex}`,
+          url,
+          prompt: prompt || `Generated image ${itemIndex + 1}`,
+          createdAt: '',
+        })), index);
+      });
+    });
     imageBlock.appendChild(grid);
     sections.appendChild(imageBlock);
+  }
+
+  if (styleDescriptors || prompt) {
+    sections.appendChild(createGenerationDetails(styleDescriptors, prompt));
   }
 
   if (!sections.children.length) {
