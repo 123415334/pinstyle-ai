@@ -1,6 +1,6 @@
 # Tack Browser
 
-Tack Browser is a desktop MVP for a branded Tack browsing experience: browse real sites, scan visible images, select references in context, capture a region when URLs are unavailable, and generate from the selected visual direction.
+Tack Browser is the Mac app for a branded Tack browsing experience: browse real sites, scan visible images, select references in context, capture a region when URLs are unavailable, generate from the selected visual direction, and organize saved generations into boards.
 
 ## Run locally
 
@@ -38,16 +38,13 @@ See `RELEASE.md` for GitHub release and Apple signing/notarization steps.
 - Updates style-read tags and enables generation from selected references.
 - Calls the live Tack `/api/analyze` endpoint with the same core payload shape as the Chrome extension: `imageUrls`, `subject`, `anonymousId`, `aspectRatio`, `aspect_ratio`, and output dimensions.
 
-## What is intentionally still local/mock
+## Public release status
 
-- It does not save references to Supabase yet.
-- It does not include login/account sync yet.
-- Public builds still need Developer ID signing and Apple notarization for normal Gatekeeper-approved installs.
+- Login, account usage, synced generations, and boards are connected to the Tack account system.
+- Generation calls the live Tack `/api/analyze` endpoint.
+- Public builds still need Apple distribution signing, notarization, and/or App Store approval before normal customer installs.
 
 ## Next production steps
 
-- Connect the tray to Tack auth and saved `reference_images`.
-- Share auth with Tack accounts so paid-plan output counts, usage, and saved history match the Chrome extension.
-- Add Developer ID signing, notarization, and auto-update.
+- Add Apple distribution signing, notarization, and auto-update.
 - Expand site-specific extractors for Instagram, Behance, and ecommerce pages.
-- Add a library view that syncs with the web app instead of becoming a separate data silo.

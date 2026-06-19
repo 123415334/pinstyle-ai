@@ -138,6 +138,16 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, 'renderer.html'));
 }
 
+function safeExternalUrl(value) {
+  try {
+    const url = new URL(String(value || ''));
+    if (url.protocol === 'https:' || url.protocol === 'http:' || url.protocol === 'mailto:') {
+      return url.href;
+    }
+  } catch {}
+  return '';
+}
+
 app.whenReady().then(() => {
   app.setName('Tack Browser');
   createWindow();
@@ -152,8 +162,10 @@ app.on('window-all-closed', () => {
 });
 
 ipcMain.handle('open-external', async (_event, url) => {
-  if (!url) return;
-  await shell.openExternal(url);
+  const safeUrl = safeExternalUrl(url);
+  if (!safeUrl) return false;
+  await shell.openExternal(safeUrl);
+  return true;
 });
 
 ipcMain.handle('auth:get-session', readStoredSession);

@@ -124,7 +124,7 @@
           <section class="results hidden" id="results">
             <div class="result-head">
               <strong>Generation preview</strong>
-              <span>Local mock</span>
+              <span>Ready</span>
             </div>
             <div class="result-grid" id="result-grid"></div>
           </section>
@@ -274,6 +274,18 @@
       <div class="board-modal-actions">
         <button id="board-modal-cancel" type="button">Cancel</button>
         <button id="board-modal-confirm" type="button">Continue</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="confirm-modal hidden" id="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
+    <div class="confirm-modal-panel">
+      <p class="eyebrow" id="confirm-modal-eyebrow">Confirm</p>
+      <h2 id="confirm-modal-title">Are you sure?</h2>
+      <p id="confirm-modal-copy"></p>
+      <div class="confirm-modal-actions">
+        <button id="confirm-modal-cancel" type="button">Cancel</button>
+        <button id="confirm-modal-confirm" type="button">Confirm</button>
       </div>
     </div>
   </section>

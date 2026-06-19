@@ -106,6 +106,12 @@ const boardNameInput = document.querySelector('#board-name-input');
 const boardModalError = document.querySelector('#board-modal-error');
 const boardModalCancel = document.querySelector('#board-modal-cancel');
 const boardModalConfirm = document.querySelector('#board-modal-confirm');
+const confirmModal = document.querySelector('#confirm-modal');
+const confirmModalEyebrow = document.querySelector('#confirm-modal-eyebrow');
+const confirmModalTitle = document.querySelector('#confirm-modal-title');
+const confirmModalCopy = document.querySelector('#confirm-modal-copy');
+const confirmModalCancel = document.querySelector('#confirm-modal-cancel');
+const confirmModalConfirm = document.querySelector('#confirm-modal-confirm');
 const railBrowserBtn = document.querySelector('#rail-browser-btn');
 const railLibraryBtn = document.querySelector('#rail-library-btn');
 const railAccountBtn = document.querySelector('#rail-account-btn');
@@ -149,6 +155,7 @@ let boardModalBoardId = '';
 let activeTileSaveKey = '';
 let lightboxItems = [];
 let lightboxIndex = -1;
+let pendingConfirm = null;
 
 function normalizeUrl(value) {
   const trimmed = String(value || '').trim();
@@ -1661,18 +1668,26 @@ function renderBoardsGrid() {
   libraryList.innerHTML = '';
   libraryBoards.forEach(board => {
     const items = getBoardItems(board.id);
+    const previewItems = items.slice(0, 4).filter(item => item?.url);
     const card = document.createElement('article');
     card.className = 'board-card';
     card.innerHTML = `
-      <div class="board-card-preview">
-        ${items.slice(0, 4).map(item => `<img src="${escapeAttr(item.url)}" alt="${escapeAttr(board.name)}" loading="lazy">`).join('')}
-        ${items.length ? '' : '<div class="board-card-placeholder"></div>'}
+      <div class="board-card-preview${previewItems.length ? '' : ' is-empty'}">
+        ${previewItems.map(item => `<img src="${escapeAttr(item.url)}" alt="${escapeAttr(board.name || 'Board preview')}" loading="lazy">`).join('')}
+        ${previewItems.length ? '' : '<div class="board-card-placeholder"><span>No preview yet</span></div>'}
       </div>
       <div class="board-card-meta">
         <strong>${escapeHtml(board.name || 'Untitled board')}</strong>
         <span>${items.length} image${items.length === 1 ? '' : 's'}</span>
       </div>
     `;
+    card.querySelectorAll('img').forEach(img => {
+      img.addEventListener('error', () => {
+        img.classList.add('is-broken');
+        img.removeAttribute('src');
+        img.setAttribute('aria-label', 'Image unavailable');
+      });
+    });
     card.addEventListener('click', () => {
       activeBoardId = board.id;
       selectedLibraryKeys.clear();
@@ -1911,10 +1926,46 @@ async function confirmBoardModal() {
   }
 }
 
+function askForConfirmation(options = {}) {
+  if (!confirmModal) return Promise.resolve(false);
+  if (pendingConfirm) {
+    pendingConfirm(false);
+    pendingConfirm = null;
+  }
+
+  confirmModalEyebrow.textContent = options.eyebrow || 'Confirm';
+  confirmModalTitle.textContent = options.title || 'Are you sure?';
+  confirmModalCopy.textContent = options.copy || '';
+  confirmModalConfirm.textContent = options.confirmLabel || 'Confirm';
+  confirmModalConfirm.classList.toggle('danger', Boolean(options.destructive));
+  confirmModal.classList.remove('hidden');
+  confirmModalCancel.focus();
+
+  return new Promise(resolve => {
+    pendingConfirm = value => {
+      confirmModal.classList.add('hidden');
+      confirmModalConfirm.classList.remove('danger');
+      pendingConfirm = null;
+      resolve(value);
+    };
+  });
+}
+
+function resolveConfirmation(value) {
+  if (pendingConfirm) pendingConfirm(value);
+}
+
 async function removeSelectedFromBoard() {
   const items = selectedLibraryItems();
   if (!items.length) return;
-  if (!confirm(`Remove ${items.length} image${items.length === 1 ? '' : 's'} from this board?`)) return;
+  const ok = await askForConfirmation({
+    eyebrow: 'Remove from board',
+    title: `Remove ${items.length} image${items.length === 1 ? '' : 's'}?`,
+    copy: 'This only removes the selection from this board. The original generation will stay in your library.',
+    confirmLabel: items.length === 1 ? 'Remove image' : 'Remove images',
+    destructive: true,
+  });
+  if (!ok) return;
   await deleteBoardItemsByIds(items.map(item => item.boardItemId));
   libraryBoardItems = await fetchBoardItems().catch(() => libraryBoardItems);
   selectedLibraryKeys.clear();
@@ -1951,7 +2002,14 @@ async function deleteBoardItemsForUrls(urls) {
 async function deleteSelectedGenerations() {
   const selected = selectedLibraryItems();
   if (!selected.length) return;
-  if (!confirm(`Delete ${selected.length} image${selected.length === 1 ? '' : 's'} from your generations and boards? This cannot be undone.`)) return;
+  const ok = await askForConfirmation({
+    eyebrow: 'Delete from library',
+    title: `Delete ${selected.length} image${selected.length === 1 ? '' : 's'}?`,
+    copy: 'This removes the selection from your saved generations and any boards that use it. This cannot be undone.',
+    confirmLabel: selected.length === 1 ? 'Delete image' : 'Delete images',
+    destructive: true,
+  });
+  if (!ok) return;
   const selectedUrls = new Set(selected.map(item => item.url));
   const plans = libraryGenerations.map(generation => {
     const urls = normalizeImageUrls(generation.image_urls);
@@ -2295,6 +2353,11 @@ boardModal.addEventListener('click', event => {
 boardNameInput.addEventListener('keydown', event => {
   if (event.key === 'Enter') confirmBoardModal();
 });
+confirmModalCancel?.addEventListener('click', () => resolveConfirmation(false));
+confirmModalConfirm?.addEventListener('click', () => resolveConfirmation(true));
+confirmModal?.addEventListener('click', event => {
+  if (event.target === confirmModal) resolveConfirmation(false);
+});
 railBrowserBtn.addEventListener('click', () => {
   showAppView('browse');
 });
@@ -2307,6 +2370,7 @@ document.addEventListener('keydown', event => {
     if (event.key === 'ArrowRight') stepLightbox(1);
   }
   if (!boardModal.classList.contains('hidden') && event.key === 'Escape') closeBoardModal();
+  if (!confirmModal?.classList.contains('hidden') && event.key === 'Escape') resolveConfirmation(false);
   if (event.key === 'Escape') closeTileSavePopovers();
 });
 

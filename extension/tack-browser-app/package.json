@@ -3,7 +3,7 @@
   "version": "0.1.1",
   "productName": "Tack Browser",
   "private": true,
-  "description": "Tack Browser desktop MVP for selecting visual references while browsing.",
+  "description": "Tack Browser for Mac: browse visual references, generate from style direction, and organize saved generations.",
   "main": "src/main.js",
   "homepage": "https://www.tack.design",
   "repository": {
