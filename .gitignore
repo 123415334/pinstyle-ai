@@ -1,0 +1,15 @@
+.DS_Store
+node_modules/
+.npm-cache/
+out/
+dist/
+*.log
+
+# Local credentials and environment files
+.env
+.env.*
+
+# Generated archives
+*.zip
+*.dmg
+*.pkg
