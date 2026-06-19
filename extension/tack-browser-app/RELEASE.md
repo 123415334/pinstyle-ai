@@ -27,11 +27,31 @@ CODESIGN_IDENTITY="Developer ID Application: Your Company (TEAMID)" npm run dist
 Use this as the public path when Tack Browser is ready for customers:
 
 1. Create the macOS app listing in App Store Connect.
-2. Upload the production build for review.
-3. Wait for Apple approval.
-4. Copy the App Store URL from App Store Connect.
-5. Update `download.html` so its main button links to that App Store URL.
-6. Add the homepage "Mac app" link back only after the App Store URL works.
+2. Create Apple Distribution and Mac Installer Distribution certificates in Xcode.
+3. Build the Mac App Store package:
+
+```sh
+cd extension/tack-browser-app
+npm run dist:mas
+```
+
+4. Upload `dist-mas/Tack-Browser-<version>-mas.pkg` with Transporter, Xcode, or `xcrun altool`.
+5. Attach the processed build to the App Store Connect version and submit for review when ready.
+6. Wait for Apple approval.
+7. Copy the App Store URL from App Store Connect.
+8. Update `download.html` so its main button links to that App Store URL.
+9. Add the homepage "Mac app" link back only after the App Store URL works.
+
+See `APP_STORE_SUBMISSION.md` for the listing draft, privacy notes, and the simple owner checklist.
+
+## App Store Connect Upload Notes
+
+Apple's Mac App Store path is separate from the direct-download DMG/ZIP path:
+
+- Direct-download builds use `npm run dist:mac`, Developer ID signing, and notarization.
+- Mac App Store builds use `npm run dist:mas`, the MAS Electron build, App Sandbox entitlements, Apple Distribution signing, and a signed installer package.
+
+The App Store package script intentionally stops if the required Apple certificates are missing, so it is safe to run before the machine is fully configured.
 
 ## GitHub Release
 

@@ -25,6 +25,15 @@ Downloadable artifacts are written to `tack-browser-app/dist/`:
 
 See `RELEASE.md` for GitHub release and Apple signing/notarization steps.
 
+## Package for the Mac App Store
+
+```sh
+cd tack-browser-app
+npm run dist:mas
+```
+
+This creates an Apple-submittable package in `tack-browser-app/dist-mas/` once the Apple Distribution and Mac Installer Distribution certificates are installed. See `APP_STORE_SUBMISSION.md` for the App Store Connect checklist.
+
 ## What works now
 
 - Loads real websites in an Electron webview.

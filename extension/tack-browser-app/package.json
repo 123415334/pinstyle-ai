@@ -15,6 +15,8 @@
     "start": "electron .",
     "start:debug": "ELECTRON_ENABLE_LOGGING=1 electron .",
     "package:mac": "electron-packager . \"Tack Browser\" --platform=darwin --arch=arm64 --out=out --overwrite --icon=build/tack.icns --app-bundle-id=com.tack.browser --app-version=$npm_package_version --build-version=$npm_package_version --asar --prune=true --ignore='^/(dist|out|.npm-cache|.github)(/|$)'",
+    "package:mas": "electron-packager . \"Tack Browser\" --platform=mas --arch=arm64 --out=out-mas --overwrite --icon=build/tack.icns --app-bundle-id=com.tack.browser --app-version=$npm_package_version --build-version=$npm_package_version --asar --prune=true --ignore='^/(dist|out|out-mas|.npm-cache|.github)(/|$)'",
+    "dist:mas": "bash scripts/package-mas.sh",
     "dist:mac": "bash scripts/package-mac.sh"
   },
   "devDependencies": {
