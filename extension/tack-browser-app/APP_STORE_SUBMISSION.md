@@ -14,18 +14,18 @@
 - The Apple Developer Bundle ID exists.
 - The project has a separate Mac App Store packaging script: `npm run dist:mas`.
 - The existing public-download DMG/ZIP path remains separate: `npm run dist:mac`.
+- The Mac App Distribution and Mac Installer Distribution certificates exist.
+- A dedicated signing keychain exists at `~/Library/Keychains/tack-appstore.keychain-db`.
+- A signed Mac App Store package has been built and verified at `dist-mas/Tack-Browser-0.1.1-mas.pkg`.
 
-## What still needs your Apple account
+## Build the App Store package
 
-Open Xcode, then go to Settings > Accounts > Manage Certificates and add:
-
-1. Apple Distribution
-2. Mac Installer Distribution
-
-After those certificates exist in Keychain, run:
+Use the dedicated Tack signing keychain:
 
 ```sh
 cd extension/tack-browser-app
+SIGNING_KEYCHAIN="$HOME/Library/Keychains/tack-appstore.keychain-db" \
+SIGNING_KEYCHAIN_PASSWORD_FILE="/tmp/tack-signing/keychain-password.txt" \
 npm run dist:mas
 ```
 
@@ -36,6 +36,8 @@ dist-mas/Tack-Browser-0.1.1-mas.pkg
 ```
 
 Upload that package with Apple's Transporter app, or with `xcrun altool`.
+
+Do not click Submit for Review in App Store Connect until the listing, screenshots, privacy answers, and final QA are complete.
 
 ## App Store listing draft
 
@@ -81,13 +83,11 @@ Tack Browser does not appear to request camera, microphone, location, contacts, 
 
 ## Simple kid-clear checklist
 
-1. Open Xcode.
-2. Sign in with the Apple Developer account.
-3. Add the Apple Distribution certificate.
-4. Add the Mac Installer Distribution certificate.
-5. Tell Codex when that is done.
-6. Codex builds the App Store package.
-7. Upload the package with Transporter.
-8. Wait for Apple to process it.
-9. Fill screenshots, privacy, age rating, pricing, and review notes.
-10. Only when everything looks right, click Submit for Review.
+1. Codex builds the app package.
+2. Upload the package to App Store Connect.
+3. Wait for Apple to process it.
+4. Add the app screenshots.
+5. Fill in privacy, age rating, price, and review notes.
+6. Check that every field looks right.
+7. Test the app one more time.
+8. Only when everything looks right, click Submit for Review.
