@@ -79,23 +79,12 @@
         </section>
 
         <aside class="tack-panel" aria-label="Tack side panel">
-          <section class="panel-head">
-            <div class="panel-actions">
-              <button class="small-btn" id="clear-btn" type="button">Clear</button>
-            </div>
-          </section>
-
-          <section class="usage-card hidden" id="usage-card">
-            <div class="usage-row">
-              <span id="usage-copy">Account ready</span>
-              <button id="usage-upgrade-btn" type="button">Upgrade</button>
-            </div>
-            <div class="usage-track"><div id="usage-fill"></div></div>
-          </section>
-
           <section class="scan-status">
-            <strong id="scan-count">Ready to select</strong>
-            <span id="scan-note">Select images where they are. Use Capture if a site blocks image URLs.</span>
+            <div>
+              <strong id="scan-count">Ready to select</strong>
+              <span id="scan-note">Select images where they are. Use Capture if a site blocks image URLs.</span>
+            </div>
+            <button class="small-btn" id="clear-btn" type="button">Clear</button>
           </section>
 
           <section class="reference-grid" id="reference-list">
@@ -114,6 +103,14 @@
               <button class="chip" type="button" data-aspect-ratio="9:16">Vertical</button>
             </div>
             <button class="generate-btn" id="generate-btn" type="button" disabled>Generate Images</button>
+          </section>
+
+          <section class="usage-card hidden" id="usage-card">
+            <div class="usage-row">
+              <span id="usage-copy">Account ready</span>
+              <button id="usage-upgrade-btn" type="button">Upgrade</button>
+            </div>
+            <div class="usage-track"><div id="usage-fill"></div></div>
           </section>
 
           <section class="results hidden" id="results">

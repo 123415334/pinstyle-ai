@@ -661,7 +661,6 @@ webview {
   background: transparent;
 }
 
-.panel-head,
 .style-head,
 .result-head {
   display: flex;
@@ -670,25 +669,14 @@ webview {
   gap: 12px;
 }
 
-.panel-head {
-  justify-content: flex-end;
-  min-height: 0;
-}
-
-.panel-actions {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 .usage-card {
   display: grid;
-  gap: 8px;
-  padding: 12px;
-  border: 1px solid var(--tack-border);
-  border-radius: 14px;
-  background: rgba(240, 235, 227, 0.035);
+  gap: 7px;
+  order: 20;
+  padding: 10px 12px;
+  border: 1px solid rgba(240, 235, 227, 0.07);
+  border-radius: 13px;
+  background: rgba(240, 235, 227, 0.02);
 }
 
 .usage-row {
@@ -716,7 +704,7 @@ webview {
 }
 
 .usage-track {
-  height: 4px;
+  height: 3px;
   overflow: hidden;
   border-radius: 999px;
   background: rgba(240, 235, 227, 0.07);
@@ -731,13 +719,20 @@ webview {
 }
 
 .scan-status {
-  display: block;
-  padding: 0 0 8px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 0 10px;
   border: 0;
   border-bottom: 1px solid var(--tack-border);
   border-radius: 0;
   background: transparent;
   font-size: 12px;
+}
+
+.scan-status > div {
+  min-width: 0;
 }
 
 .scan-status span {

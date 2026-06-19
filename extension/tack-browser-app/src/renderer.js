@@ -894,7 +894,7 @@ function updateAccountUI() {
     const resetCopy = monthlyResetAt
       ? new Date(monthlyResetAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
       : 'next month';
-    usageCopy.innerHTML = `<strong>${remaining}</strong> of ${limit} generations left · resets ${resetCopy}`;
+    usageCopy.innerHTML = `<strong>${remaining}</strong> of ${limit} left this month · resets ${resetCopy}`;
     usageFill.style.width = `${Math.min(100, Math.round((used / limit) * 100))}%`;
     usageUpgradeBtn.classList.toggle('hidden', plan !== 'free');
     accountUsageStat.textContent = `${remaining} / ${limit} left`;
