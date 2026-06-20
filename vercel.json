@@ -23,6 +23,7 @@
     { "source": "/whats-new", "destination": "/whats-new.html" },
     { "source": "/download",  "destination": "/download.html" },
     { "source": "/privacy",   "destination": "/privacy.html" },
+    { "source": "/terms",     "destination": "/terms.html" },
     { "source": "/upgrade",   "destination": "/upgrade.html" },
     { "source": "/confirmed", "destination": "/confirmed.html" }
   ]
