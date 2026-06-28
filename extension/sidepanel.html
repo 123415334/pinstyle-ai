@@ -167,9 +167,16 @@
       <div class="scan-row">
         <div>
           <div id="status"></div>
-          <div id="scan-hint-inline" style="font-size:11px;color:var(--ink-muted);margin-top:2px;"></div>
         </div>
-        <button class="btn-scan" id="refresh-btn">↻ Rescan</button>
+        <div class="scan-actions">
+          <button class="btn-page-pick is-active" id="page-pick-btn" type="button" aria-pressed="true">
+            <svg class="page-pick-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V10m0 0V7.5a1.5 1.5 0 0 1 3 0V10m0 .5V9a1.5 1.5 0 0 1 3 0v3m0-1a1.5 1.5 0 0 1 3 0v3.5c0 4.1-2.7 6.5-6.5 6.5h-1.2a6 6 0 0 1-4.7-2.3L4 13a1.6 1.6 0 0 1 2.4-2.1L9 13.3V11Z"/>
+            </svg>
+            <span>Select from page</span>
+          </button>
+          <button class="btn-scan" id="refresh-btn" type="button" aria-pressed="false">↻ Scan</button>
+        </div>
       </div>
       <div id="image-grid"></div>
     </section>
@@ -194,14 +201,12 @@
           <button class="dimension-option" type="button" role="radio" aria-checked="false" data-aspect-ratio="9:16">Vertical</button>
         </div>
       </div>
-      <p class="reference-note">Best results come from references that feel like one visual family.</p>
     </section>
 
     <!-- Generate button -->
     <button id="generate-btn" disabled>Generate Images</button>
 
-    <!-- Generation counter strip (hidden for guests, shown when logged in) -->
-    <div id="trial-badge" class="trial-badge hidden"></div>
+    <div id="trial-badge" class="trial-badge hidden" aria-hidden="true"></div>
 
     <!-- Results -->
     <section id="results" class="hidden"></section>

@@ -19,6 +19,12 @@ const ASPECT_RATIO_KEY  = 'ps_generation_aspect_ratio';
 const SCAN_CACHE_TTL_MS = 5 * 60 * 1000;
 const WORKSPACE_TTL_MS  = 24 * 60 * 60 * 1000;
 const DEFAULT_ASPECT_RATIO = '1:1';
+const REFERENCE_IDENTITY_INSTRUCTION = [
+  'Reference identity constraint:',
+  'Do not reproduce, preserve, or closely imitate any identifiable person from the reference images.',
+  'Use people in references only as non-identifying cues for lighting, composition, styling, pose, and era.',
+  'Do not add a person unless the user subject explicitly asks for one; if a person is requested, create a new generic, non-identifiable person with a different face and likeness.',
+].join(' ');
 const ALLOWED_ASPECT_RATIOS = new Set(['16:9', '1:1', '9:16']);
 const OUTPUT_DIMENSIONS = Object.freeze({
   '16:9': { width: 1600, height: 896 },
@@ -82,6 +88,11 @@ function getAspectRatioLabel(aspectRatio = _generationAspectRatio) {
   return 'square';
 }
 
+function generationSubjectWithIdentitySafety(subject) {
+  const cleanSubject = String(subject || '').trim();
+  return `${cleanSubject}\n\n${REFERENCE_IDENTITY_INSTRUCTION}`;
+}
+
 function normalizeAspectRatio(aspectRatio) {
   return ALLOWED_ASPECT_RATIOS.has(aspectRatio) ? aspectRatio : DEFAULT_ASPECT_RATIO;
 }
@@ -119,6 +130,7 @@ async function loadGenerationAspectRatio() {
 const imageGrid    = document.getElementById('image-grid');
 const statusEl     = document.getElementById('status');
 const refreshBtn   = document.getElementById('refresh-btn');
+const pagePickBtn  = document.getElementById('page-pick-btn');
 const generateBtn  = document.getElementById('generate-btn');
 const subjectInput = document.getElementById('subject-input');
 const resultsEl    = document.getElementById('results');
@@ -153,12 +165,17 @@ let _generateRequestId     = 0;
 let _planRequestId         = 0;
 let _activeGenerationController = null;
 let _generationAspectRatio = DEFAULT_ASPECT_RATIO;
+let _pagePickerActive      = false;
+let _pagePickerTabId       = null;
+let _pagePickerSessionStarted = false;
+let _selectionTool         = 'page';
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   await initAnalyticsIdentity();
   await loadGenerationAspectRatio();
-  refreshBtn.addEventListener('click', () => loadImages({ forceRefresh: true }));
+  refreshBtn.addEventListener('click', activateRescanTool);
+  pagePickBtn.addEventListener('click', togglePagePicker);
   generateBtn.addEventListener('click', generate);
   dimensionOptions.forEach(option => {
     option.addEventListener('click', () => setGenerationAspectRatio(option.dataset.aspectRatio, { persist: true }));
@@ -811,8 +828,7 @@ function showGuestUI() {
   trialBadge.classList.add('hidden');
   restoreWorkspaceUI();
   renderOnboardingCard();
-  // Load images right away so they can explore
-  loadImages();
+  startPagePicker().catch(() => {});
 }
 
 function showMainUI() {
@@ -827,7 +843,7 @@ function showMainUI() {
   updateTrialBadge();
   restoreWorkspaceUI();
   onboardingCard?.classList.add('hidden');
-  loadImages();
+  startPagePicker().catch(() => {});
 }
 
 function updateHeaderPlanBadge() {
@@ -935,6 +951,12 @@ async function validateToken(token) {
 // ── Trial / counter badge ─────────────────────────────────────────────────────
 
 function updateTrialBadge() {
+  // Usage details belong on the Tack account page, not in the creation UI.
+  trialBadge.className = 'trial-badge hidden';
+  trialBadge.innerHTML = '';
+  updateGenerateBtn();
+  return;
+
   // Guest mode: no badge
   if (!_authToken) {
     trialBadge.classList.add('hidden');
@@ -1048,7 +1070,7 @@ async function logout() {
   trialBadge.classList.add('hidden');
   renderStyleMemoryBanner();
   renderOnboardingCard();
-  loadImages();
+  startPagePicker().catch(() => {});
   updateGenerateBtn();
 }
 
@@ -1311,7 +1333,350 @@ async function supabaseResetPassword(email) {
 
 // ── Image scanning ────────────────────────────────────────────────────────────
 
+function setSelectionTool(tool) {
+  _selectionTool = tool;
+  const pageActive = tool === 'page';
+  const scanActive = tool === 'scan';
+  pagePickBtn.classList.toggle('is-active', pageActive);
+  pagePickBtn.setAttribute('aria-pressed', String(pageActive));
+  refreshBtn.classList.toggle('is-active', scanActive);
+  refreshBtn.setAttribute('aria-pressed', String(scanActive));
+}
+
+async function togglePagePicker() {
+  if (_pagePickerActive) {
+    await stopPagePicker();
+    return;
+  }
+  startPagePicker().catch(() => {});
+}
+
+async function stopPagePicker() {
+  if (!_pagePickerActive || !_pagePickerTabId) return;
+  await chrome.scripting.executeScript({
+    target: { tabId: _pagePickerTabId },
+    func: stopInjectedPageImagePicker,
+  }).catch(() => {});
+}
+
+function stopInjectedPageImagePicker() {
+  document.dispatchEvent(new CustomEvent('tack:stop-page-picker'));
+  if (typeof globalThis.__tackStopPageImagePicker === 'function') {
+    globalThis.__tackStopPageImagePicker();
+  }
+  document.getElementById('tack-page-image-picker')?.remove();
+  document.getElementById('tack-page-image-picker-style')?.remove();
+  document.documentElement.classList.remove('tack-picking', 'tack-pick-hovering');
+}
+
+async function activateRescanTool() {
+  setSelectionTool('scan');
+  if (_pagePickerActive) await stopPagePicker();
+  _pagePickerSessionStarted = false;
+  await loadImages({ forceRefresh: true });
+}
+
+async function startPagePicker() {
+  const tab = await getActiveTab().catch(() => null);
+  if (!tab?.id) {
+    setStatus('Could not access the current tab.');
+    return;
+  }
+
+  _pagePickerActive = true;
+  _pagePickerTabId = tab.id;
+  setSelectionTool('page');
+  setStatus('Select images on page to add references.');
+  setHint('Click Done or press Esc when finished.');
+  if (!_pagePickerSessionStarted) {
+    _pagePickerSessionStarted = true;
+    selectedUrls.clear();
+    imageGrid.innerHTML = '';
+    clearStaleResultsForWorkspaceChange();
+    updateGenerateBtn();
+  }
+
+  const onPickerMessage = (message, sender) => {
+    if ((sender.tab && sender.tab.id !== tab.id) || message?.type !== 'tack-page-picker-change') return;
+    if (message.action === 'select' && message.image) {
+      addPagePickedImages([message.image]);
+    } else if (message.action === 'deselect' && message.src) {
+      removePagePickedImage(message.src);
+    }
+  };
+  chrome.runtime.onMessage.addListener(onPickerMessage);
+
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: runPageImagePicker,
+      args: [Array.from(selectedUrls)],
+    });
+    const picked = results?.[0]?.result || [];
+    if (_selectionTool === 'scan') return;
+    addPagePickedImages(picked);
+    if (picked.length) {
+      setStatus(`${picked.length} image${picked.length === 1 ? '' : 's'} selected`);
+      setHint('');
+      trackEvent('page_picker_completed', { count: picked.length });
+    } else {
+      setStatus('No images selected');
+      setHint('');
+    }
+  } catch (err) {
+    setStatus('This page does not allow direct selection.');
+    setHint('Chrome system pages and some protected pages cannot be inspected. Scan still works here when available.');
+  } finally {
+    chrome.runtime.onMessage.removeListener(onPickerMessage);
+    _pagePickerActive = false;
+    _pagePickerTabId = null;
+    if (_selectionTool === 'page') setSelectionTool(null);
+  }
+}
+
+function removePagePickedImage(src) {
+  selectedUrls.delete(src);
+  Array.from(imageGrid.querySelectorAll('.img-item'))
+    .filter(item => item.dataset.src === src)
+    .forEach(item => item.remove());
+  if (!imageGrid.querySelector('.img-item')) {
+    imageGrid.innerHTML = '';
+  }
+  clearStaleResultsForWorkspaceChange();
+  updateGenerateBtn();
+  saveWorkspaceState().catch(() => {});
+}
+
+function addPagePickedImages(images) {
+  if (!Array.isArray(images) || images.length === 0) return;
+  imageGrid.querySelectorAll('.empty-state').forEach(el => el.remove());
+  images.forEach(img => {
+    if (!img?.src) return;
+    selectedUrls.add(img.src);
+    let item = Array.from(imageGrid.querySelectorAll('.img-item'))
+      .find(candidate => candidate.dataset.src === img.src);
+    if (!item) {
+      item = document.createElement('div');
+      item.className = 'img-item';
+      item.dataset.src = img.src;
+      const thumb = document.createElement('img');
+      thumb.src = img.src;
+      thumb.loading = 'lazy';
+      thumb.alt = img.alt || '';
+      thumb.onerror = () => { item.style.display = 'none'; };
+      const check = document.createElement('div');
+      check.className = 'img-check';
+      check.textContent = '✓';
+      item.append(thumb, check);
+      item.addEventListener('click', () => toggleSelect(item, img.src));
+      imageGrid.prepend(item);
+    }
+    item.classList.add('selected');
+  });
+  clearStaleResultsForWorkspaceChange();
+  updateGenerateBtn();
+  saveWorkspaceState().catch(() => {});
+}
+
+// Runs inside the inspected page and must remain self-contained.
+function runPageImagePicker(alreadySelected) {
+  return new Promise(resolve => {
+    const ROOT_ID = 'tack-page-image-picker';
+    document.dispatchEvent(new CustomEvent('tack:stop-page-picker'));
+    if (typeof globalThis.__tackStopPageImagePicker === 'function') {
+      globalThis.__tackStopPageImagePicker();
+    }
+    document.getElementById(ROOT_ID)?.remove();
+    document.getElementById(`${ROOT_ID}-style`)?.remove();
+    const picked = new Map();
+    (Array.isArray(alreadySelected) ? alreadySelected : []).forEach(src => {
+      if (src) picked.set(src, { src, alt: '', width: 0, height: 0 });
+    });
+    const selectedElements = new Map();
+    let hovered = null;
+    let lastActivation = { src: '', at: 0 };
+    let finished = false;
+
+    const root = document.createElement('div');
+    root.id = ROOT_ID;
+    root.style.cssText = 'position:fixed;inset:0;z-index:2147483647;pointer-events:none;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;';
+    const style = document.createElement('style');
+    style.id = `${ROOT_ID}-style`;
+    style.textContent = `
+      html.tack-picking,html.tack-picking body,html.tack-picking body *{cursor:default!important}
+      html.tack-picking.tack-pick-hovering,html.tack-picking.tack-pick-hovering body,html.tack-picking.tack-pick-hovering body *{cursor:pointer!important}
+      #${ROOT_ID},#${ROOT_ID} *{cursor:default!important;box-sizing:border-box!important}
+    `;
+    const captureLayer = document.createElement('div');
+    captureLayer.style.cssText = 'position:fixed;inset:0;pointer-events:auto;background:transparent;cursor:default;';
+    const hoverBox = document.createElement('div');
+    hoverBox.style.cssText = 'display:none;position:fixed;border:3px solid #2f6bff;border-radius:8px;background:rgba(47,107,255,.12);box-shadow:0 0 0 2px rgba(255,255,255,.8),0 8px 30px rgba(0,0,0,.25);pointer-events:none;';
+    const toolbar = document.createElement('div');
+    toolbar.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);display:flex;align-items:center;gap:12px;padding:10px 12px 10px 16px;border-radius:999px;background:#0e0c0a;color:#f0ebe3;box-shadow:0 12px 40px rgba(0,0,0,.38);pointer-events:auto;font-size:13px;line-height:1;';
+    const copy = document.createElement('span');
+    const done = document.createElement('button');
+    done.type = 'button';
+    done.textContent = 'Done';
+    done.style.cssText = 'border:0;border-radius:999px;padding:8px 15px;background:#013ff4;color:white;font:600 12px -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;cursor:pointer!important;';
+    toolbar.append(copy, done);
+    root.append(captureLayer, hoverBox, toolbar);
+    document.documentElement.append(style, root);
+    document.documentElement.classList.add('tack-picking');
+
+    function updateCopy() {
+      const count = picked.size;
+      copy.textContent = count ? `${count} image${count === 1 ? '' : 's'} selected` : 'Click an image to select it';
+    }
+    function sendChange(message) {
+      chrome.runtime.sendMessage(message, () => void chrome.runtime.lastError);
+    }
+    function candidateFromEvent(event) {
+      const path = event.composedPath ? event.composedPath() : [];
+      const underPointer = document.elementsFromPoint(event.clientX, event.clientY);
+      const candidates = Array.from(new Set([...path, ...underPointer]));
+      const imageResult = image => {
+        let src = image.currentSrc || image.src;
+        if (location.hostname.includes('pinterest.com')) src = src.replace(/\/\d+x\//, '/736x/');
+        return { el: image, src, alt: image.alt || '' };
+      };
+      for (const node of candidates) {
+        if (!(node instanceof Element) || root.contains(node)) continue;
+        if (node instanceof HTMLImageElement && (node.currentSrc || node.src)) {
+          return imageResult(node);
+        }
+      }
+      // Pinterest and similar masonry sites place transparent links/buttons over
+      // the image. Find the visual image inside that clickable card.
+      for (const node of candidates) {
+        if (!(node instanceof Element) || root.contains(node)) continue;
+        const card = node.closest('a, [data-test-id="pinWrapper"], article, figure') || node;
+        const images = Array.from(card.querySelectorAll?.('img') || []);
+        const image = images.find(img => {
+          const rect = img.getBoundingClientRect();
+          return rect.width > 40 && rect.height > 40
+            && event.clientX >= rect.left && event.clientX <= rect.right
+            && event.clientY >= rect.top && event.clientY <= rect.bottom;
+        });
+        if (image && (image.currentSrc || image.src)) return imageResult(image);
+      }
+      for (const node of candidates) {
+        if (!(node instanceof Element) || root.contains(node)) continue;
+        const match = (getComputedStyle(node).backgroundImage || '').match(/url\(["']?([^"')]+)["']?\)/);
+        if (match?.[1] && !match[1].startsWith('data:') && !match[1].startsWith('blob:')) {
+          return { el: node, src: match[1], alt: node.getAttribute('aria-label') || '' };
+        }
+      }
+      return null;
+    }
+    function positionBox(box, el) {
+      const rect = el.getBoundingClientRect();
+      box.style.left = `${rect.left}px`;
+      box.style.top = `${rect.top}px`;
+      box.style.width = `${rect.width}px`;
+      box.style.height = `${rect.height}px`;
+      box.style.display = rect.width && rect.height ? 'block' : 'none';
+    }
+    function makeSelectedBox(el) {
+      const box = document.createElement('div');
+      box.style.cssText = 'position:fixed;border:3px solid #013ff4;border-radius:8px;background:rgba(1,63,244,.16);box-shadow:inset 0 0 0 2px rgba(255,255,255,.85);pointer-events:none;';
+      const mark = document.createElement('span');
+      mark.textContent = '✓';
+      mark.style.cssText = 'position:absolute;right:7px;top:7px;width:25px;height:25px;border-radius:50%;display:grid;place-items:center;background:#013ff4;color:#fff;font:bold 15px sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.3);';
+      box.append(mark);
+      root.insertBefore(box, toolbar);
+      positionBox(box, el);
+      return box;
+    }
+    function onMove(event) {
+      const candidate = candidateFromEvent(event);
+      hovered = candidate;
+      captureLayer.style.setProperty('cursor', candidate ? 'pointer' : 'default', 'important');
+      document.documentElement.classList.toggle('tack-pick-hovering', !!candidate);
+      if (candidate && picked.has(candidate.src) && !selectedElements.has(candidate.src)) {
+        const rect = candidate.el.getBoundingClientRect();
+        picked.set(candidate.src, {
+          src: candidate.src,
+          alt: candidate.alt,
+          width: candidate.el.naturalWidth || Math.round(rect.width),
+          height: candidate.el.naturalHeight || Math.round(rect.height),
+        });
+        selectedElements.set(candidate.src, { el: candidate.el, box: makeSelectedBox(candidate.el) });
+      }
+      if (!candidate || selectedElements.has(candidate.src)) {
+        hoverBox.style.display = 'none';
+        return;
+      }
+      positionBox(hoverBox, candidate.el);
+    }
+    function onPickEvent(event) {
+      const candidate = candidateFromEvent(event);
+      if (!candidate) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      const now = Date.now();
+      if (event.type === 'click' && lastActivation.src === candidate.src && now - lastActivation.at < 700) {
+        return;
+      }
+      lastActivation = { src: candidate.src, at: now };
+      if (selectedElements.has(candidate.src)) {
+        selectedElements.get(candidate.src).box.remove();
+        selectedElements.delete(candidate.src);
+        picked.delete(candidate.src);
+        sendChange({ type: 'tack-page-picker-change', action: 'deselect', src: candidate.src });
+      } else {
+        const rect = candidate.el.getBoundingClientRect();
+        const image = { src: candidate.src, alt: candidate.alt, width: candidate.el.naturalWidth || Math.round(rect.width), height: candidate.el.naturalHeight || Math.round(rect.height) };
+        picked.set(candidate.src, image);
+        selectedElements.set(candidate.src, { el: candidate.el, box: makeSelectedBox(candidate.el) });
+        sendChange({ type: 'tack-page-picker-change', action: 'select', image });
+      }
+      hoverBox.style.display = 'none';
+      updateCopy();
+    }
+    function reposition() {
+      selectedElements.forEach(({ el, box }) => positionBox(box, el));
+      if (hovered && !selectedElements.has(hovered.src)) positionBox(hoverBox, hovered.el);
+    }
+    function finish() {
+      if (finished) return;
+      finished = true;
+      captureLayer.removeEventListener('pointermove', onMove);
+      captureLayer.removeEventListener('pointerdown', onPickEvent);
+      captureLayer.removeEventListener('click', onPickEvent);
+      document.removeEventListener('tack:stop-page-picker', finish);
+      document.removeEventListener('keydown', onKey, true);
+      window.removeEventListener('scroll', reposition, true);
+      window.removeEventListener('resize', reposition, true);
+      document.documentElement.classList.remove('tack-picking', 'tack-pick-hovering');
+      style.remove();
+      root.remove();
+      if (globalThis.__tackStopPageImagePicker === finish) {
+        delete globalThis.__tackStopPageImagePicker;
+      }
+      resolve(Array.from(picked.values()));
+    }
+    function onKey(event) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        finish();
+      }
+    }
+    globalThis.__tackStopPageImagePicker = finish;
+    document.addEventListener('tack:stop-page-picker', finish);
+    updateCopy();
+    done.addEventListener('click', finish);
+    captureLayer.addEventListener('pointermove', onMove);
+    captureLayer.addEventListener('pointerdown', onPickEvent);
+    captureLayer.addEventListener('click', onPickEvent);
+    document.addEventListener('keydown', onKey, true);
+    window.addEventListener('scroll', reposition, true);
+    window.addEventListener('resize', reposition, true);
+  });
+}
+
 async function loadImages(options = {}) {
+  if (!_pagePickerActive) setSelectionTool('scan');
   const requestId = ++_scanRequestId;
   const { forceRefresh = false } = options;
   imageGrid.innerHTML = '';
@@ -1371,19 +1736,15 @@ async function loadImages(options = {}) {
 
   if (images.length === 0) {
     trackEvent('images_scanned', { count: 0, source: isPinterest ? 'pinterest' : isTackSite ? 'tack' : 'page' });
-    imageGrid.innerHTML = isPinterest
-      ? `<div class="empty-state"><strong>No pins found yet</strong>Scroll down the board so pins load, then tap Rescan.</div>`
-      : isTackSite
-        ? `<div class="empty-state"><strong>No saved images found yet</strong>Open a generations page or board, then tap Rescan.</div>`
-        : `<div class="empty-state"><strong>No large images found</strong>Try scrolling so images load, then tap Rescan.</div>`;
-    setStatus('');
+    imageGrid.innerHTML = '';
+    setStatus('No images found');
+    setHint('Scroll, then Scan again.');
     return;
   }
 
-  const src = isPinterest ? 'Pinterest data' : 'page';
-  setStatus(`${images.length} image${images.length !== 1 ? 's' : ''} from ${src} — tap to select`);
-  if (isPinterest) setHint('Scroll down to load more pins, then tap ↻ Rescan');
-  if (isTackSite) setHint('Open a generations page or board, then tap ↻ Rescan');
+  setStatus(`${images.length} image${images.length !== 1 ? 's' : ''} found`);
+  if (isPinterest) setHint('Scroll for more, then Scan again.');
+  if (isTackSite) setHint('Open a board or generation, then Scan.');
   trackEvent('images_scanned', {
     count: images.length,
     source: isPinterest ? 'pinterest' : isTackSite ? 'tack' : 'page',
@@ -1614,9 +1975,9 @@ function updateGenerateBtn() {
     return;
   }
 
-  // Logged in: also check plan limits
-  const monthlyExhausted = getEffectiveMonthlyUsed() >= getMonthlyLimit();
-  generateBtn.disabled = monthlyExhausted || !hasImages || !hasSubject;
+  // Keep the button actionable at the limit so generate() can show the
+  // account/upgrade notice only when the user actually tries to create.
+  generateBtn.disabled = !(hasImages && hasSubject);
 }
 
 function getRequestSignature(subject = subjectInput.value.trim(), urls = [...selectedUrls]) {
@@ -1708,7 +2069,11 @@ async function generate() {
       signal: controller.signal,
       body: JSON.stringify({
         imageUrls: requestUrls,
-        subject,
+        subject: generationSubjectWithIdentitySafety(subject),
+        displaySubject: subject,
+        userSubject: subject,
+        referenceIdentityInstruction: REFERENCE_IDENTITY_INSTRUCTION,
+        negativePrompt: 'same identifiable person from reference, copied face, copied likeness, recognizable private person, celebrity likeness',
         anonymousId: _anonymousId,
         aspectRatio: _generationAspectRatio,
         aspect_ratio: _generationAspectRatio,
@@ -1839,37 +2204,13 @@ async function generate() {
 
 // ── Render results ────────────────────────────────────────────────────────────
 function renderResults(data) {
-  const { styleDescriptors, prompt, images } = data;
+  const { images } = data;
   const aspectRatio = normalizeAspectRatio(data.aspectRatio || _generationAspectRatio);
   clearElement(resultsEl);
 
-  if (!styleDescriptors && !prompt && (!images || images.length === 0)) {
+  if (!images || images.length === 0) {
     resultsEl.appendChild(createEl('p', { className: 'error-msg', textContent: 'No results returned — please try again.' }));
     return;
-  }
-
-  if (styleDescriptors) {
-    const block = createCompactTextBlock('Style Analysis', styleDescriptors);
-    resultsEl.appendChild(block);
-  }
-
-  if (prompt) {
-    const block = createCompactTextBlock('Image Prompt', prompt, { copyValue: prompt });
-    const actions = block.querySelector('.compact-copy-actions');
-    const copyBtn = createEl('button', {
-      className: 'btn-copy',
-      textContent: 'Copy prompt',
-      attrs: { type: 'button' },
-      dataset: { prompt },
-    });
-    copyBtn.addEventListener('click', () => {
-      navigator.clipboard.writeText(copyBtn.dataset.prompt || '').then(() => {
-        copyBtn.textContent = 'Copied!';
-        setTimeout(() => { copyBtn.textContent = 'Copy prompt'; }, 2000);
-      });
-    });
-    actions?.appendChild(copyBtn);
-    resultsEl.appendChild(block);
   }
 
   if (images && images.length > 0) {
@@ -2336,12 +2677,11 @@ function navigatePreview(delta) {
 function renderScannedImages(images, { isPinterest = false, isTackSite = false, fromCache = false } = {}) {
   if (!Array.isArray(images) || images.length === 0) return;
   imageGrid.innerHTML = '';
-  const src = isPinterest ? 'Pinterest data' : 'page';
   setStatus(fromCache
-    ? `Showing your last scan from this ${src === 'page' ? 'page' : 'board'} while we refresh…`
-    : `${images.length} image${images.length !== 1 ? 's' : ''} from ${src} — tap to select`);
-  if (isPinterest) setHint('Scroll down to load more pins, then tap ↻ Rescan');
-  if (isTackSite) setHint('Open a generations page or board, then tap ↻ Rescan');
+    ? 'Refreshing images…'
+    : `${images.length} image${images.length !== 1 ? 's' : ''} found`);
+  if (isPinterest) setHint('Scroll for more, then Scan again.');
+  if (isTackSite) setHint('Open a board or generation, then Scan.');
 
   images.forEach(img => {
     const item  = document.createElement('div');
@@ -2584,8 +2924,7 @@ function renderGeneratingState() {
         <span class="brand-loader-dot"></span>
         <span class="brand-loader-dot"></span>
       </div>
-      <span id="generation-progress-copy">${steps[0]}</span><br>
-      <small style="color:var(--ink-muted);margin-top:6px;display:block">Usually ready in 30–60 seconds</small>
+      <span id="generation-progress-copy">${steps[0]}</span>
     </div>`;
   _generationProgressTimer = setInterval(() => {
     index = Math.min(index + 1, steps.length - 1);
