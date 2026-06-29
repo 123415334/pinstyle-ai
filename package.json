@@ -1,4 +1,7 @@
 {
+  "scripts": {
+    "test": "node --test test/*.test.js && node --check api/*.js"
+  },
   "dependencies": {
     "sharp": "^0.33.0",
     "stripe": "^14.0.0"

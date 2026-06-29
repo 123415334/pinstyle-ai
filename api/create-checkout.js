@@ -3,12 +3,7 @@
 // POST /api/create-checkout  { plan: "pro" | "studio" }
 
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-
-const CORS = {
-  'Access-Control-Allow-Origin':  '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
+const { applyCors, configuredAppOrigin } = require('./_security');
 
 async function validateSupabaseUser(req) {
   const authHeader = req.headers.authorization || '';
@@ -29,8 +24,24 @@ async function validateSupabaseUser(req) {
   }
 }
 
+async function getStoredCustomerId(userId) {
+  if (!process.env.SUPABASE_SERVICE_KEY) return null;
+  const resp = await fetch(
+    `${process.env.SUPABASE_URL}/rest/v1/user_profiles?id=eq.${encodeURIComponent(userId)}&select=stripe_customer_id&limit=1`,
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+        apikey: process.env.SUPABASE_SERVICE_KEY,
+      },
+    },
+  );
+  if (!resp.ok) throw new Error(`Could not read billing profile (${resp.status})`);
+  const rows = await resp.json();
+  return rows[0]?.stripe_customer_id || null;
+}
+
 module.exports = async function handler(req, res) {
-  Object.entries(CORS).forEach(([k, v]) => res.setHeader(k, v));
+  applyCors(req, res);
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST')   return res.status(405).json({ error: 'Method not allowed' });
 
@@ -39,7 +50,7 @@ module.exports = async function handler(req, res) {
   if (!['pro', 'studio'].includes(plan)) {
     return res.status(400).json({ error: 'Invalid plan' });
   }
-  const origin = `${req.headers['x-forwarded-proto'] || 'https'}://${req.headers.host}`;
+  const origin = configuredAppOrigin();
   const user = await validateSupabaseUser(req);
   if (!user?.email) return res.status(401).json({ error: 'Authentication required' });
   const email = user.email;
@@ -55,11 +66,24 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    let customerId = null;
-    if (email) {
+    let customerId = await getStoredCustomerId(user.id);
+    if (!customerId && email) {
       const existing = await stripe.customers.list({ email, limit: 1 });
       if (existing.data.length > 0) {
         customerId = existing.data[0].id;
+      }
+    }
+
+    if (customerId) {
+      const subscriptions = await stripe.subscriptions.list({ customer: customerId, status: 'all', limit: 10 });
+      const existingSubscription = subscriptions.data.find(subscription =>
+        ['active', 'trialing', 'past_due', 'unpaid', 'paused'].includes(subscription.status)
+      );
+      if (existingSubscription) {
+        return res.status(409).json({
+          error: 'You already have a subscription. Use Manage billing to change plans.',
+          code: 'subscription_exists',
+        });
       }
     }
 
@@ -92,6 +116,6 @@ module.exports = async function handler(req, res) {
 
   } catch (err) {
     console.error('Stripe create-checkout error:', err.message);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: 'Could not start checkout. Please try again.' });
   }
 };

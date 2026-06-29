@@ -9,6 +9,7 @@
 //   SUPABASE_SERVICE_KEY   — service role key (bypasses RLS)
 
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const { isEntitledSubscriptionStatus, planFromPriceId } = require('./_billing');
 
 // Tell Vercel NOT to parse the body — Stripe needs the raw bytes for signature verification
 module.exports.config = { api: { bodyParser: false } };
@@ -17,7 +18,19 @@ module.exports.config = { api: { bodyParser: false } };
 function getRawBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
-    req.on('data', chunk => chunks.push(chunk));
+    let size = 0;
+    let tooLarge = false;
+    req.on('data', chunk => {
+      if (tooLarge) return;
+      size += chunk.length;
+      if (size > 1024 * 1024) {
+        tooLarge = true;
+        reject(new Error('Webhook body is too large'));
+        req.pause();
+        return;
+      }
+      chunks.push(chunk);
+    });
     req.on('end',  () => resolve(Buffer.concat(chunks)));
     req.on('error', reject);
   });
@@ -44,9 +57,9 @@ async function upgradePlan(email, plan) {
 }
 
 // Store the Stripe subscription ID on the profile for future cancellation handling
-async function storeSubscriptionId(email, subscriptionId) {
+async function storeBillingIds(email, subscriptionId, customerId) {
   const url = `${process.env.SUPABASE_URL}/rest/v1/user_profiles?email=eq.${encodeURIComponent(email)}`;
-  await fetch(url, {
+  const resp = await fetch(url, {
     method: 'PATCH',
     headers: {
       'Content-Type':  'application/json',
@@ -54,19 +67,12 @@ async function storeSubscriptionId(email, subscriptionId) {
       'apikey':        process.env.SUPABASE_SERVICE_KEY,
       'Prefer':        'return=minimal',
     },
-    body: JSON.stringify({ stripe_subscription_id: subscriptionId }),
+    body: JSON.stringify({
+      stripe_subscription_id: subscriptionId,
+      ...(customerId ? { stripe_customer_id: customerId } : {}),
+    }),
   });
-}
-
-function getPlanFromPriceId(priceId) {
-  if (priceId === process.env.STRIPE_PRICE_ID_STUDIO || priceId === process.env.STRIPE_PRICE_ID_UNLIMITED) return 'studio';
-  return 'pro';
-}
-
-function normalizePaidPlan(plan) {
-  const value = (plan || '').toLowerCase();
-  if (value === 'studio' || value === 'unlimited') return 'studio';
-  return 'pro';
+  if (!resp.ok) throw new Error(`Could not store Stripe billing identifiers (${resp.status})`);
 }
 
 // Downgrade to free (called on subscription cancellation)
@@ -108,10 +114,6 @@ async function downgradeToFreeByEmail(email) {
   }
 }
 
-function isEntitledSubscriptionStatus(status) {
-  return status === 'active' || status === 'trialing';
-}
-
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
@@ -130,7 +132,7 @@ module.exports = async function handler(req, res) {
     event = stripe.webhooks.constructEvent(rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET);
   } catch (err) {
     console.error('Webhook signature verification failed:', err.message);
-    return res.status(400).json({ error: `Webhook error: ${err.message}` });
+    return res.status(400).json({ error: 'Invalid webhook signature' });
   }
 
   // 2. Handle events
@@ -146,12 +148,13 @@ module.exports = async function handler(req, res) {
           console.warn('checkout.session.completed: no email found, skipping upgrade');
           break;
         }
-        // Determine plan from metadata (set by create-checkout.js)
-        const plan = normalizePaidPlan(session.metadata?.plan);
+        if (!session.subscription) throw new Error('Completed subscription checkout has no subscription ID');
+        const subscription = await stripe.subscriptions.retrieve(session.subscription);
+        const priceId = subscription.items?.data?.[0]?.price?.id;
+        const plan = planFromPriceId(priceId);
+        if (!plan) throw new Error(`Unknown Stripe price on subscription ${subscription.id}`);
         await upgradePlan(email, plan);
-        if (session.subscription) {
-          await storeSubscriptionId(email, session.subscription);
-        }
+        await storeBillingIds(email, subscription.id, session.customer || subscription.customer);
         console.log(`Upgraded to ${plan}: ${email}`);
         break;
       }
@@ -160,7 +163,6 @@ module.exports = async function handler(req, res) {
       case 'customer.subscription.created': {
         const sub = event.data.object;
         const priceId = sub.items?.data?.[0]?.price?.id;
-        if (!priceId && isEntitledSubscriptionStatus(sub.status)) break;
 
         // Try metadata first, then fall back to looking up the Stripe customer
         let email = sub.metadata?.email || null;
@@ -174,9 +176,10 @@ module.exports = async function handler(req, res) {
         }
 
         if (isEntitledSubscriptionStatus(sub.status)) {
-          const plan = getPlanFromPriceId(priceId);
+          const plan = planFromPriceId(priceId);
+          if (!plan) throw new Error(`Unknown Stripe price on subscription ${sub.id}`);
           await upgradePlan(email, plan);
-          await storeSubscriptionId(email, sub.id);
+          await storeBillingIds(email, sub.id, sub.customer);
           console.log(`Synced subscription ${sub.id} (${sub.status}) → ${plan} for ${email}`);
         } else {
           await downgradeToFreeByEmail(email);
@@ -199,7 +202,7 @@ module.exports = async function handler(req, res) {
     }
   } catch (err) {
     console.error(`Error handling event ${event.type}:`, err.message);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: 'Webhook processing failed' });
   }
 
   return res.status(200).json({ received: true });

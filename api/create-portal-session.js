@@ -1,10 +1,5 @@
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-
-const CORS = {
-  'Access-Control-Allow-Origin':  '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
+const { applyCors, configuredAppOrigin } = require('./_security');
 
 async function validateSupabaseUser(req) {
   const authHeader = req.headers.authorization || '';
@@ -26,7 +21,7 @@ async function validateSupabaseUser(req) {
 }
 
 function resolveSafeReturnUrl(req, requestedUrl) {
-  const origin = `${req.headers['x-forwarded-proto'] || 'https'}://${req.headers.host}`;
+  const origin = configuredAppOrigin();
   if (!requestedUrl) return `${origin}/account`;
 
   try {
@@ -38,8 +33,29 @@ function resolveSafeReturnUrl(req, requestedUrl) {
   }
 }
 
+async function getBillingCustomerId(user) {
+  if (process.env.SUPABASE_SERVICE_KEY) {
+    const profileResp = await fetch(
+      `${process.env.SUPABASE_URL}/rest/v1/user_profiles?id=eq.${encodeURIComponent(user.id)}&select=stripe_customer_id&limit=1`,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+          apikey: process.env.SUPABASE_SERVICE_KEY,
+        },
+      },
+    );
+    if (profileResp.ok) {
+      const rows = await profileResp.json();
+      if (rows[0]?.stripe_customer_id) return rows[0].stripe_customer_id;
+    }
+  }
+
+  const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+  return customers.data[0]?.id || null;
+}
+
 module.exports = async function handler(req, res) {
-  Object.entries(CORS).forEach(([k, v]) => res.setHeader(k, v));
+  applyCors(req, res);
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -47,23 +63,20 @@ module.exports = async function handler(req, res) {
   if (!user?.email) return res.status(401).json({ error: 'Authentication required' });
 
   const { returnUrl } = req.body || {};
-  const email = user.email;
-
   try {
-    const customers = await stripe.customers.list({ email, limit: 1 });
-    const customer = customers.data[0];
-    if (!customer) {
+    const customerId = await getBillingCustomerId(user);
+    if (!customerId) {
       return res.status(404).json({ error: 'No billing account found for this email yet.' });
     }
 
     const session = await stripe.billingPortal.sessions.create({
-      customer: customer.id,
+      customer: customerId,
       return_url: resolveSafeReturnUrl(req, returnUrl),
     });
 
     return res.status(200).json({ url: session.url });
   } catch (err) {
     console.error('Stripe create-portal-session error:', err.message);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: 'Could not open billing management. Please try again.' });
   }
 };

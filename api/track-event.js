@@ -1,8 +1,4 @@
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
+const { applyCors } = require('./_security');
 
 const ALLOWED_EVENTS = new Set([
   'extension_opened',
@@ -81,7 +77,7 @@ async function insertEvent(event) {
 }
 
 module.exports = async function handler(req, res) {
-  Object.entries(CORS).forEach(([key, value]) => res.setHeader(key, value));
+  applyCors(req, res);
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -99,6 +95,9 @@ module.exports = async function handler(req, res) {
   const metadata = body.metadata && typeof body.metadata === 'object' && !Array.isArray(body.metadata)
     ? body.metadata
     : {};
+  if (Buffer.byteLength(JSON.stringify(metadata), 'utf8') > 4096) {
+    return res.status(400).json({ error: 'Analytics metadata is too large' });
+  }
 
   try {
     await insertEvent({

@@ -1,3 +1,6 @@
+const crypto = require('node:crypto');
+const { applyCors, fetchPublicUrl, hashRateLimitKey, readResponseBuffer } = require('./_security');
+
 const FREE_MONTHLY_LIMIT = 3;
 const PRO_MONTHLY_LIMIT = 120;
 const STUDIO_MONTHLY_LIMIT = 600;
@@ -65,21 +68,6 @@ async function validateToken(token) {
   return await resp.json();
 }
 
-async function getUsage(userId) {
-  const resp = await fetch(
-    `${process.env.SUPABASE_URL}/rest/v1/user_profiles?id=eq.${userId}&select=generations_used,plan,monthly_generations,monthly_reset_at`,
-    {
-      headers: {
-        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
-        'apikey':        process.env.SUPABASE_SERVICE_KEY,
-      },
-    }
-  );
-  if (!resp.ok) return null;
-  const rows = await resp.json();
-  return rows[0] || null;
-}
-
 async function ensureProfile(userId, email) {
   // Insert a default profile row only if one doesn't already exist.
   // Uses "ignore-duplicates" so existing rows are never overwritten.
@@ -95,7 +83,7 @@ async function ensureProfile(userId, email) {
   });
   if (!resp.ok) {
     const body = await resp.text().catch(() => '');
-    console.error('[tack] ensureProfile failed:', resp.status, body);
+    throw new Error(`Could not ensure user profile (${resp.status}): ${body}`);
   }
 }
 
@@ -110,16 +98,6 @@ function getPlanLimit(plan) {
   if (plan === 'pro') return PRO_MONTHLY_LIMIT;
   if (plan === 'studio') return STUDIO_MONTHLY_LIMIT;
   return FREE_MONTHLY_LIMIT;
-}
-
-function getEffectiveMonthlyUsage(monthlyUsed, monthlyResetAt) {
-  const periodExpired = !monthlyResetAt || new Date(monthlyResetAt) <= new Date();
-  return periodExpired ? 0 : monthlyUsed;
-}
-
-function getNextMonthlyReset(monthlyResetAt) {
-  if (monthlyResetAt && new Date(monthlyResetAt) > new Date()) return monthlyResetAt;
-  return new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 }
 
 function normalizeAspectRatio(value) {
@@ -146,23 +124,41 @@ function getOutputRatio(aspectRatio) {
   return dims.width / dims.height;
 }
 
-async function incrementUsage(userId, email, { currentUsed, effectiveMonthly, monthlyResetAt }) {
-  // Ensure the profile row exists first (handles new Google / OAuth sign-ups
-  // that don't yet have a row in user_profiles).
-  await ensureProfile(userId, email);
-  // Direct PATCH increment — avoids relying on a stored procedure.
-  await fetch(`${process.env.SUPABASE_URL}/rest/v1/user_profiles?id=eq.${userId}`, {
-    method: 'PATCH',
+async function callGuardRpc(name, body) {
+  const resp = await fetch(`${process.env.SUPABASE_URL}/rest/v1/rpc/${name}`, {
+    method: 'POST',
     headers: {
       'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
       'apikey':        process.env.SUPABASE_SERVICE_KEY,
       'Content-Type':  'application/json',
     },
-    body: JSON.stringify({
-      generations_used: currentUsed + 1,
-      monthly_generations: effectiveMonthly + 1,
-      monthly_reset_at: getNextMonthlyReset(monthlyResetAt),
-    }),
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok) {
+    const detail = await resp.text().catch(() => '');
+    throw new Error(`Generation guard failed (${resp.status}): ${detail}`);
+  }
+  const payload = await resp.json().catch(() => null);
+  return Array.isArray(payload) ? payload[0] : payload;
+}
+
+async function reserveGeneration(req, user, anonymousId, requestId) {
+  if (user) {
+    await ensureProfile(user.id, user.email);
+    return callGuardRpc('reserve_user_generation', {
+      p_user_id: user.id,
+      p_request_id: requestId,
+    });
+  }
+  return callGuardRpc('reserve_anonymous_generation', {
+    p_key_hash: hashRateLimitKey(req, anonymousId),
+    p_request_id: requestId,
+  });
+}
+
+async function finishGenerationReservation(requestId, completed) {
+  return callGuardRpc(completed ? 'complete_generation_reservation' : 'release_generation_reservation', {
+    p_request_id: requestId,
   });
 }
 
@@ -187,23 +183,23 @@ async function normalizeImageBuffer(buffer, mediaType) {
 }
 
 async function fetchImageData(url) {
+  let timer;
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
+    timer = setTimeout(() => controller.abort(), 8000);
     const isPinterest = url.includes('pinimg.com') || url.includes('pinterest.com');
-    const resp = await fetch(url, {
+    const resp = await fetchPublicUrl(url, {
       signal: controller.signal,
       headers: {
         'User-Agent': 'Mozilla/5.0',
         ...(isPinterest ? { 'Referer': 'https://www.pinterest.com/' } : {}),
       },
     });
-    clearTimeout(timer);
     if (!resp.ok) return null;
     const mediaType  = (resp.headers.get('content-type') || 'image/jpeg').split(';')[0].trim();
-    const arrayBuf   = await resp.arrayBuffer();
-    const originalBuffer = Buffer.from(arrayBuf);
-    if (originalBuffer.length === 0 || originalBuffer.length > MAX_REFERENCE_BYTES * 3) return null;
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(mediaType)) return null;
+    const originalBuffer = await readResponseBuffer(resp, MAX_REFERENCE_BYTES * 3);
+    if (originalBuffer.length === 0) return null;
 
     const normalized = await normalizeImageBuffer(originalBuffer, mediaType);
     if (!normalized?.buffer?.length || normalized.buffer.length > MAX_REFERENCE_BYTES) return null;
@@ -212,6 +208,8 @@ async function fetchImageData(url) {
     return { buffer: normalized.buffer, base64, mediaType: normalized.mediaType };
   } catch {
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -942,11 +940,15 @@ async function runPredictionPair(prompt1, prompt2, conditioningInputs, requested
 // ── Main handler ──────────────────────────────────────────────────────────────
 
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin',  '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  applyCors(req, res);
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST')   return res.status(405).json({ error: 'Method not allowed' });
+  if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+    return res.status(400).json({ error: 'Invalid request body.' });
+  }
+  if (Buffer.byteLength(JSON.stringify(req.body), 'utf8') > 32 * 1024) {
+    return res.status(413).json({ error: 'Request body is too large.' });
+  }
 
   // ── Auth ──────────────────────────────────────────────────────────────────
   const authHeader = req.headers['authorization'] || '';
@@ -965,44 +967,51 @@ module.exports = async function handler(req, res) {
     }
   }
 
-  // ── Usage check ───────────────────────────────────────────────────────────
-  let profile, generationsUsed, monthlyUsed, monthlyResetAt, plan;
-
-  if (isAnon) {
-    profile = null; generationsUsed = 0; monthlyUsed = 0; monthlyResetAt = null; plan = 'anon';
-  } else {
-    profile         = await getUsage(user.id);
-    generationsUsed = profile?.generations_used   ?? 0;
-    monthlyUsed     = profile?.monthly_generations ?? 0;
-    monthlyResetAt  = profile?.monthly_reset_at   ?? null;
-    plan            = normalizePlan(profile?.plan ?? 'free');
-    monthlyUsed     = getEffectiveMonthlyUsage(monthlyUsed, monthlyResetAt);
-    const limit      = getPlanLimit(plan);
-
-    if (monthlyUsed >= limit) {
-      return res.status(402).json({
-        error:        plan === 'free' ? 'free_limit_reached' : `${plan}_limit_reached`,
-        message:      plan === 'free'
-          ? `You've used all ${FREE_MONTHLY_LIMIT} free generations for this month. Upgrade to Pro to keep creating.`
-          : `You've reached your ${limit} generation monthly limit. Upgrade for more monthly generations.`,
-        monthly_used: monthlyUsed,
-        limit,
-        resets_at:    monthlyResetAt,
-      });
-    }
-  }
-
   // ── Input validation ──────────────────────────────────────────────────────
-  const { imageUrls, subject, outputCount } = req.body;
+  const { imageUrls, subject, outputCount } = req.body || {};
+  const anonymousId = typeof req.body?.anonymousId === 'string' ? req.body.anonymousId.slice(0, 120) : '';
   const aspectRatio = normalizeAspectRatio(req.body?.aspectRatio || req.body?.aspect_ratio);
-  const defaultOutputCount = ['pro', 'studio'].includes(plan) ? 2 : 1;
-  const requestedOutputCount = Math.max(1, Math.min(defaultOutputCount, Number(outputCount) || defaultOutputCount));
-  if (!subject || !subject.trim()) {
+  if (typeof subject !== 'string' || !subject.trim()) {
     return res.status(400).json({ error: 'Missing subject — please describe what you want to create.' });
   }
+  if (subject.length > 1000) return res.status(400).json({ error: 'Prompt is too long.' });
   if (!Array.isArray(imageUrls) || imageUrls.length === 0) {
     return res.status(400).json({ error: 'No reference images provided — please select at least one.' });
   }
+  if (imageUrls.length > MAX_REFERENCE_IMAGES || imageUrls.some(url => typeof url !== 'string' || url.length > 2048)) {
+    return res.status(400).json({ error: 'Invalid reference image list.' });
+  }
+
+  const requestId = crypto.randomUUID();
+  let reservation;
+  try {
+    reservation = await reserveGeneration(req, user, anonymousId, requestId);
+  } catch (err) {
+    console.error('[tack] generation guard unavailable:', err.message);
+    return res.status(503).json({ error: 'generation_guard_unavailable', message: 'Generation is temporarily unavailable. Please try again.' });
+  }
+
+  const plan = isAnon ? 'anon' : normalizePlan(reservation?.current_plan || 'free');
+  const generationsUsed = Number(reservation?.lifetime_used || 0);
+  const monthlyUsed = Number(reservation?.monthly_used ?? reservation?.used ?? 0);
+  const limit = Number(reservation?.monthly_limit || (isAnon ? 1 : getPlanLimit(plan)));
+  const monthlyResetAt = reservation?.resets_at || null;
+  if (!reservation?.allowed) {
+    return res.status(402).json({
+      error: isAnon ? 'anon_limit_reached' : (plan === 'free' ? 'free_limit_reached' : `${plan}_limit_reached`),
+      message: isAnon
+        ? 'Your free trial generation has been used. Sign in to keep creating.'
+        : (plan === 'free'
+          ? `You've used all ${FREE_MONTHLY_LIMIT} free generations for this month. Upgrade to Pro to keep creating.`
+          : `You've reached your ${limit} generation monthly limit. Upgrade for more monthly generations.`),
+      monthly_used: monthlyUsed,
+      limit,
+      resets_at: monthlyResetAt,
+    });
+  }
+
+  const defaultOutputCount = ['pro', 'studio'].includes(plan) ? 2 : 1;
+  const requestedOutputCount = Math.max(1, Math.min(defaultOutputCount, Number(outputCount) || defaultOutputCount));
 
   try {
     // ── Step 1: Fetch reference images ────────────────────────────────────
@@ -1014,6 +1023,7 @@ module.exports = async function handler(req, res) {
     const validReferences = fetchedReferences.filter(Boolean);
 
     if (validReferences.length === 0) {
+      await finishGenerationReservation(requestId, false).catch(err => console.error('[tack] reservation release failed:', err.message));
       return res.status(422).json({
         error: 'Could not load any of the selected images. They may have expired. Please rescan and try again.',
       });
@@ -1093,21 +1103,12 @@ module.exports = async function handler(req, res) {
       throw new Error(requestedOutputCount > 1 ? 'Both generations failed. Please try again.' : 'Generation failed. Please try again.');
     }
 
-    images = await enforceOutputAspects(images, aspectRatio, user?.id || req.body?.anonymousId || 'anonymous');
+    images = await enforceOutputAspects(images, aspectRatio, user?.id || anonymousId || 'anonymous');
 
-    // ── Step 6: Increment usage ───────────────────────────────────────────
-    if (!isAnon) {
-      await incrementUsage(user.id, user.email, {
-        currentUsed: generationsUsed,
-        effectiveMonthly: monthlyUsed,
-        monthlyResetAt,
-      }).catch(e =>
-        console.error('[tack] usage increment failed (non-fatal):', e.message)
-      );
-    }
-
-    const newUsed        = generationsUsed + 1;
-    const newMonthlyUsed = monthlyUsed + 1;
+    // ── Step 6: Finalize the atomic usage reservation ─────────────────────
+    await finishGenerationReservation(requestId, true).catch(err =>
+      console.error('[tack] reservation completion failed:', err.message)
+    );
 
     return res.status(200).json({
       images,
@@ -1132,18 +1133,23 @@ module.exports = async function handler(req, res) {
       },
       ...(isAnon ? {} : {
         usage: {
-          used:         newUsed,
-          monthly_used: newMonthlyUsed,
-          limit:        getPlanLimit(plan),
-          remaining:    getPlanLimit(plan) - newMonthlyUsed,
+          used:         generationsUsed,
+          monthly_used: monthlyUsed,
+          limit,
+          remaining:    Math.max(0, limit - monthlyUsed),
           plan,
         },
       }),
     });
 
   } catch (err) {
+    await finishGenerationReservation(requestId, false).catch(releaseError =>
+      console.error('[tack] reservation release failed:', releaseError.message)
+    );
     console.error('[tack] API error:', err);
-    const msg = err.message || 'Something went wrong — please try again.';
-    return res.status(500).json({ error: msg });
+    return res.status(500).json({
+      error: 'generation_failed',
+      message: 'Generation could not be completed. Please try again.',
+    });
   }
 };
