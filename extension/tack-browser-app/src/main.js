@@ -1,10 +1,55 @@
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const { app, BrowserWindow, shell, ipcMain, safeStorage } = require('electron');
+const { nativePopupOptions, nativeWindowOptions } = require('./platform');
 
 const SUPABASE_URL = 'https://sbdowcielgtcfholfyry.supabase.co';
+const BROWSER_PARTITION = 'persist:tack-browser';
 
 let mainWindow;
+const authWindows = new Set();
+let pinterestAuthOpening = false;
+const SMOKE_TEST = process.argv.includes('--tack-smoke-test') || process.env.TACK_SMOKE_TEST === '1';
+const SMOKE_SCREENSHOT = process.argv
+  .find(argument => argument.startsWith('--tack-smoke-screenshot='))
+  ?.slice('--tack-smoke-screenshot='.length) || process.env.TACK_SMOKE_SCREENSHOT;
+
+async function runSmokeTest(window) {
+  if (!SMOKE_TEST) return;
+  try {
+    const result = await window.webContents.executeJavaScript(`(() => {
+      const required = [
+        '#browser-view', '#address-input', '#select-btn', '#capture-btn',
+        '#reference-list', '#subject-input', '#generate-btn',
+        '#rail-browser-btn', '#rail-library-btn', '#rail-account-btn'
+      ];
+      const missing = required.filter(selector => !document.querySelector(selector));
+      return {
+        platform: document.body.dataset.platform,
+        platformClass: document.body.classList.contains('platform-${process.platform === 'win32' ? 'windows' : 'mac'}'),
+        missing,
+        title: document.title,
+        railPaddingTop: getComputedStyle(document.querySelector('.rail')).paddingTop,
+      };
+    })()`);
+
+    if (result.platform !== process.platform || !result.platformClass || result.missing.length) {
+      throw new Error(`Smoke assertion failed: ${JSON.stringify(result)}`);
+    }
+
+    const screenshotPath = SMOKE_SCREENSHOT;
+    if (screenshotPath) {
+      await fs.mkdir(path.dirname(screenshotPath), { recursive: true });
+      const image = await window.webContents.capturePage();
+      await fs.writeFile(screenshotPath, image.toPNG());
+    }
+    console.log(`TACK_SMOKE_OK ${JSON.stringify(result)}`);
+    app.exit(0);
+  } catch (error) {
+    console.error(`TACK_SMOKE_FAILED ${error?.stack || error}`);
+    app.exit(1);
+  }
+}
 
 function sessionPath() {
   return path.join(app.getPath('userData'), 'tack-session.json');
@@ -25,13 +70,13 @@ async function readStoredSession() {
 
 async function writeStoredSession(session) {
   await fs.mkdir(app.getPath('userData'), { recursive: true });
-  let payload = session || {};
-  if (safeStorage.isEncryptionAvailable()) {
-    payload = {
-      encrypted: true,
-      data: safeStorage.encryptString(JSON.stringify(session || {})).toString('base64'),
-    };
-  }
+  const payload = safeStorage.isEncryptionAvailable()
+    ? {
+        encrypted: true,
+        encoding: 'base64',
+        data: safeStorage.encryptString(JSON.stringify(session || {})).toString('base64'),
+      }
+    : { ...(session || {}), encrypted: false };
   await fs.writeFile(sessionPath(), JSON.stringify(payload, null, 2), 'utf8');
   return true;
 }
@@ -75,7 +120,7 @@ function openGoogleAuthWindow(mode = 'login') {
       modal: true,
       title: mode === 'signup' ? 'Create Tack account' : 'Sign in to Tack',
       backgroundColor: '#0e0c0a',
-      titleBarStyle: 'hiddenInset',
+      ...nativePopupOptions(),
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
@@ -115,6 +160,100 @@ function openGoogleAuthWindow(mode = 'login') {
   });
 }
 
+function popupWindowOptions(parent = mainWindow) {
+  return {
+    width: 560,
+    height: 740,
+    minWidth: 420,
+    minHeight: 560,
+    parent,
+    modal: false,
+    show: true,
+    ...nativePopupOptions(),
+    backgroundColor: '#ffffff',
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+      partition: BROWSER_PARTITION,
+    },
+  };
+}
+
+function allowSharedPopup(webContents, parent = mainWindow) {
+  webContents.setWindowOpenHandler(({ url }) => {
+    const isInitialPopup = !url || url.startsWith('about:blank');
+    const shouldAllow = isInitialPopup || safeExternalUrl(url);
+    return {
+      action: shouldAllow ? 'allow' : 'deny',
+      overrideBrowserWindowOptions: popupWindowOptions(parent),
+    };
+  });
+
+  if (!webContents.__tackPinterestAuthBridge) {
+    webContents.__tackPinterestAuthBridge = true;
+    webContents.on('console-message', async (...args) => {
+      const details = args.find(arg => arg && typeof arg === 'object' && typeof arg.message === 'string');
+      const message = details?.message || args.find(arg => typeof arg === 'string') || '';
+      if (!message.startsWith('__TACK_PINTEREST_AUTH__') || pinterestAuthOpening) return;
+
+      pinterestAuthOpening = true;
+      let url = webContents.getURL();
+      try {
+        url = JSON.parse(message.replace('__TACK_PINTEREST_AUTH__', '')).url || url;
+      } catch {}
+      try {
+        await openPinterestAuthWindow(url);
+      } finally {
+        pinterestAuthOpening = false;
+      }
+    });
+  }
+
+  webContents.on('did-create-window', child => {
+    allowSharedPopup(child.webContents, child);
+    child.once('ready-to-show', () => {
+      child.show();
+      child.focus();
+    });
+  });
+}
+
+function pinterestAuthUrl(value) {
+  const safeUrl = safeExternalUrl(value);
+  if (!safeUrl) return 'https://www.pinterest.com/login/';
+  try {
+    const url = new URL(safeUrl);
+    return /(^|\.)pinterest\.com$/i.test(url.hostname) ? url.href : 'https://www.pinterest.com/login/';
+  } catch {
+    return 'https://www.pinterest.com/login/';
+  }
+}
+
+function openPinterestAuthWindow(startUrl) {
+  return new Promise(resolve => {
+    const authWindow = new BrowserWindow({
+      ...popupWindowOptions(mainWindow),
+      width: 980,
+      height: 780,
+      minWidth: 760,
+      title: 'Sign in to Pinterest',
+    });
+
+    authWindows.add(authWindow);
+    allowSharedPopup(authWindow.webContents, authWindow);
+    authWindow.once('ready-to-show', () => {
+      authWindow.show();
+      authWindow.focus();
+    });
+    authWindow.on('closed', () => {
+      authWindows.delete(authWindow);
+      resolve(true);
+    });
+    authWindow.loadURL(pinterestAuthUrl(startUrl));
+  });
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1480,
@@ -124,8 +263,7 @@ function createWindow() {
     title: 'Tack Browser',
     icon: path.join(__dirname, 'assets', 'tack_app_icon.png'),
     backgroundColor: '#eef1ee',
-    titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 18, y: 18 },
+    ...nativeWindowOptions(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -135,7 +273,16 @@ function createWindow() {
     },
   });
 
-  mainWindow.loadFile(path.join(__dirname, 'renderer.html'));
+  mainWindow.webContents.on('did-attach-webview', (_event, webContents) => {
+    allowSharedPopup(webContents);
+  });
+
+  mainWindow.loadFile(path.join(__dirname, 'renderer.html'))
+    .then(() => runSmokeTest(mainWindow))
+    .catch(error => {
+      console.error(error);
+      if (SMOKE_TEST) app.exit(1);
+    });
 }
 
 function safeExternalUrl(value) {
@@ -172,3 +319,4 @@ ipcMain.handle('auth:get-session', readStoredSession);
 ipcMain.handle('auth:set-session', async (_event, session) => writeStoredSession(session));
 ipcMain.handle('auth:clear-session', clearStoredSession);
 ipcMain.handle('auth:google', async (_event, mode) => openGoogleAuthWindow(mode));
+ipcMain.handle('auth:pinterest-window', async (_event, url) => openPinterestAuthWindow(url));

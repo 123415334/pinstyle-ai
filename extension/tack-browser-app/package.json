@@ -3,7 +3,8 @@
   "version": "0.1.1",
   "productName": "Tack Browser",
   "private": true,
-  "description": "Tack Browser for Mac: browse visual references, generate from style direction, and organize saved generations.",
+  "author": "Tack",
+  "description": "Tack Browser for Mac and Windows: browse visual references, generate from style direction, and organize saved generations.",
   "main": "src/main.js",
   "homepage": "https://www.tack.design",
   "repository": {
@@ -14,13 +15,48 @@
   "scripts": {
     "start": "electron .",
     "start:debug": "ELECTRON_ENABLE_LOGGING=1 electron .",
+    "test": "node --test test/*.test.js && node --check src/main.js && node --check src/preload.js && node --check src/renderer.js",
+    "test:smoke": "node scripts/smoke-app.mjs",
+    "prepare:win-icon": "node scripts/create-windows-icon.mjs",
+    "package:win": "npm run prepare:win-icon && electron-packager . \"Tack Browser\" --platform=win32 --arch=x64 --out=out-win --overwrite --icon=build/tack.ico --asar --prune=true --ignore='^/(dist|dist-windows|out|out-mas|out-win|.npm-cache|.github)(/|$)'",
     "package:mac": "electron-packager . \"Tack Browser\" --platform=darwin --arch=arm64 --out=out --overwrite --icon=build/tack.icns --app-bundle-id=com.tack.browser --app-version=$npm_package_version --build-version=$npm_package_version --asar --prune=true --ignore='^/(dist|out|.npm-cache|.github)(/|$)'",
     "package:mas": "electron-packager . \"Tack Browser\" --platform=mas --arch=arm64 --out=out-mas --overwrite --icon=build/tack.icns --app-bundle-id=com.tack.browser --app-version=$npm_package_version --build-version=$npm_package_version --asar --prune=true --ignore='^/(dist|out|out-mas|.npm-cache|.github)(/|$)'",
     "dist:mas": "bash scripts/package-mas.sh",
-    "dist:mac": "bash scripts/package-mac.sh"
+    "dist:mac": "bash scripts/package-mac.sh",
+    "dist:win": "node scripts/package-windows.mjs"
   },
   "devDependencies": {
+    "@electron/osx-sign": "^2.4.0",
     "@electron/packager": "^18.3.6",
-    "electron": "^42.4.1"
+    "electron": "^42.4.1",
+    "electron-builder": "^26.15.3",
+    "png-to-ico": "^3.0.1"
+  },
+  "build": {
+    "appId": "com.tack.browser",
+    "productName": "Tack Browser",
+    "asar": true,
+    "directories": {
+      "output": "dist-windows"
+    },
+    "files": [
+      "src/**/*",
+      "package.json",
+      "!src/**/*.map"
+    ],
+    "win": {
+      "icon": "build/tack.ico",
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "artifactName": "Tack-Browser-${version}-windows-${arch}-setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Tack Browser",
+      "deleteAppDataOnUninstall": false
+    }
   }
 }

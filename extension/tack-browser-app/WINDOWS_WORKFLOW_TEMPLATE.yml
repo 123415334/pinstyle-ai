@@ -1,0 +1,60 @@
+name: Validate Tack on Windows
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "extension/**"
+      - ".github/workflows/validate-windows.yml"
+  push:
+    branches: [main]
+    paths:
+      - "extension/**"
+      - ".github/workflows/validate-windows.yml"
+
+concurrency:
+  group: tack-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  desktop-windows-x64:
+    runs-on: windows-2025
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: extension/tack-browser-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: extension/tack-browser-app/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run test:smoke
+      - run: npm run package:win
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tack-windows-validation-${{ github.run_number }}
+          path: |
+            extension/tack-browser-app/test-artifacts/
+            extension/tack-browser-app/out-win/Tack Browser-win32-x64/
+          if-no-files-found: error
+
+  edge-package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: bash extension/scripts/package-extension.sh edge
+      - run: unzip -t extension/dist-extensions/tack-edge-*.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tack-edge-package-${{ github.run_number }}
+          path: extension/dist-extensions/tack-edge-*.zip
+          if-no-files-found: error

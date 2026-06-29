@@ -1,6 +1,6 @@
 # Tack Browser
 
-Tack Browser is the Mac app for a branded Tack browsing experience: browse real sites, scan visible images, select references in context, capture a region when URLs are unavailable, generate from the selected visual direction, and organize saved generations into boards.
+Tack Browser is the Mac and Windows app for a branded Tack browsing experience: browse real sites, scan visible images, select references in context, capture a region when URLs are unavailable, generate from the selected visual direction, and organize saved generations into boards.
 
 ## Run locally
 
@@ -34,10 +34,20 @@ npm run dist:mas
 
 This creates an Apple-submittable package in `tack-browser-app/dist-mas/` once the Apple Distribution and Mac Installer Distribution certificates are installed. See `APP_STORE_SUBMISSION.md` for the App Store Connect checklist.
 
+## Package for Windows
+
+An internal Windows x64 bundle can be cross-built from macOS:
+
+```sh
+npm run package:win
+```
+
+Build the customer installer on Windows with `npm run dist:win`. Public installers must be Authenticode signed and must pass the physical-device checklist in `WINDOWS_RELEASE.md`.
+
 ## What works now
 
 - Loads real websites in an Electron webview.
-- Supports browser controls: address bar, back, forward, reload, preset tabs, and open in Chrome.
+- Supports browser controls: address bar, back, forward, reload, preset tabs, and open in the default browser.
 - Scans the loaded page for visible `img` and CSS background-image references.
 - Uses the same Pinterest URL-upgrade path as the Chrome extension so selected pins are sent as higher-quality `i.pinimg.com/736x/` references when available.
 - Injects a Tack selection layer into the page.
@@ -51,7 +61,8 @@ This creates an Apple-submittable package in `tack-browser-app/dist-mas/` once t
 
 - Login, account usage, synced generations, and boards are connected to the Tack account system.
 - Generation calls the live Tack `/api/analyze` endpoint.
-- Public builds still need Apple distribution signing, notarization, and/or App Store approval before normal customer installs.
+- Public Mac builds still need Apple distribution signing, notarization, and/or App Store approval before normal customer installs.
+- Public Windows builds need Authenticode signing and Windows 11 release-gate validation.
 
 ## Next production steps
 

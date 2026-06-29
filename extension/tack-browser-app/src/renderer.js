@@ -53,10 +53,6 @@ const accountSyncStat = document.querySelector('#account-sync-stat');
 const accountBrowseShortcut = document.querySelector('#account-browse-shortcut');
 const accountLibraryShortcut = document.querySelector('#account-library-shortcut');
 const accountWebsiteShortcut = document.querySelector('#account-website-shortcut');
-const usageCard = document.querySelector('#usage-card');
-const usageCopy = document.querySelector('#usage-copy');
-const usageFill = document.querySelector('#usage-fill');
-const usageUpgradeBtn = document.querySelector('#usage-upgrade-btn');
 const authBackdrop = document.querySelector('#auth-backdrop');
 const authModal = document.querySelector('#auth-modal');
 const authClose = document.querySelector('#auth-close');
@@ -75,6 +71,12 @@ const libraryView = document.querySelector('#library-view');
 const accountView = document.querySelector('#account-view');
 const accountViewTitle = document.querySelector('#account-view-title');
 const accountViewCopy = document.querySelector('#account-view-copy');
+const accountSignedOut = document.querySelector('#account-signed-out');
+const accountSignedoutSignin = document.querySelector('#account-signedout-signin');
+const accountSignedoutSignup = document.querySelector('#account-signedout-signup');
+const accountCard = document.querySelector('.account-card');
+const accountStats = document.querySelector('.account-stats');
+const accountSyncGrid = document.querySelector('.account-sync-grid');
 const libraryList = document.querySelector('#library-list');
 const libraryRefreshBtn = document.querySelector('#library-refresh-btn');
 const libraryOpenWebBtn = document.querySelector('#library-open-web-btn');
@@ -117,8 +119,20 @@ const railLibraryBtn = document.querySelector('#rail-library-btn');
 const railAccountBtn = document.querySelector('#rail-account-btn');
 const railAccountLabel = document.querySelector('#rail-account-label');
 const railAccountAvatar = document.querySelector('#rail-account-avatar');
+const brandButton = document.querySelector('#brand-button');
+const appShell = document.querySelector('.app-shell');
+const railCollapseToggle = document.querySelector('#rail-collapse-toggle');
+const bookmarksToggle = document.querySelector('#bookmarks-toggle');
 
 const BOOKMARKS_STORAGE_KEY = 'tack-browser-bookmarks';
+const RAIL_COLLAPSED_STORAGE_KEY = 'tack-browser-rail-collapsed';
+const BOOKMARKS_COLLAPSED_STORAGE_KEY = 'tack-browser-bookmarks-collapsed';
+const REFERENCE_IDENTITY_INSTRUCTION = [
+  'Reference identity constraint:',
+  'Do not reproduce, preserve, or closely imitate any identifiable person from the reference images.',
+  'Use people in references only as non-identifying cues for lighting, composition, styling, pose, and era.',
+  'Do not add a person unless the user subject explicitly asks for one; if a person is requested, create a new generic, non-identifiable person with a different face and likeness.',
+].join(' ');
 const DEFAULT_BOOKMARKS = Object.freeze([
   { title: 'Pinterest ideas', url: 'https://www.pinterest.com/search/pins/?q=editorial%20product%20photography' },
   { title: 'Instagram', url: 'https://www.instagram.com/' },
@@ -132,6 +146,7 @@ let captureStart = null;
 let lastDetected = [];
 let aspectRatio = DEFAULT_ASPECT_RATIO;
 let activeGenerationController = null;
+let generationProgressTimer = null;
 let authMode = 'login';
 let authToken = null;
 let authRefreshToken = null;
@@ -156,6 +171,19 @@ let activeTileSaveKey = '';
 let lightboxItems = [];
 let lightboxIndex = -1;
 let pendingConfirm = null;
+let pinterestAuthOpening = false;
+let masonryResizeObserver = null;
+let masonryResizeTimer = null;
+let platformInfo = { platform: 'unknown', isMac: false, isWindows: false, systemName: 'desktop' };
+
+function initPlatform() {
+  platformInfo = window.tackDesktop.getPlatform();
+  document.body.classList.toggle('platform-mac', Boolean(platformInfo.isMac));
+  document.body.classList.toggle('platform-windows', Boolean(platformInfo.isWindows));
+  document.body.dataset.platform = platformInfo.platform || 'unknown';
+  openExternalBtn.title = 'Open in default browser';
+  openExternalBtn.setAttribute('aria-label', 'Open in default browser');
+}
 
 function normalizeUrl(value) {
   const trimmed = String(value || '').trim();
@@ -221,6 +249,33 @@ function loadBookmarks() {
 
 function saveBookmarks(bookmarks) {
   localStorage.setItem(BOOKMARKS_STORAGE_KEY, JSON.stringify(bookmarks));
+}
+
+function storageFlag(key, fallback = false) {
+  const value = localStorage.getItem(key);
+  if (value === null) return fallback;
+  return value === 'true';
+}
+
+function setRailCollapsed(collapsed) {
+  appShell?.classList.toggle('rail-collapsed', collapsed);
+  localStorage.setItem(RAIL_COLLAPSED_STORAGE_KEY, String(collapsed));
+  railCollapseToggle?.setAttribute('aria-label', collapsed ? 'Expand navigation' : 'Collapse navigation');
+  railCollapseToggle?.setAttribute('title', collapsed ? 'Expand navigation' : 'Collapse navigation');
+  resizeVisibleMasonryTiles();
+}
+
+function setBookmarksCollapsed(collapsed) {
+  browserShell?.classList.toggle('bookmarks-collapsed', collapsed);
+  localStorage.setItem(BOOKMARKS_COLLAPSED_STORAGE_KEY, String(collapsed));
+  bookmarksToggle?.setAttribute('aria-label', collapsed ? 'Show bookmarks' : 'Hide bookmarks');
+  bookmarksToggle?.setAttribute('title', collapsed ? 'Show bookmarks' : 'Hide bookmarks');
+  resizeVisibleMasonryTiles();
+}
+
+function generationSubjectWithIdentitySafety(subject) {
+  const cleanSubject = String(subject || '').trim();
+  return `${cleanSubject}\n\n${REFERENCE_IDENTITY_INSTRUCTION}`;
 }
 
 function bookmarkTitleFromUrl(url) {
@@ -395,9 +450,11 @@ async function scanPage({ manual = false } = {}) {
       ? (manual
           ? `Refreshed ${lastDetected.length} selectable image${lastDetected.length === 1 ? '' : 's'}.`
           : selectionMode
-            ? 'Click images to select. Turn Select off to browse normally.'
+            ? 'Click any image to add it. Turn Select off to browse normally.'
             : 'Turn Select on to add images as references.')
-      : 'No source images found. Scroll, sign in, or use Capture.';
+      : selectionMode
+        ? 'Click any image to add it. Use Capture if a site blocks image URLs.'
+        : 'Turn Select on to add images as references.';
   } catch (error) {
     lastDetected = [];
     scanCount.textContent = 'Page blocked scanning';
@@ -408,7 +465,7 @@ async function scanPage({ manual = false } = {}) {
       scanBtn.disabled = false;
       if (lastDetected.length && selectionMode && !captureMode) {
         setTimeout(() => {
-          scanNote.textContent = 'Click images to select. Turn Select off to browse normally.';
+          scanNote.textContent = 'Click any image to add it. Turn Select off to browse normally.';
         }, 1500);
       }
     }
@@ -428,11 +485,14 @@ async function syncPageSelectionMode(enabled) {
 function installTackSelector(minSize, selectionEnabled = true, pulse = false) {
   const STYLE_ID = 'tack-selector-style';
   const ATTR = 'data-tack-selectable';
+  const HOVER_ATTR = 'data-tack-hover-target';
+  const SELECT_CURSOR = `url("data:image/svg+xml,%3Csvg width='34' height='34' viewBox='0 0 34 34' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 3l19 19-9 1.5L11.5 32 6 3Z' fill='white' stroke='%23141612' stroke-width='2'/%3E%3Ccircle cx='23' cy='11' r='9' fill='%2322c55e' stroke='white' stroke-width='2'/%3E%3Cpath d='M23 6.5v9M18.5 11h9' stroke='white' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E") 6 3, copy`;
 
   document.querySelectorAll(`[${ATTR}]`).forEach(el => {
     el.removeAttribute(ATTR);
     el.removeAttribute('data-tack-src');
     el.removeAttribute('data-tack-title');
+    el.removeAttribute(HOVER_ATTR);
   });
 
   let style = document.getElementById(STYLE_ID);
@@ -442,15 +502,19 @@ function installTackSelector(minSize, selectionEnabled = true, pulse = false) {
     style.textContent = `
       html[data-tack-selection-active] [data-tack-selectable],
       html[data-tack-selection-active] [data-tack-selectable] * {
-        cursor: copy !important;
+        cursor: ${SELECT_CURSOR} !important;
       }
       [data-tack-selectable] {
         outline: 3px solid rgba(143, 190, 247, 0) !important;
         outline-offset: 3px !important;
         transition: outline-color .14s, filter .14s !important;
       }
+      html[data-tack-selection-active] [data-tack-hover-target] {
+        outline-color: rgba(34, 197, 94, .96) !important;
+        box-shadow: 0 0 0 4px rgba(255, 255, 255, .92), 0 12px 34px rgba(23, 26, 23, .24) !important;
+      }
       html[data-tack-selection-active] [data-tack-selectable]:hover {
-        outline-color: rgba(143, 190, 247, .95) !important;
+        outline-color: rgba(34, 197, 94, .96) !important;
         filter: saturate(1.05) contrast(1.02) !important;
       }
       [data-tack-selected] {
@@ -488,6 +552,135 @@ function installTackSelector(minSize, selectionEnabled = true, pulse = false) {
 
   function upgradePinterestUrl(src) {
     return src && src.includes('i.pinimg.com') ? src.replace(/\/\d+x\//, '/736x/') : src;
+  }
+
+  function sourceFromSrcset(srcset) {
+    const candidates = String(srcset || '')
+      .split(',')
+      .map(item => {
+        const [url, descriptor = ''] = item.trim().split(/\s+/);
+        const score = descriptor.endsWith('w')
+          ? Number.parseFloat(descriptor)
+          : descriptor.endsWith('x')
+            ? Number.parseFloat(descriptor) * 1000
+            : 1;
+        return { url, score: Number.isFinite(score) ? score : 1 };
+      })
+      .filter(item => item.url);
+    candidates.sort((a, b) => b.score - a.score);
+    return candidates[0]?.url || '';
+  }
+
+  function bestImageSrc(img) {
+    const candidates = [
+      img?.currentSrc,
+      sourceFromSrcset(img?.getAttribute?.('srcset')),
+      sourceFromSrcset(img?.closest?.('picture')?.querySelector?.('source[srcset]')?.getAttribute('srcset')),
+      img?.src,
+      img?.getAttribute?.('data-src'),
+      img?.getAttribute?.('data-lazy-src'),
+      img?.getAttribute?.('data-original'),
+    ];
+    return candidates.find(src => src && !String(src).startsWith('data:') && !String(src).startsWith('blob:')) || candidates.find(Boolean) || '';
+  }
+
+  function imageUrlFromElement(el) {
+    if (!el || !el.getBoundingClientRect) return '';
+    if (el.matches?.('img')) return isReferenceSizedImage(el) ? bestImageSrc(el) : '';
+    const img = bestDescendantImage(el);
+    if (img) return bestImageSrc(img);
+    const href = el.closest?.('a')?.getAttribute('href') || el.getAttribute?.('href') || '';
+    if (/\.(avif|gif|jpe?g|png|webp)(\?|#|$)/i.test(href)) return href;
+    const style = window.getComputedStyle(el);
+    const bg = style.backgroundImage || '';
+    const matches = Array.from(bg.matchAll(/url\(["']?([^"')]+)["']?\)/g));
+    return matches.find(match => !match[1].startsWith('data:'))?.[1] || '';
+  }
+
+  function isClickableImageCandidate(el) {
+    if (!el || !el.isConnected || !el.getBoundingClientRect) return false;
+    const rect = el.getBoundingClientRect();
+    if (rect.width < 32 || rect.height < 32) return false;
+    const style = window.getComputedStyle(el);
+    return style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity) !== 0;
+  }
+
+  function isInteractiveChrome(el) {
+    const interactive = el?.closest?.('button, [role="button"], input, textarea, select, option, [contenteditable="true"], form, a');
+    if (interactive) {
+      const label = [
+        interactive.getAttribute?.('aria-label'),
+        interactive.getAttribute?.('title'),
+        interactive.getAttribute?.('data-test-id'),
+        interactive.getAttribute?.('data-test-selector'),
+        interactive.textContent,
+      ].filter(Boolean).join(' ').toLowerCase();
+      const isAuthControl = /\b(log ?in|sign ?in|sign ?up|continue with google|google|qr code|password|email|forgot)\b/i.test(label);
+      const isSiteChrome = /\b(save|bookmark|follow|more|menu|close|dismiss|share|like|comment)\b/i.test(label);
+      if (isAuthControl || isSiteChrome) return true;
+      if (interactive.matches?.('button, [role="button"], input, textarea, select, option, [contenteditable="true"], form')) {
+        return !bestDescendantImage(interactive);
+      }
+    }
+
+    return Boolean(el?.closest?.([
+      'input',
+      'textarea',
+      'select',
+      'option',
+      '[contenteditable="true"]',
+      'form',
+      '[role="dialog"]',
+      '[aria-modal="true"]',
+      '[data-test-id*="login" i]',
+      '[data-test-id*="signup" i]',
+      '[aria-label*="log in" i]',
+      '[aria-label*="login" i]',
+      '[aria-label*="sign in" i]',
+      '[aria-label*="save" i]',
+      '[aria-label*="bookmark" i]',
+      '[aria-label*="follow" i]',
+    ].join(',')));
+  }
+
+  function isPinterestGoogleAuthControl(el) {
+    if (!/(^|\.)pinterest\.com$/i.test(window.location.hostname)) return false;
+    const control = el?.closest?.('button, [role="button"], a');
+    if (!control) return false;
+    const label = [
+      control.getAttribute?.('aria-label'),
+      control.getAttribute?.('title'),
+      control.getAttribute?.('data-test-id'),
+      control.textContent,
+    ].filter(Boolean).join(' ').toLowerCase();
+    const hasGoogleIcon = Boolean(control.querySelector?.('svg[aria-label*="google" i], img[alt*="google" i], [aria-label*="google" i]'));
+    return label.includes('continue with google') || (label.includes('google') && (hasGoogleIcon || /log ?in|sign ?in|continue/.test(label)));
+  }
+
+  function handlePinterestAuthClick(event) {
+    if (!isPinterestGoogleAuthControl(event.target)) return;
+    // Let Pinterest own its Google OAuth click. The Electron popup handler now
+    // allows OAuth starter windows, so blocking the native click makes sign-in fail.
+  }
+
+  function isReferenceSizedImage(img) {
+    if (!img || !img.getBoundingClientRect) return false;
+    const rect = img.getBoundingClientRect();
+    const width = img.naturalWidth || rect.width;
+    const height = img.naturalHeight || rect.height;
+    const visibleArea = rect.width * rect.height;
+    return rect.width >= 96 && rect.height >= 96 && visibleArea >= 16000 && width >= 96 && height >= 96;
+  }
+
+  function bestDescendantImage(el) {
+    const images = Array.from(el?.querySelectorAll?.('img') || [])
+      .filter(img => isReferenceSizedImage(img))
+      .sort((a, b) => {
+        const ar = a.getBoundingClientRect();
+        const br = b.getBoundingClientRect();
+        return (br.width * br.height) - (ar.width * ar.height);
+      });
+    return images[0] || null;
   }
 
   function positionFor(el) {
@@ -568,7 +761,7 @@ function installTackSelector(minSize, selectionEnabled = true, pulse = false) {
       } catch {}
 
       document.querySelectorAll('img').forEach(img => {
-        const rawSrc = img.currentSrc || img.src;
+        const rawSrc = bestImageSrc(img);
         if (!rawSrc || !rawSrc.includes('i.pinimg.com')) return;
         const width = img.naturalWidth || img.offsetWidth;
         const height = img.naturalHeight || img.offsetHeight;
@@ -582,7 +775,7 @@ function installTackSelector(minSize, selectionEnabled = true, pulse = false) {
         '#gallery-wrap img',
       ].join(',')));
       candidates.forEach(img => {
-        const src = img.currentSrc || img.src;
+        const src = bestImageSrc(img);
         const width = img.naturalWidth || img.offsetWidth;
         const height = img.naturalHeight || img.offsetHeight;
         if (!src || src.startsWith('data:') || width < 120 || height < 120) return;
@@ -591,7 +784,7 @@ function installTackSelector(minSize, selectionEnabled = true, pulse = false) {
     } else {
       document.querySelectorAll('img').forEach(img => {
         if (!isRendered(img)) return;
-        const src = img.currentSrc || img.src;
+        const src = bestImageSrc(img);
         const width = img.naturalWidth || img.offsetWidth;
         const height = img.naturalHeight || img.offsetHeight;
         if (!src || src.startsWith('data:') || width < minSize || height < minSize) return;
@@ -635,7 +828,9 @@ function installTackSelector(minSize, selectionEnabled = true, pulse = false) {
     };
   }
 
-  function referenceFromTarget(target) {
+  function referenceFromTarget(target, event) {
+    if (isInteractiveChrome(target)) return null;
+
     const markedTarget = target?.closest?.(`[${ATTR}]`);
     if (markedTarget) {
       return {
@@ -649,30 +844,66 @@ function installTackSelector(minSize, selectionEnabled = true, pulse = false) {
       };
     }
 
-    const img = target?.closest?.('img') || (target?.querySelector?.('img') || null);
-    if (!img || !isRendered(img)) return null;
-    const rawSrc = img.currentSrc || img.src;
+    const path = typeof event?.composedPath === 'function' ? event.composedPath() : [];
+    const candidates = [
+      target?.closest?.(`[${ATTR}]`),
+      target?.closest?.('img, picture, figure, a, [style], article, div, section'),
+      target,
+      ...path,
+    ].filter(Boolean);
+
+    let sourceEl = null;
+    let rawSrc = '';
+    for (const candidate of candidates) {
+      if (!candidate?.getBoundingClientRect || !isClickableImageCandidate(candidate)) continue;
+      rawSrc = imageUrlFromElement(candidate);
+      if (rawSrc) {
+        sourceEl = candidate.matches?.('img') ? candidate : (bestDescendantImage(candidate) || candidate);
+        break;
+      }
+    }
+
+    if (!rawSrc || !sourceEl) return null;
     const src = absoluteUrl(upgradePinterestUrl(rawSrc));
     if (!src || src.startsWith('data:') || src.startsWith('blob:')) return null;
     if (window.location.hostname.includes('pinterest.com') && !src.includes('i.pinimg.com')) return null;
-    const host = img.closest('a, button, [role="button"], [tabindex]') || img;
+    const host = sourceEl.closest?.('a, button, [role="button"], [tabindex], figure, article') || sourceEl;
+    const title = sourceEl.alt || sourceEl.getAttribute?.('aria-label') || host.getAttribute?.('aria-label') || document.title || 'Web reference';
     host.setAttribute(ATTR, 'true');
     host.setAttribute('data-tack-src', src);
-    host.setAttribute('data-tack-title', img.alt || img.getAttribute('aria-label') || document.title || 'Web reference');
+    host.setAttribute('data-tack-title', title);
     return {
       target: host,
       ref: {
         id: src,
         src,
-        title: img.alt || img.getAttribute('aria-label') || document.title || 'Web reference',
+        title,
         sourceUrl: window.location.href,
       },
     };
   }
 
+  let hoverTarget = null;
+
+  function setHoverTarget(target) {
+    if (hoverTarget === target) return;
+    hoverTarget?.removeAttribute(HOVER_ATTR);
+    hoverTarget = target || null;
+    hoverTarget?.setAttribute(HOVER_ATTR, 'true');
+  }
+
+  function handleSelectionHover(event) {
+    if (!window.__tackSelectionEnabled) {
+      setHoverTarget(null);
+      return;
+    }
+    const hit = referenceFromTarget(event.target, event);
+    setHoverTarget(hit?.target || null);
+  }
+
   function handleSelectionClick(event) {
     if (!window.__tackSelectionEnabled) return false;
-    const hit = referenceFromTarget(event.target);
+    const hit = referenceFromTarget(event.target, event);
     if (!hit?.ref?.src) return false;
     event.preventDefault();
     event.stopPropagation();
@@ -694,7 +925,7 @@ function installTackSelector(minSize, selectionEnabled = true, pulse = false) {
 
   document.querySelectorAll('img').forEach(img => {
     if (!isRendered(img)) return;
-    const rawSrc = img.currentSrc || img.src;
+    const rawSrc = bestImageSrc(img);
     const src = absoluteUrl(upgradePinterestUrl(rawSrc));
     if (!src || !collectedBySrc.has(src)) return;
     const item = collectedBySrc.get(src);
@@ -718,16 +949,21 @@ function installTackSelector(minSize, selectionEnabled = true, pulse = false) {
 
   if (!window.__tackSelectorInstalled) {
     window.__tackSelectorInstalled = true;
+    document.addEventListener('click', handlePinterestAuthClick, true);
     ['pointerdown', 'mousedown', 'click'].forEach(type => {
       document.addEventListener(type, event => {
         if (type === 'click') handleSelectionClick(event);
-        else if (window.__tackSelectionEnabled && referenceFromTarget(event.target)) {
+        else if (window.__tackSelectionEnabled && referenceFromTarget(event.target, event)) {
           event.preventDefault();
           event.stopPropagation();
           event.stopImmediatePropagation?.();
         }
       }, true);
     });
+    document.addEventListener('pointermove', handleSelectionHover, true);
+    document.addEventListener('mouseout', event => {
+      if (!event.relatedTarget) setHoverTarget(null);
+    }, true);
   }
 
   window.__tackSelectionEnabled = Boolean(selectionEnabled);
@@ -867,12 +1103,14 @@ function resetAuthState() {
 
 function updateAccountUI() {
   const signedIn = Boolean(authToken && authEmail);
-  const initial = signedIn ? authEmail.trim().charAt(0).toUpperCase() : 'T';
-  accountAvatar.textContent = initial || 'T';
+  const initial = authEmail.trim().charAt(0).toUpperCase();
+  accountAvatar.textContent = signedIn ? (initial || 'T') : '';
   accountAvatar.dataset.state = signedIn ? 'user' : 'guest';
-  railAccountAvatar.textContent = initial || 'T';
+  railAccountAvatar.textContent = signedIn ? (initial || 'T') : '';
   railAccountAvatar.dataset.state = signedIn ? 'user' : 'guest';
-  railAccountLabel.textContent = 'Account';
+  railAccountBtn.classList.toggle('is-signed-out', !signedIn);
+  railAccountBtn.setAttribute('aria-label', signedIn ? 'Account' : 'Sign in');
+  railAccountLabel.textContent = signedIn ? 'Account' : 'Sign in';
   accountEmail.textContent = signedIn ? authEmail : 'Not signed in';
   accountPlan.textContent = signedIn ? `${plan.charAt(0).toUpperCase()}${plan.slice(1)} plan` : 'Guest';
   accountSigninBtn.classList.toggle('hidden', signedIn);
@@ -881,22 +1119,19 @@ function updateAccountUI() {
   accountSignoutBtn.classList.toggle('hidden', !signedIn);
   accountViewTitle.textContent = signedIn ? 'Workspace' : 'Sign in to Tack';
   accountViewCopy.textContent = signedIn
-    ? 'Plan, sync, and account settings for this Mac.'
+    ? `Plan, sync, and account settings for this ${platformInfo.systemName}.`
     : 'Use one account for generations, boards, and monthly usage across Tack.';
+  accountSignedOut?.classList.toggle('hidden', signedIn);
+  accountCard?.classList.toggle('hidden', !signedIn);
+  accountStats?.classList.toggle('hidden', !signedIn);
+  accountSyncGrid?.classList.toggle('hidden', !signedIn);
   accountPlanStat.textContent = signedIn ? `${plan.charAt(0).toUpperCase()}${plan.slice(1)}` : 'Guest';
   accountSyncStat.textContent = signedIn ? 'Synced' : 'Local only';
 
-  usageCard.classList.toggle('hidden', !signedIn);
   if (signedIn) {
     const limit = planLimit();
     const used = effectiveMonthlyUsed();
     const remaining = Math.max(0, limit - used);
-    const resetCopy = monthlyResetAt
-      ? new Date(monthlyResetAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-      : 'next month';
-    usageCopy.innerHTML = `<strong>${remaining}</strong> of ${limit} left this month · resets ${resetCopy}`;
-    usageFill.style.width = `${Math.min(100, Math.round((used / limit) * 100))}%`;
-    usageUpgradeBtn.classList.toggle('hidden', plan !== 'free');
     accountUsageStat.textContent = `${remaining} / ${limit} left`;
   } else {
     accountUsageStat.textContent = 'Sign in';
@@ -923,7 +1158,7 @@ function setAuthMode(mode) {
   });
   authTitle.innerHTML = authMode === 'signup' ? 'Create your <em>account</em>' : 'Welcome <em>back</em>';
   authSubtitle.textContent = authMode === 'signup'
-    ? 'Create a Tack account to sync generations across the Mac app, website, and Chrome extension.'
+    ? 'Create a Tack account to sync generations across the desktop app, website, and browser extension.'
     : 'Sign in to sync generations, plan usage, and your Tack library.';
   authSubmit.textContent = authMode === 'signup' ? 'Create account' : 'Sign in';
   googleAuthCopy.textContent = authMode === 'signup' ? 'Sign up with Google' : 'Continue with Google';
@@ -931,23 +1166,66 @@ function setAuthMode(mode) {
 }
 
 async function validateToken(token) {
-  const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { Authorization: `Bearer ${token}`, apikey: SUPABASE_ANON_KEY },
-  });
-  if (!response.ok) return null;
-  return response.json();
+  try {
+    const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { Authorization: `Bearer ${token}`, apikey: SUPABASE_ANON_KEY },
+    });
+    if (!response.ok) return null;
+    return response.json();
+  } catch {
+    return { __networkError: true };
+  }
 }
 
 async function refreshAccessToken(refreshToken) {
   if (!refreshToken) return null;
-  const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
-    body: JSON.stringify({ refresh_token: refreshToken }),
+  try {
+    const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.access_token ? data : null;
+  } catch {
+    return null;
+  }
+}
+
+async function refreshStoredAuthSession() {
+  const refreshed = await refreshAccessToken(authRefreshToken);
+  if (!refreshed?.access_token) return false;
+  const refreshedUser = await validateToken(refreshed.access_token);
+  applySession({
+    ...currentSessionPayload(),
+    token: refreshed.access_token,
+    refreshToken: refreshed.refresh_token || authRefreshToken,
+    email: refreshedUser?.email || authEmail,
+    userId: refreshedUser?.id || getUserIdFromToken(refreshed.access_token) || authUserId,
   });
-  if (!response.ok) return null;
-  const data = await response.json();
-  return data.access_token ? data : null;
+  await persistSession();
+  updateAccountUI();
+  return true;
+}
+
+async function ensureFreshAuthSession() {
+  if (!authToken) return false;
+  const user = await validateToken(authToken);
+  if (user?.__networkError) return true;
+  if (user) {
+    if (user.email !== authEmail || user.id !== authUserId) {
+      applySession({
+        ...currentSessionPayload(),
+        email: user.email || authEmail,
+        userId: user.id || authUserId,
+      });
+      await persistSession();
+      updateAccountUI();
+    }
+    return true;
+  }
+  return refreshStoredAuthSession();
 }
 
 async function fetchPlan() {
@@ -974,6 +1252,11 @@ async function initAuth() {
   const stored = await window.tackDesktop.getSession();
   if (stored?.token) {
     const user = await validateToken(stored.token);
+    if (user?.__networkError) {
+      applySession(stored);
+      updateAccountUI();
+      return;
+    }
     if (user) {
       applySession({
         ...stored,
@@ -1195,6 +1478,13 @@ async function generateWithTack() {
     return;
   }
 
+  const hasFreshAuth = await ensureFreshAuthSession();
+  if (!hasFreshAuth) {
+    renderError('Your Tack session expired. Sign in to Tack again to generate.');
+    showAuth('login');
+    return;
+  }
+
   activeGenerationController?.abort();
   const controller = new AbortController();
   activeGenerationController = controller;
@@ -1204,27 +1494,40 @@ async function generateWithTack() {
 
   try {
     const outputDimensions = OUTPUT_DIMENSIONS[aspectRatio] || OUTPUT_DIMENSIONS[DEFAULT_ASPECT_RATIO];
-    const headers = { 'Content-Type': 'application/json' };
-    if (authToken) headers.Authorization = `Bearer ${authToken}`;
-    const response = await fetch(API_URL, {
+    const payload = {
+      imageUrls: urlRefs.map(ref => ref.src),
+      subject: generationSubjectWithIdentitySafety(subject),
+      displaySubject: subject,
+      userSubject: subject,
+      referenceIdentityInstruction: REFERENCE_IDENTITY_INSTRUCTION,
+      negativePrompt: 'same identifiable person from reference, copied face, copied likeness, recognizable private person, celebrity likeness',
+      anonymousId,
+      aspectRatio,
+      aspect_ratio: aspectRatio,
+      outputDimensions,
+      width: outputDimensions.width,
+      height: outputDimensions.height,
+    };
+    const sendGenerationRequest = () => fetch(API_URL, {
       method: 'POST',
-      headers,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${authToken}`,
+      },
       signal: controller.signal,
-      body: JSON.stringify({
-        imageUrls: urlRefs.map(ref => ref.src),
-        subject,
-        anonymousId,
-        aspectRatio,
-        aspect_ratio: aspectRatio,
-        outputDimensions,
-        width: outputDimensions.width,
-        height: outputDimensions.height,
-      }),
+      body: JSON.stringify(payload),
     });
+    let response = await sendGenerationRequest();
+    if (response.status === 401 && await refreshStoredAuthSession()) {
+      response = await sendGenerationRequest();
+    }
 
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      if (response.status === 401) throw new Error('Sign in is required for this generation.');
+      if (response.status === 401) {
+        showAuth('login');
+        throw new Error('Your Tack session expired. Sign in to Tack again to generate.');
+      }
       if (response.status === 402) throw new Error(data?.message || 'This account has reached its generation limit.');
       throw new Error(data?.message || data?.error || `Tack returned ${response.status}.`);
     }
@@ -1330,6 +1633,11 @@ async function loadAccountGenerations() {
     renderLibrarySignedOut();
     return;
   }
+  const hasFreshAuth = await ensureFreshAuthSession();
+  if (!hasFreshAuth) {
+    renderLibrarySignedOut();
+    return;
+  }
   libraryList.innerHTML = '<p class="library-empty">Loading generations...</p>';
   try {
     const [generations, boards, boardItems] = await Promise.all([
@@ -1343,7 +1651,14 @@ async function loadAccountGenerations() {
     libraryBoardItems = boardItems;
     renderLibrary();
   } catch (error) {
-    libraryList.innerHTML = `<p class="library-empty">${escapeHtml(error?.message || 'Could not load generations.')}</p>`;
+    libraryList.innerHTML = `
+      <div class="library-empty library-empty-action">
+        <strong>${escapeHtml(error?.message || 'Could not load generations.')}</strong>
+        <span>Check your connection, then retry. Tack will also retry when the app comes back into focus.</span>
+        <button id="library-retry-btn" type="button">Retry</button>
+      </div>
+    `;
+    document.querySelector('#library-retry-btn')?.addEventListener('click', loadAccountGenerations);
   }
 }
 
@@ -1410,30 +1725,78 @@ function visibleLibraryImages() {
   return libraryImages;
 }
 
-function resizeMasonryTile(tile) {
-  if (!tile || !libraryList?.classList.contains('masonry-library')) return;
-
+function masonryMetrics() {
+  if (!libraryList) return null;
   const gridStyles = window.getComputedStyle(libraryList);
-  const rowHeight = parseFloat(gridStyles.getPropertyValue('grid-auto-rows')) || 4;
-  const rowGap = parseFloat(gridStyles.getPropertyValue('row-gap')) || 16;
+  const gap = parseFloat(gridStyles.getPropertyValue('--masonry-gap')) || 16;
+  const minColumn = parseFloat(gridStyles.getPropertyValue('--masonry-min-column')) || 260;
+  const paddingLeft = parseFloat(gridStyles.paddingLeft) || 0;
+  const paddingRight = parseFloat(gridStyles.paddingRight) || 0;
+  const paddingTop = parseFloat(gridStyles.paddingTop) || 0;
+  const paddingBottom = parseFloat(gridStyles.paddingBottom) || 0;
+  const contentWidth = Math.max(0, libraryList.clientWidth - paddingLeft - paddingRight);
+  const columns = Math.max(1, Math.floor((contentWidth + gap) / (minColumn + gap)));
+  const columnWidth = Math.max(1, (contentWidth - (gap * (columns - 1))) / columns);
+  return { gap, paddingLeft, paddingTop, paddingBottom, columns, columnWidth };
+}
+
+function masonryTileHeight(tile, columnWidth) {
+  const measuredTile = tile.getBoundingClientRect().height || 0;
+  if (measuredTile > 20) return measuredTile;
+
   const img = tile.querySelector('img');
-  const width = tile.getBoundingClientRect().width;
-  let height = img?.getBoundingClientRect().height || 0;
-
-  if ((!height || height < 20) && img?.naturalWidth && img?.naturalHeight && width) {
-    height = width * (img.naturalHeight / img.naturalWidth);
+  if (img?.naturalWidth && img?.naturalHeight) {
+    const styles = window.getComputedStyle(tile);
+    const borderTop = parseFloat(styles.borderTopWidth) || 0;
+    const borderBottom = parseFloat(styles.borderBottomWidth) || 0;
+    return columnWidth * (img.naturalHeight / img.naturalWidth) + borderTop + borderBottom;
   }
+  const measured = img?.getBoundingClientRect().height || 0;
+  return measured > 20 ? measured : columnWidth;
+}
 
-  if (!height || height < 20) height = width || 260;
+function resizeMasonryTile() {
+  layoutMasonry();
+}
 
-  const span = Math.ceil((height + rowGap) / (rowHeight + rowGap));
-  tile.style.gridRowEnd = `span ${Math.max(span, 1)}`;
+function layoutMasonry() {
+  if (!libraryList?.classList.contains('masonry-library')) return;
+  const metrics = masonryMetrics();
+  if (!metrics) return;
+  const { gap, paddingLeft, paddingTop, columns, columnWidth } = metrics;
+  const columnHeights = Array(columns).fill(0);
+  const tiles = Array.from(libraryList.querySelectorAll('.masonry-library-item'));
+
+  tiles.forEach(tile => {
+    const column = columnHeights.indexOf(Math.min(...columnHeights));
+    const left = paddingLeft + column * (columnWidth + gap);
+    const top = paddingTop + columnHeights[column];
+
+    tile.style.width = `${columnWidth}px`;
+    tile.style.left = `${Math.round(left)}px`;
+    tile.style.top = `${Math.round(top)}px`;
+    const height = masonryTileHeight(tile, columnWidth);
+    columnHeights[column] += height + gap;
+  });
+
+  const contentHeight = Math.max(0, ...columnHeights) ? Math.max(0, ...columnHeights) - gap : 0;
+  const spacer = libraryList.querySelector('.masonry-spacer');
+  if (spacer) spacer.style.height = `${Math.ceil(contentHeight)}px`;
 }
 
 function resizeVisibleMasonryTiles() {
-  requestAnimationFrame(() => {
-    document.querySelectorAll('.masonry-library-item').forEach(resizeMasonryTile);
+  if (masonryResizeTimer) cancelAnimationFrame(masonryResizeTimer);
+  masonryResizeTimer = requestAnimationFrame(() => {
+    layoutMasonry();
+    requestAnimationFrame(layoutMasonry);
   });
+}
+
+function observeMasonryLibrary() {
+  masonryResizeObserver?.disconnect();
+  if (!libraryList || typeof ResizeObserver === 'undefined') return;
+  masonryResizeObserver = new ResizeObserver(() => resizeVisibleMasonryTiles());
+  masonryResizeObserver.observe(libraryList);
 }
 
 function renderLibrary() {
@@ -1462,6 +1825,7 @@ function renderLibrary() {
   libraryList.className = 'library-list masonry-library';
   libraryList.innerHTML = '';
   lightboxItems = items;
+  observeMasonryLibrary();
 
   items.forEach((entry, index) => {
     const tile = document.createElement('article');
@@ -1516,6 +1880,9 @@ function renderLibrary() {
     libraryList.appendChild(tile);
     if (img.complete) resizeMasonryTile(tile);
   });
+  const spacer = document.createElement('div');
+  spacer.className = 'masonry-spacer';
+  libraryList.appendChild(spacer);
   resizeVisibleMasonryTiles();
 }
 
@@ -2045,7 +2412,7 @@ function renderLibrarySignedOut() {
   libraryList.innerHTML = `
     <div class="library-empty library-empty-action">
       <strong>Sign in to sync your Tack Library.</strong>
-      <span>Your saved generations from the website, extension, and Mac app will appear here.</span>
+      <span>Your saved generations from the website, browser extension, and desktop app will appear here.</span>
       <button id="library-signin-btn" type="button">Sign in</button>
     </div>
   `;
@@ -2064,6 +2431,18 @@ function showAppView(view) {
   if (isAccount) updateAccountUI();
 }
 
+async function refreshVisibleAccountData() {
+  if (!authToken || !authUserId) return;
+  if (document.visibilityState && document.visibilityState !== 'visible') return;
+  const hasFreshAuth = await ensureFreshAuthSession();
+  if (!hasFreshAuth) return;
+  if (!libraryView.classList.contains('hidden')) {
+    loadAccountGenerations();
+  } else if (!accountView.classList.contains('hidden')) {
+    fetchPlan().catch(() => {});
+  }
+}
+
 function openLibraryView() {
   showAppView('library');
 }
@@ -2079,21 +2458,46 @@ function setActiveRail(activeButton) {
 }
 
 function renderGeneratingState(count) {
+  stopGenerationProgress();
+  const steps = [
+    'Reading the visual language of your selections...',
+    'Blending those references into one shared style direction...',
+    'Writing prompts and generating images...',
+    'Finishing the final images...',
+  ];
+  let index = 0;
+
   results.classList.remove('hidden');
+  results.classList.add('is-generating');
   results.innerHTML = `
-    <div class="result-head">
-      <strong>Generating</strong>
-      <span>${count} reference${count === 1 ? '' : 's'}</span>
-    </div>
-    <div class="compact-block">
-      <p>Tack is reading the selected visual direction and creating images from your prompt.</p>
+    <div class="loading-msg" role="status" aria-live="polite">
+      <div class="brand-loader" aria-hidden="true">
+        <span class="brand-loader-dot"></span>
+        <span class="brand-loader-dot"></span>
+        <span class="brand-loader-dot"></span>
+        <span class="brand-loader-dot"></span>
+      </div>
+      <span id="generation-progress-copy">${steps[0]}</span>
     </div>
   `;
+  generationProgressTimer = setInterval(() => {
+    index = Math.min(index + 1, steps.length - 1);
+    const copy = document.getElementById('generation-progress-copy');
+    if (copy) copy.textContent = steps[index];
+  }, 9000);
   scrollPanelToResults();
 }
 
+function stopGenerationProgress() {
+  if (!generationProgressTimer) return;
+  clearInterval(generationProgressTimer);
+  generationProgressTimer = null;
+}
+
 function renderError(message) {
+  stopGenerationProgress();
   results.classList.remove('hidden');
+  results.classList.remove('is-generating');
   results.innerHTML = `
     <div class="result-head">
       <strong>Generation</strong>
@@ -2181,11 +2585,13 @@ function createGenerationDetails(styleDescriptors, prompt) {
 }
 
 function renderResults(data) {
+  stopGenerationProgress();
   const styleDescriptors = data?.styleDescriptors || '';
   const prompt = data?.prompt || '';
   const images = Array.isArray(data?.images) ? data.images : [];
 
   results.classList.remove('hidden');
+  results.classList.remove('is-generating');
   results.innerHTML = '';
 
   const sections = document.createElement('div');
@@ -2305,6 +2711,8 @@ accountSigninBtn.addEventListener('click', () => {
   showAuth('login');
 });
 accountSignupBtn.addEventListener('click', () => showAuth('signup'));
+accountSignedoutSignin?.addEventListener('click', () => showAuth('login'));
+accountSignedoutSignup?.addEventListener('click', () => showAuth('signup'));
 accountManageBtn.addEventListener('click', () => {
   const params = new URLSearchParams();
   if (authEmail) params.set('email', authEmail);
@@ -2316,12 +2724,11 @@ accountSignoutBtn.addEventListener('click', signOut);
 accountBrowseShortcut?.addEventListener('click', () => showAppView('browse'));
 accountLibraryShortcut?.addEventListener('click', openLibraryView);
 accountWebsiteShortcut?.addEventListener('click', () => window.tackDesktop.openExternal('https://tack.design/account?view=generations'));
-usageUpgradeBtn.addEventListener('click', () => {
-  const params = new URLSearchParams();
-  if (authEmail) params.set('email', authEmail);
-  params.set('current', plan);
-  params.set('source', 'desktop');
-  window.tackDesktop.openExternal(`https://tack.design/upgrade?${params.toString()}`);
+railCollapseToggle?.addEventListener('click', () => {
+  setRailCollapsed(!appShell?.classList.contains('rail-collapsed'));
+});
+bookmarksToggle?.addEventListener('click', () => {
+  setBookmarksCollapsed(!browserShell?.classList.contains('bookmarks-collapsed'));
 });
 libraryRefreshBtn?.addEventListener('click', loadAccountGenerations);
 libraryOpenWebBtn?.addEventListener('click', () => window.tackDesktop.openExternal('https://tack.design/account?view=generations'));
@@ -2387,6 +2794,7 @@ confirmModal?.addEventListener('click', event => {
 railBrowserBtn.addEventListener('click', () => {
   showAppView('browse');
 });
+brandButton?.addEventListener('click', openLibraryView);
 railLibraryBtn.addEventListener('click', openLibraryView);
 railAccountBtn.addEventListener('click', openAccountView);
 document.addEventListener('keydown', event => {
@@ -2409,6 +2817,11 @@ window.addEventListener('resize', () => {
   closeTileSavePopovers();
   resizeVisibleMasonryTiles();
 });
+window.addEventListener('focus', refreshVisibleAccountData);
+window.addEventListener('online', refreshVisibleAccountData);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') refreshVisibleAccountData();
+});
 libraryList?.addEventListener('scroll', closeTileSavePopovers, { passive: true });
 
 if (tackPanel) {
@@ -2422,6 +2835,8 @@ openExternalBtn.addEventListener('click', () => {
 });
 
 if (tabs) {
+  setRailCollapsed(storageFlag(RAIL_COLLAPSED_STORAGE_KEY));
+  setBookmarksCollapsed(storageFlag(BOOKMARKS_COLLAPSED_STORAGE_KEY));
   renderBookmarks();
   tabs.addEventListener('dragover', event => {
     if (!getDroppedUrl(event)) return;
@@ -2459,7 +2874,7 @@ webview.addEventListener('did-stop-loading', () => {
   loadingOverlay.classList.add('hidden');
   addressInput.value = currentUrl();
   setActiveBookmark();
-  if (selectionMode) setTimeout(scanPage, 600);
+  setTimeout(scanPage, 600);
 });
 
 webview.addEventListener('did-navigate', event => {
@@ -2478,6 +2893,20 @@ webview.addEventListener('page-title-updated', event => {
 
 webview.addEventListener('console-message', event => {
   const message = event.message || '';
+  if (message.startsWith('__TACK_PINTEREST_AUTH__')) {
+    if (pinterestAuthOpening) return;
+    pinterestAuthOpening = true;
+    let url = currentUrl();
+    try {
+      url = JSON.parse(message.replace('__TACK_PINTEREST_AUTH__', '')).url || url;
+    } catch {}
+    window.tackDesktop.openPinterestAuthWindow(url)
+      .finally(() => {
+        pinterestAuthOpening = false;
+        webview.reload();
+      });
+    return;
+  }
   if (!message.startsWith('__TACK_REFERENCE__')) return;
   try {
     upsertReference(JSON.parse(message.replace('__TACK_REFERENCE__', '')));
@@ -2520,4 +2949,5 @@ window.addEventListener('mouseup', async () => {
 });
 
 renderReferences();
+initPlatform();
 initAuth();

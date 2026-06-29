@@ -22,6 +22,8 @@ if [[ ! -d "$APP_DIR" ]]; then
   exit 1
 fi
 
+bash scripts/prepare-app-bundle.sh "$APP_DIR"
+
 SIGN_IDENTITY="${CODESIGN_IDENTITY:-}"
 if [[ -z "$SIGN_IDENTITY" ]]; then
   SIGN_IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null | sed -n 's/.*"\(Developer ID Application:[^"]*\)".*/\1/p' | head -1)"
@@ -36,7 +38,7 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
   if [[ "$SIGN_IDENTITY" == Apple\ Development:* ]]; then
     SIGN_TYPE="development"
   fi
-  npx electron-osx-sign "$APP_DIR" --identity="$SIGN_IDENTITY" --type="$SIGN_TYPE"
+  node scripts/sign-macos.mjs "$APP_DIR" --identity="$SIGN_IDENTITY" --type="$SIGN_TYPE" --platform=darwin
 else
   echo "No code signing identity found. Using ad-hoc signing."
   codesign --force --deep --sign - "$APP_DIR"

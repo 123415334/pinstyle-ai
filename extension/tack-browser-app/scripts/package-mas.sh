@@ -32,6 +32,8 @@ if [[ ! -d "$APP_DIR" ]]; then
   exit 1
 fi
 
+bash scripts/prepare-app-bundle.sh "$APP_DIR"
+
 APP_SIGN_IDENTITY="${APPLE_DISTRIBUTION_IDENTITY:-}"
 if [[ -z "$APP_SIGN_IDENTITY" ]]; then
   APP_SIGN_IDENTITY="$(security find-identity -v -p codesigning ${SIGNING_KEYCHAIN:+"$SIGNING_KEYCHAIN"} 2>/dev/null | sed -n 's/.*"\(Mac App Distribution:[^"]*\)".*/\1/p' | head -1)"
@@ -78,7 +80,7 @@ if [[ -n "${PROVISIONING_PROFILE:-}" ]]; then
   SIGN_ARGS+=("--provisioning-profile=$PROVISIONING_PROFILE")
 fi
 
-npx electron-osx-sign "${SIGN_ARGS[@]}"
+node scripts/sign-macos.mjs "${SIGN_ARGS[@]}"
 codesign --verify --deep --strict --verbose=2 "$APP_DIR"
 
 rm -f "$PKG_PATH"

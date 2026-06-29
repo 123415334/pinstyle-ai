@@ -1,5 +1,8 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+const isMac = process.platform === 'darwin';
+const isWindows = process.platform === 'win32';
+
 contextBridge.exposeInMainWorld('tackDesktop', {
   openExternal(url) {
     return ipcRenderer.invoke('open-external', url);
@@ -15,5 +18,16 @@ contextBridge.exposeInMainWorld('tackDesktop', {
   },
   signInWithGoogle(mode) {
     return ipcRenderer.invoke('auth:google', mode);
+  },
+  openPinterestAuthWindow(url) {
+    return ipcRenderer.invoke('auth:pinterest-window', url);
+  },
+  getPlatform() {
+    return {
+      platform: process.platform,
+      isMac,
+      isWindows,
+      systemName: isMac ? 'Mac' : isWindows ? 'Windows' : 'desktop',
+    };
   },
 });

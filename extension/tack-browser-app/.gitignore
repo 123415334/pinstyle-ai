@@ -2,6 +2,9 @@ node_modules/
 .npm-cache/
 out/
 out-mas/
+out-win/
 dist-mas/
+dist-windows/
+test-artifacts/
 .DS_Store
 npm-debug.log*
