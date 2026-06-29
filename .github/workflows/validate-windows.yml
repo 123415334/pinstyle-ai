@@ -4,12 +4,12 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - "extension/**"
+      - "browser-products/extension/**"
       - ".github/workflows/validate-windows.yml"
   push:
     branches: [main]
     paths:
-      - "extension/**"
+      - "browser-products/extension/**"
       - ".github/workflows/validate-windows.yml"
 
 concurrency:
@@ -22,14 +22,14 @@ jobs:
     timeout-minutes: 30
     defaults:
       run:
-        working-directory: extension/tack-browser-app
+        working-directory: browser-products/extension/tack-browser-app
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: extension/tack-browser-app/package-lock.json
+          cache-dependency-path: browser-products/extension/tack-browser-app/package-lock.json
       - run: npm ci
       - run: npm test
       - run: npm run test:smoke
@@ -54,9 +54,9 @@ jobs:
         with:
           name: tack-windows-validation-${{ github.run_number }}
           path: |
-            extension/tack-browser-app/test-artifacts/
-            extension/tack-browser-app/out-win/Tack Browser-win32-x64/
-            extension/tack-browser-app/dist-windows/Tack-Browser-*-windows-x64-setup.exe
+            browser-products/extension/tack-browser-app/test-artifacts/
+            browser-products/extension/tack-browser-app/out-win/Tack Browser-win32-x64/
+            browser-products/extension/tack-browser-app/dist-windows/Tack-Browser-*-windows-x64-setup.exe
           if-no-files-found: error
 
   edge-package:
@@ -68,13 +68,15 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: package-lock.json
+          cache-dependency-path: web-app/package-lock.json
       - run: npm ci
+        working-directory: web-app
       - run: npm test
-      - run: bash extension/scripts/package-extension.sh edge
-      - run: unzip -t extension/dist-extensions/tack-edge-*.zip
+        working-directory: web-app
+      - run: bash browser-products/extension/scripts/package-extension.sh edge
+      - run: unzip -t browser-products/extension/dist-extensions/tack-edge-*.zip
       - uses: actions/upload-artifact@v4
         with:
           name: tack-edge-package-${{ github.run_number }}
-          path: extension/dist-extensions/tack-edge-*.zip
+          path: browser-products/extension/dist-extensions/tack-edge-*.zip
           if-no-files-found: error
