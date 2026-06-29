@@ -18,7 +18,7 @@
     "test": "node --test test/*.test.js && node --check src/main.js && node --check src/preload.js && node --check src/renderer.js",
     "test:smoke": "node scripts/smoke-app.mjs",
     "prepare:win-icon": "node scripts/create-windows-icon.mjs",
-    "package:win": "npm run prepare:win-icon && electron-packager . \"Tack Browser\" --platform=win32 --arch=x64 --out=out-win --overwrite --icon=build/tack.ico --asar --prune=true --ignore='^/(dist|dist-windows|out|out-mas|out-win|.npm-cache|.github)(/|$)'",
+    "package:win": "npm run prepare:win-icon && electron-packager . \"Tack Browser\" --platform=win32 --arch=x64 --out=out-win --overwrite --icon=build/tack.ico --asar --prune=true --ignore=\"^/(dist|dist-windows|out|out-mas|out-win|.npm-cache|.github)(/|$)\"",
     "package:mac": "electron-packager . \"Tack Browser\" --platform=darwin --arch=arm64 --out=out --overwrite --icon=build/tack.icns --app-bundle-id=com.tack.browser --app-version=$npm_package_version --build-version=$npm_package_version --asar --prune=true --ignore='^/(dist|out|.npm-cache|.github)(/|$)'",
     "package:mas": "electron-packager . \"Tack Browser\" --platform=mas --arch=arm64 --out=out-mas --overwrite --icon=build/tack.icns --app-bundle-id=com.tack.browser --app-version=$npm_package_version --build-version=$npm_package_version --asar --prune=true --ignore='^/(dist|out|out-mas|.npm-cache|.github)(/|$)'",
     "dist:mas": "bash scripts/package-mas.sh",
