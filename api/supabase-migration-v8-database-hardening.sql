@@ -88,6 +88,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Ensure every generation operation is owner-scoped.
 ALTER TABLE public.generations ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can only see their own generations" ON public.generations;
 DROP POLICY IF EXISTS "Users can read own generations" ON public.generations;
 CREATE POLICY "Users can read own generations"
   ON public.generations FOR SELECT USING (auth.uid() = user_id);
