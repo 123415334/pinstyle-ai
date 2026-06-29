@@ -19,7 +19,7 @@ concurrency:
 jobs:
   desktop-windows-x64:
     runs-on: windows-2025
-    timeout-minutes: 20
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: extension/tack-browser-app
@@ -34,6 +34,21 @@ jobs:
       - run: npm test
       - run: npm run test:smoke
       - run: npm run package:win
+      - name: Build unsigned QA installer
+        run: npm run dist:win
+        env:
+          TACK_ALLOW_UNSIGNED_WINDOWS: "1"
+      - name: Verify QA installer
+        shell: pwsh
+        run: |
+          $installers = Get-ChildItem -Path dist-windows -Filter "Tack-Browser-*-windows-x64-setup.exe"
+          if ($installers.Count -ne 1) {
+            throw "Expected exactly one Windows x64 installer, found $($installers.Count)."
+          }
+          if ($installers[0].Length -lt 1MB) {
+            throw "Windows installer is unexpectedly small."
+          }
+          Write-Host "Validated $($installers[0].Name) ($($installers[0].Length) bytes)"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -41,6 +56,7 @@ jobs:
           path: |
             extension/tack-browser-app/test-artifacts/
             extension/tack-browser-app/out-win/Tack Browser-win32-x64/
+            extension/tack-browser-app/dist-windows/Tack-Browser-*-windows-x64-setup.exe
           if-no-files-found: error
 
   edge-package:
