@@ -39,6 +39,15 @@ async function table(path, optional = false) {
   return Array.isArray(data) ? data : [];
 }
 
+async function authAccounts() {
+  const response = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users?page=1&per_page=1000`, {
+    headers: { Authorization: `Bearer ${process.env.SUPABASE_SERVICE_KEY}`, apikey: process.env.SUPABASE_SERVICE_KEY },
+  });
+  if (!response.ok) throw new Error(`Supabase Auth query failed (${response.status})`);
+  const body = await response.json();
+  return Array.isArray(body) ? body : (body.users || []);
+}
+
 function dayKey(value) {
   return String(value || '').slice(0, 10);
 }
@@ -53,12 +62,18 @@ function percent(value, total) {
   return total ? Math.round((value / total) * 1000) / 10 : 0;
 }
 
-function buildDashboard({ profiles, events, generations, chromeMetrics, user, days, extraTestEmails, extraTestIds }) {
+function looksLikeTestEmail(value) {
+  const email = String(value || '').toLowerCase();
+  const local = email.split('@')[0] || '';
+  return /(^|[+._-])test([+._-]|\d|$)/.test(local) || /^test(er|ing)?\d*/.test(local);
+}
+
+function buildDashboard({ profiles, authUsers = [], events, generations, chromeMetrics, user, days, extraTestEmails, extraTestIds }) {
   const adminEmail = String(user.email || '').toLowerCase();
   const excludedEmails = new Set([adminEmail, ...listEnv('ADMIN_TEST_EMAILS'), ...extraTestEmails.map(String).map(v => v.toLowerCase())]);
   const excludedAnonIds = new Set([...listEnv('ADMIN_TEST_ANONYMOUS_IDS'), ...extraTestIds.map(String)]);
   const profilesById = new Map(profiles.map(profile => [profile.id, profile]));
-  const excludedUserIds = new Set(profiles.filter(profile => excludedEmails.has(String(profile.email || '').toLowerCase())).map(profile => profile.id));
+  const excludedUserIds = new Set(profiles.filter(profile => excludedEmails.has(String(profile.email || '').toLowerCase()) || looksLikeTestEmail(profile.email)).map(profile => profile.id));
   events.forEach(event => {
     if (event.user_id && excludedUserIds.has(event.user_id) && event.anonymous_id) excludedAnonIds.add(event.anonymous_id);
   });
@@ -67,19 +82,27 @@ function buildDashboard({ profiles, events, generations, chromeMetrics, user, da
   const inRange = value => !cutoff || new Date(value).getTime() >= cutoff;
   const rangeEvents = events.filter(event => inRange(event.created_at));
   const authenticEvents = rangeEvents.filter(event => !isTest(event));
+  const siteEvents = authenticEvents.filter(event => event.event_name.startsWith('site_'));
+  const productEvents = authenticEvents.filter(event => !event.event_name.startsWith('site_'));
   const testEvents = rangeEvents.filter(isTest);
-  const anonToUser = new Map(authenticEvents.filter(event => event.anonymous_id && event.user_id).map(event => [event.anonymous_id, event.user_id]));
+  const anonToUser = new Map(productEvents.filter(event => event.anonymous_id && event.user_id).map(event => [event.anonymous_id, event.user_id]));
   const eventIdentity = event => event.user_id
     ? `user:${event.user_id}`
     : (anonToUser.has(event.anonymous_id) ? `user:${anonToUser.get(event.anonymous_id)}` : identity(event));
-  const authenticProfiles = profiles.filter(profile => !excludedUserIds.has(profile.id));
+  const authById = new Map(authUsers.map(account => [account.id, account]));
+  const authenticProfiles = profiles.filter(profile => {
+    if (excludedUserIds.has(profile.id) || looksLikeTestEmail(profile.email)) return false;
+    const account = authById.get(profile.id);
+    return !authUsers.length || Boolean(account?.email_confirmed_at || account?.confirmed_at || account?.last_sign_in_at);
+  });
   const paidProfiles = authenticProfiles.filter(profile => ['pro', 'studio'].includes(profile.plan));
 
-  const identities = new Set(authenticEvents.map(eventIdentity));
-  const anonymousIdentities = new Set(authenticEvents.filter(event => eventIdentity(event).startsWith('anon:')).map(eventIdentity));
-  const signedIdentities = new Set(authenticEvents.filter(event => eventIdentity(event).startsWith('user:')).map(eventIdentity));
-  const successfulIdentities = new Set(authenticEvents.filter(event => event.event_name === 'generate_succeeded').map(eventIdentity));
-  const signupIdentities = new Set(authenticEvents.filter(event => event.event_name === 'signup_completed').map(eventIdentity));
+  const identities = new Set(productEvents.map(eventIdentity));
+  const anonymousIdentities = new Set(productEvents.filter(event => eventIdentity(event).startsWith('anon:')).map(eventIdentity));
+  const signedIdentities = new Set(productEvents.filter(event => eventIdentity(event).startsWith('user:')).map(eventIdentity));
+  const successfulIdentities = new Set(productEvents.filter(event => event.event_name === 'generate_succeeded').map(eventIdentity));
+  const signupIdentities = new Set(productEvents.filter(event => event.event_name === 'signup_completed').map(eventIdentity));
+  const siteVisitors = new Set(siteEvents.map(eventIdentity));
 
   const funnelNames = [
     ['Opened', 'extension_opened'], ['Scanned', 'images_scanned'], ['Selected', 'image_selected'],
@@ -87,14 +110,14 @@ function buildDashboard({ profiles, events, generations, chromeMetrics, user, da
     ['Saw signup', 'auth_modal_opened'], ['Signed up', 'signup_completed'],
   ];
   const funnel = funnelNames.map(([label, name]) => {
-    const count = new Set(authenticEvents.filter(event => event.event_name === name).map(eventIdentity)).size;
+    const count = new Set(productEvents.filter(event => event.event_name === name).map(eventIdentity)).size;
     return { label, event: name, people: count };
   });
   const opened = funnel[0].people;
   funnel.forEach(step => { step.fromOpen = percent(step.people, opened); });
 
   const dailyMap = new Map();
-  authenticEvents.forEach(event => {
+  productEvents.forEach(event => {
     const day = dayKey(event.created_at);
     if (!dailyMap.has(day)) dailyMap.set(day, { day, events: 0, people: new Set(), generations: 0, signups: 0 });
     const row = dailyMap.get(day);
@@ -106,7 +129,7 @@ function buildDashboard({ profiles, events, generations, chromeMetrics, user, da
   const daily = [...dailyMap.values()].sort((a, b) => a.day.localeCompare(b.day)).map(row => ({ ...row, people: row.people.size }));
 
   const domainMap = new Map();
-  authenticEvents.filter(event => event.page_domain).forEach(event => {
+  productEvents.filter(event => event.page_domain).forEach(event => {
     const domain = event.page_domain;
     if (!domainMap.has(domain)) domainMap.set(domain, { domain, events: 0, people: new Set(), generations: 0 });
     const row = domainMap.get(domain);
@@ -117,7 +140,7 @@ function buildDashboard({ profiles, events, generations, chromeMetrics, user, da
   const domains = [...domainMap.values()].map(row => ({ ...row, people: row.people.size })).sort((a, b) => b.people - a.people || b.events - a.events).slice(0, 12);
 
   const peopleMap = new Map();
-  authenticEvents.forEach(event => {
+  productEvents.forEach(event => {
     const key = eventIdentity(event);
     const canonicalUserId = key.startsWith('user:') ? key.slice(5) : null;
     const profile = profilesById.get(canonicalUserId);
@@ -134,7 +157,8 @@ function buildDashboard({ profiles, events, generations, chromeMetrics, user, da
   });
   const people = [...peopleMap.values()].map(row => ({ ...row, domains: [...row.domains] })).sort((a, b) => b.lastSeen.localeCompare(a.lastSeen));
 
-  const recentGenerations = generations.filter(row => !excludedUserIds.has(row.user_id) && inRange(row.created_at)).map(row => ({
+  const authenticProfileIds = new Set(authenticProfiles.map(profile => profile.id));
+  const recentGenerations = generations.filter(row => authenticProfileIds.has(row.user_id) && inRange(row.created_at)).map(row => ({
     id: row.id, createdAt: row.created_at, email: profilesById.get(row.user_id)?.email || null,
     prompt: row.prompt || '', images: Array.isArray(row.image_urls) ? row.image_urls : [],
   })).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 18);
@@ -144,29 +168,59 @@ function buildDashboard({ profiles, events, generations, chromeMetrics, user, da
     type: row.metric_type, date: row.metric_date, dimension: row.dimension || 'total', value: Number(row.value || 0), importedAt: row.imported_at,
   }));
 
+  const acquisitionMap = new Map();
+  siteEvents.forEach(event => {
+    const metadata = event.metadata || {};
+    const path = String(metadata.path || '/').slice(0, 160);
+    if (!acquisitionMap.has(path)) acquisitionMap.set(path, { path, views: 0, visitors: new Set() });
+    const row = acquisitionMap.get(path); row.views += 1; row.visitors.add(eventIdentity(event));
+  });
+  const pages = [...acquisitionMap.values()].map(row => ({ path: row.path, views: row.views, visitors: row.visitors.size })).sort((a,b) => b.views-a.views).slice(0,12);
+  const referrerMap = new Map();
+  siteEvents.forEach(event => { const referrer = String(event.metadata?.referrer_domain || 'Direct / unknown'); referrerMap.set(referrer, (referrerMap.get(referrer)||0)+1); });
+  const referrers = [...referrerMap].map(([referrer,views])=>({referrer,views})).sort((a,b)=>b.views-a.views).slice(0,10);
+  const chromeValue = type => chrome.filter(row => row.type === type && row.dimension === 'total').reduce((sum,row)=>sum+row.value,0);
+  const journeys = new Map();
+  productEvents.forEach(event => {
+    const key = eventIdentity(event);
+    if (!journeys.has(key)) journeys.set(key, { days: new Set(), openedAt: null, generatedAt: null, successes: 0 });
+    const row = journeys.get(key); row.days.add(dayKey(event.created_at));
+    if (event.event_name === 'extension_opened' && (!row.openedAt || event.created_at < row.openedAt)) row.openedAt = event.created_at;
+    if (event.event_name === 'generate_succeeded') { row.successes += 1; if (!row.generatedAt || event.created_at < row.generatedAt) row.generatedAt = event.created_at; }
+  });
+  const activationTimes = [...journeys.values()].filter(row => row.openedAt && row.generatedAt && row.generatedAt >= row.openedAt).map(row => (new Date(row.generatedAt) - new Date(row.openedAt)) / 60000).sort((a,b)=>a-b);
+  const medianActivationMinutes = activationTimes.length ? Math.round(activationTimes[Math.floor(activationTimes.length / 2)] * 10) / 10 : null;
+  const generationClicks = productEvents.filter(event => event.event_name === 'generate_clicked').length;
+  const generationFailures = productEvents.filter(event => event.event_name === 'generate_failed').length;
+
   const signals = [];
-  if (opened && successfulIdentities.size / opened >= 0.5) signals.push({ tone: 'good', title: 'People who engage tend to generate', body: `${successfulIdentities.size} of ${opened} authentic openers reached a successful generation.` });
+  if (opened && successfulIdentities.size / opened >= 0.5) signals.push({ tone: 'good', title: 'Observed open-to-generation rate', body: `${successfulIdentities.size} of ${opened} extension openers recorded a successful generation (${percent(successfulIdentities.size, opened)}%).` });
   const selected = funnel.find(step => step.event === 'image_selected')?.people || 0;
   const prompted = funnel.find(step => step.event === 'prompt_entered')?.people || 0;
-  if (selected > prompted) signals.push({ tone: 'watch', title: 'The prompt is a friction point', body: `${selected - prompted} people selected imagery but did not reach a prompt.` });
-  if (!paidProfiles.length) signals.push({ tone: 'quiet', title: 'Activation before monetization', body: 'No authentic paid profiles are visible. Focus on first generation and return usage before pricing optimization.' });
-  if (testEvents.length > authenticEvents.length) signals.push({ tone: 'info', title: 'Testing dominates raw event volume', body: `${testEvents.length} test events are excluded so the dashboard reflects authentic behavior.` });
+  if (selected > prompted) signals.push({ tone: 'watch', title: 'Selection-to-prompt difference', body: `${selected - prompted} observed identities selected an image but did not record a prompt event.` });
+  if (!paidProfiles.length) signals.push({ tone: 'quiet', title: 'Paid accounts', body: 'No confirmed, non-test accounts currently have a Pro or Studio plan.' });
+  if (testEvents.length > authenticEvents.length) signals.push({ tone: 'info', title: 'Excluded test activity', body: `${testEvents.length} test events are excluded from selected-period product metrics.` });
 
   return {
     generatedAt: new Date().toISOString(), rangeDays: days, exclusions: { emails: [...excludedEmails], anonymousIds: [...excludedAnonIds], testEvents: testEvents.length },
     summary: {
       authenticPeople: identities.size, anonymousPeople: anonymousIdentities.size, signedInPeople: signedIdentities.size,
-      successfulPeople: successfulIdentities.size, successfulGenerations: authenticEvents.filter(e => e.event_name === 'generate_succeeded').length,
-      signups: signupIdentities.size, accounts: authenticProfiles.length, paidSubscribers: paidProfiles.length,
+      websiteVisitors: siteVisitors.size, websitePageViews: siteEvents.filter(event => event.event_name === 'site_page_view').length,
+      websiteCtaClicks: siteEvents.filter(event => event.event_name === 'site_primary_cta_clicked').length,
+      websiteStoreClicks: siteEvents.filter(event => event.event_name === 'site_store_link_clicked').length,
+      successfulPeople: successfulIdentities.size, successfulGenerations: productEvents.filter(e => e.event_name === 'generate_succeeded').length,
+      signups: signupIdentities.size, accounts: authenticProfiles.length, accountsCreated: authenticProfiles.filter(profile => inRange(profile.created_at)).length, paidSubscribers: paidProfiles.length,
       generationRate: percent(successfulIdentities.size, identities.size), testEventsExcluded: testEvents.length,
     },
-    funnel, daily, domains, people, recentGenerations, signals,
+    funnel, daily, domains, people, recentGenerations, signals, acquisition: { pages, referrers },
+    activation: { returningPeople: [...journeys.values()].filter(row => row.days.size > 1).length, repeatCreators: [...journeys.values()].filter(row => row.successes > 1).length, medianActivationMinutes, generationClicks, generationFailures, generationFailureRate: percent(generationFailures, generationClicks) },
     plans: ['free', 'pro', 'studio'].map(plan => ({ plan, people: authenticProfiles.filter(profile => profile.plan === plan).length })),
-    chrome: { rows: chrome, latestImport: chromeLatest, connected: chromeMetrics.length > 0 },
+    chrome: { rows: chrome, latestImport: chromeLatest, connected: chromeMetrics.length > 0, installs: chromeValue('installs'), uninstalls: chromeValue('uninstalls') },
     sources: {
-      supabase: { status: 'live', detail: `${events.length} product events available` },
-      chrome: { status: chromeMetrics.length ? 'imported' : 'needs_import', detail: chromeLatest ? `Last imported ${chromeLatest}` : 'Upload Chrome Store CSV exports' },
-      vercel: { status: 'external', detail: 'Open Vercel Analytics for site traffic and referrers' },
+      supabase: { status: 'live', detail: `${events.length} stored events; refreshes when this page loads` },
+      website: { status: 'live', detail: 'First-party page views and acquisition events are stored in Supabase' },
+      chrome: { status: chromeMetrics.length ? 'imported' : 'needs_import', detail: chromeLatest ? `Aggregate CSV data last imported ${chromeLatest}; Chrome provides no statistics API` : 'Chrome provides aggregate CSV or GA4 reports, not a statistics API' },
+      vercel: { status: 'external', detail: 'Vercel Analytics is not a dashboard data source; first-party site tracking is used here' },
     },
   };
 }
@@ -200,14 +254,15 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ ok: true, imported });
     }
     const days = [0, 7, 30, 90].includes(Number(req.body?.days)) ? Number(req.body.days) : 30;
-    const [profiles, events, generations, chromeMetrics] = await Promise.all([
+    const [profiles, authUsers, events, generations, chromeMetrics] = await Promise.all([
       table('user_profiles?select=id,email,plan,generations_used,monthly_generations,created_at&order=created_at.asc'),
+      authAccounts(),
       table('analytics_events?select=id,created_at,anonymous_id,user_id,event_name,plan,page_domain,selected_image_count,output_count,anon_count,error_code,metadata&order=created_at.asc'),
       table('generations?select=id,user_id,prompt,image_urls,created_at&order=created_at.desc'),
       table('admin_chrome_metrics?select=metric_type,metric_date,dimension,value,imported_at&order=metric_date.asc', true),
     ]);
     return res.status(200).json(buildDashboard({
-      profiles, events, generations, chromeMetrics, user: auth.user, days,
+      profiles, authUsers, events, generations, chromeMetrics, user: auth.user, days,
       extraTestEmails: Array.isArray(req.body?.excludeEmails) ? req.body.excludeEmails.slice(0, 20) : [],
       extraTestIds: Array.isArray(req.body?.excludeAnonymousIds) ? req.body.excludeAnonymousIds.slice(0, 50) : [],
     }));
@@ -217,4 +272,4 @@ module.exports = async function handler(req, res) {
   }
 };
 
-module.exports._test = { buildDashboard, identity, percent };
+module.exports._test = { buildDashboard, identity, percent, looksLikeTestEmail };

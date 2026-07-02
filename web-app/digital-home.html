@@ -33,52 +33,72 @@
     <aside class="rail">
       <img src="/branding/logo/tack_logo.svg" alt="Tack" class="rail-logo">
       <nav>
-        <a href="#today" class="active">Today</a><a href="#journey">Journey</a><a href="#people">People</a>
-        <a href="#where">Where</a><a href="#creations">Creations</a><a href="#connections">Connections</a>
+        <a href="#today" class="active">Overview</a><a href="#acquisition">Website</a><a href="#journey">Extension funnel</a><a href="#people">People</a>
+        <a href="#where">Usage</a><a href="#store">Chrome Store</a><a href="#creations">Generations</a><a href="#connections">Data sources</a>
       </nav>
       <div class="rail-foot"><span id="admin-email"></span><button id="sign-out">Sign out</button></div>
     </aside>
 
     <main>
       <header class="topbar">
-        <div><p class="eyebrow">TACK · DIGITAL HOME</p><h1>See what’s <em>really happening.</em></h1></div>
+        <div><p class="eyebrow">TACK · DIGITAL HOME</p><h1>Product and acquisition dashboard</h1><p class="topbar-copy">Current metrics from Tack’s own database, with imported aggregate Chrome Web Store data clearly identified.</p></div>
         <div class="top-actions">
-          <label class="range-control">Window<select id="range"><option value="7">7 days</option><option value="30" selected>30 days</option><option value="90">90 days</option><option value="0">All time</option></select></label>
+          <label class="range-control">Window<select id="range"><option value="7">7 days</option><option value="30">30 days</option><option value="90">90 days</option><option value="0" selected>All time</option></select></label>
           <button class="icon-button" id="refresh" title="Refresh">↻</button>
         </div>
       </header>
 
       <section id="today" class="section hero-section">
-        <div class="section-heading"><div><p class="eyebrow">THE PULSE</p><h2>A small set of numbers<br>worth <em>remembering.</em></h2></div><p class="updated" id="updated"></p></div>
+        <div class="section-heading"><div><p class="eyebrow">OVERVIEW</p><h2>Selected-period summary</h2></div><p class="scope-note">Metrics in this section use the selected window unless explicitly labeled “all time.” <span class="updated" id="updated"></span></p></div>
         <div class="metric-grid" id="metric-grid"></div>
         <div class="panel chart-panel"><div class="panel-head"><div><p class="eyebrow">MOMENTUM</p><h3>Authentic activity</h3></div><div class="legend"><span><i class="blue"></i>People</span><span><i class="cream"></i>Generations</span></div></div><div id="activity-chart" class="chart"></div></div>
         <div class="signals" id="signals"></div>
       </section>
 
+      <section id="acquisition" class="section">
+        <div class="section-heading"><div><p class="eyebrow">WEBSITE ACQUISITION</p><h2>Marketing-site traffic</h2></div><p>First-party page views recorded by Tack. Collection begins when this tracking release goes live; it does not reconstruct historical visits.</p></div>
+        <div class="metric-grid" id="site-metric-grid"></div>
+        <div class="two-column">
+          <div class="panel"><div class="panel-head"><div><p class="eyebrow">PAGES</p><h3>Page views by path</h3></div></div><div id="site-pages"></div></div>
+          <div class="panel"><div class="panel-head"><div><p class="eyebrow">REFERRERS</p><h3>Recorded traffic sources</h3></div></div><div id="site-referrers"></div></div>
+        </div>
+      </section>
+
       <section id="journey" class="section">
-        <div class="section-heading"><div><p class="eyebrow">THE JOURNEY</p><h2>Where curiosity becomes<br><em>creation.</em></h2></div><p>Each step counts distinct authentic browser or account identities—not noisy event totals.</p></div>
+        <div class="section-heading"><div><p class="eyebrow">EXTENSION ACTIVATION</p><h2>First-use funnel</h2></div><p>Distinct non-test browser or account identities that recorded each event during the selected window. This is not a cohort-ordered funnel.</p></div>
         <div class="panel"><div id="funnel" class="funnel"></div></div>
+        <div class="metric-grid secondary-metrics" id="activation-grid"></div>
       </section>
 
       <section id="people" class="section">
-        <div class="section-heading"><div><p class="eyebrow">PEOPLE</p><h2>Real visitors,<br><em>not test traffic.</em></h2></div><button class="text-button" id="open-settings">Adjust exclusions</button></div>
+        <div class="section-heading"><div><p class="eyebrow">PRODUCT IDENTITIES</p><h2>Observed extension users</h2><p class="inline-definition">Only identities with recorded extension activity in the selected window appear here. Confirmed accounts without activity are counted separately in Overview.</p></div><button class="text-button" id="open-settings">Adjust test exclusions</button></div>
         <div class="people-toolbar"><input id="people-search" type="search" placeholder="Search email, website, or identity"><span id="people-count"></span></div>
         <div class="panel table-wrap"><table><thead><tr><th>Person</th><th>First seen</th><th>Last seen</th><th>Activity</th><th>Generations</th><th>Where</th></tr></thead><tbody id="people-table"></tbody></table></div>
       </section>
 
       <section id="where" class="section split-section">
-        <div><p class="eyebrow">WHERE TACK LIVES</p><h2>The places inspiring<br><em>new work.</em></h2></div>
+        <div><p class="eyebrow">EXTENSION USAGE</p><h2>Websites and account plans</h2></div>
         <div class="panel" id="domains"></div>
-        <div class="panel plan-panel"><div class="panel-head"><div><p class="eyebrow">PLANS</p><h3>Account mix</h3></div></div><div id="plans"></div></div>
+        <div class="panel plan-panel"><div class="panel-head"><div><p class="eyebrow">CONFIRMED ACCOUNTS · ALL TIME</p><h3>Current plan distribution</h3></div></div><div id="plans"></div></div>
+      </section>
+
+      <section id="store" class="section">
+        <div class="section-heading"><div><p class="eyebrow">CHROME WEB STORE</p><h2>Acquisition and installed base</h2></div><p>Google exposes aggregate reports through dashboard CSV exports and an optional managed GA4 property; its Web Store API does not expose analytics statistics.</p></div>
+        <div class="metric-grid" id="chrome-metric-grid"></div>
+        <div class="two-column chrome-breakdowns">
+          <div class="panel"><div class="panel-head"><div><p class="eyebrow">OPERATING SYSTEM</p><h3>Latest imported weekly users</h3></div></div><div id="chrome-os"></div></div>
+          <div class="panel"><div class="panel-head"><div><p class="eyebrow">EXTENSION VERSION</p><h3>Latest imported daily users</h3></div></div><div id="chrome-versions"></div></div>
+        </div>
+        <div class="panel"><div class="panel-head"><div><p class="eyebrow">IMPORT STATUS</p><h3 id="chrome-status-title">Chrome data</h3></div></div><p class="data-note" id="chrome-status-copy"></p><button class="text-button" id="chrome-import-secondary">Import updated Chrome CSV files</button></div>
       </section>
 
       <section id="creations" class="section">
-        <div class="section-heading"><div><p class="eyebrow">CREATIONS</p><h2>What signed-in people<br>are <em>making.</em></h2></div><p>Anonymous prompts are not retained. This view contains saved account generations only.</p></div>
+        <div class="section-heading"><div><p class="eyebrow">SAVED GENERATIONS</p><h2>Outputs from non-test accounts</h2></div><p>Generated from the saved generations table for the selected window. Anonymous prompts are not retained and therefore cannot appear here.</p></div>
         <div class="creation-grid" id="creation-grid"></div>
       </section>
 
       <section id="connections" class="section">
-        <div class="section-heading"><div><p class="eyebrow">CONNECTIONS</p><h2>One home,<br><em>honest sources.</em></h2></div><p>Every source says whether it is live, imported, or external.</p></div>
+        <div class="section-heading"><div><p class="eyebrow">DATA SOURCES</p><h2>Coverage and freshness</h2></div><p>“Live” means queried automatically when this dashboard refreshes. “Imported” means the source cannot currently renew without a new export or authorized integration.</p></div>
         <div class="connection-grid" id="connection-grid"></div>
       </section>
     </main>

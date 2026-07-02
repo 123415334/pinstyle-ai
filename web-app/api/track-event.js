@@ -18,6 +18,9 @@ const ALLOWED_EVENTS = new Set([
   'google_auth_success',
   'google_auth_failed',
   'history_style_restored',
+  'site_page_view',
+  'site_primary_cta_clicked',
+  'site_store_link_clicked',
 ]);
 
 async function validateSupabaseUser(req) {
