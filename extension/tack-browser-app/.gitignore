@@ -1,7 +1,0 @@
-node_modules/
-.npm-cache/
-out/
-out-mas/
-dist-mas/
-.DS_Store
-npm-debug.log*

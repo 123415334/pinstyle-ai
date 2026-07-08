@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "tack",
+  "version": "1.4.1",
+  "description": "Select reference images from the current page and generate new AI images in the same visual style.",
+  "permissions": [
+    "sidePanel",
+    "activeTab",
+    "scripting",
+    "storage",
+    "downloads",
+    "identity"
+  ],
+  "host_permissions": [
+    "https://tack.design/*",
+    "https://www.tack.design/*",
+    "https://*.supabase.co/*",
+    "https://*/*",
+    "http://*/*",
+    "https://*.pinterest.com/*",
+    "https://*.instagram.com/*",
+    "https://*.behance.net/*",
+    "https://*.dribbble.com/*"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html",
+    "default_width": 600
+  },
+  "action": {
+    "default_title": "tack",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tack Browser</title>
+  <link rel="stylesheet" href="renderer.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="rail" aria-label="Tack navigation">
+      <button class="brand-button" id="brand-button" type="button" aria-label="Open saved generations">
+        <img src="assets/tack_dots.svg" alt="" class="brand-mark">
+      </button>
+      <button class="rail-collapse-toggle" id="rail-collapse-toggle" type="button" aria-label="Collapse navigation" title="Collapse navigation">
+        <span></span>
+      </button>
+      <button class="rail-btn active" id="rail-browser-btn" type="button" aria-label="Browse">
+        <span>Browse</span>
+      </button>
+      <button class="rail-btn" id="rail-library-btn" type="button" aria-label="Library">
+        <span>Library</span>
+      </button>
+      <button class="rail-btn bottom" id="rail-account-btn" type="button" aria-label="Account">
+        <span class="rail-account-avatar" id="rail-account-avatar">T</span>
+        <span id="rail-account-label">Account</span>
+      </button>
+    </aside>
+
+    <main class="browser-shell">
+      <header class="topbar">
+        <button class="topbar-collapse-toggle" id="bookmarks-toggle" type="button" aria-label="Hide bookmarks" title="Hide bookmarks">
+          <span></span>
+        </button>
+        <div class="tabs" id="tabs">
+          <button class="tab active" type="button" data-url="https://www.pinterest.com/search/pins/?q=editorial%20product%20photography">Pinterest ideas</button>
+          <button class="tab" type="button" data-url="https://www.instagram.com/">Instagram</button>
+          <button class="tab" type="button" data-url="https://www.behance.net/search/projects/product%20photography">Behance</button>
+          <button class="tab" type="button" data-url="https://www.apple.com/shop/">Product site</button>
+        </div>
+        <div class="address-row">
+          <div class="nav-buttons">
+            <button id="back-btn" type="button" aria-label="Back">‹</button>
+            <button id="forward-btn" type="button" aria-label="Forward">›</button>
+            <button id="reload-btn" type="button" aria-label="Reload">↻</button>
+          </div>
+          <form class="address-bar" id="address-form">
+            <input id="address-input" aria-label="Address" value="https://www.pinterest.com/search/pins/?q=editorial%20product%20photography">
+          </form>
+          <div class="action-row">
+            <button class="primary-btn active" id="select-btn" type="button">Select</button>
+            <button class="ghost-btn" id="capture-btn" type="button">Capture</button>
+          </div>
+          <button class="open-external" id="open-external" type="button" aria-label="Open in default browser" title="Open in default browser">↗</button>
+        </div>
+      </header>
+
+      <section class="workspace app-view" id="browse-view">
+        <section class="page-stage" aria-label="Browser page">
+          <div class="browser-action-bar">
+            <div>
+              <p class="eyebrow">Tack Browser</p>
+              <h1 id="page-title">Browse visually. Select references in context.</h1>
+            </div>
+          </div>
+
+          <div class="capture-instructions hidden" id="capture-instructions">
+            Drag over any visible part of the page to save it as a captured reference.
+          </div>
+
+          <div class="webview-wrap" id="webview-wrap">
+            <webview
+              id="browser-view"
+              src="https://www.pinterest.com/search/pins/?q=editorial%20product%20photography"
+              allowpopups
+              partition="persist:tack-browser">
+            </webview>
+            <div class="loading-overlay" id="loading-overlay">
+              <strong>Loading page…</strong>
+              <span>Once the page renders, Tack will make visible images selectable.</span>
+            </div>
+            <div class="capture-layer hidden" id="capture-layer">
+              <div class="capture-rect hidden" id="capture-rect"></div>
+            </div>
+          </div>
+        </section>
+
+        <aside class="tack-panel" aria-label="Tack side panel">
+          <section class="scan-status">
+            <div>
+              <strong id="scan-count">Ready to select</strong>
+              <span id="scan-note">Select images where they are. Use Capture if a site blocks image URLs.</span>
+            </div>
+            <button class="small-btn" id="clear-btn" type="button">Clear</button>
+          </section>
+
+          <section class="reference-grid" id="reference-list">
+            <div class="empty-state">
+              <strong>No references yet</strong>
+              <span>Click images in the browser to add them here.</span>
+            </div>
+          </section>
+
+          <section class="generate-card">
+            <label for="subject-input">What do you want to <em>create?</em></label>
+            <textarea id="subject-input" rows="3" placeholder="Describe your subject here"></textarea>
+            <div class="generation-options">
+              <button class="chip" type="button" data-aspect-ratio="16:9">Horizontal</button>
+              <button class="chip active" type="button" data-aspect-ratio="1:1">Square</button>
+              <button class="chip" type="button" data-aspect-ratio="9:16">Vertical</button>
+            </div>
+            <button class="generate-btn" id="generate-btn" type="button" disabled>Generate Images</button>
+          </section>
+
+          <section class="results hidden" id="results">
+            <div class="result-head">
+              <strong>Generation preview</strong>
+              <span>Ready</span>
+            </div>
+            <div class="result-grid" id="result-grid"></div>
+          </section>
+        </aside>
+      </section>
+
+      <section class="library-view app-view hidden" id="library-view" aria-label="Tack library">
+        <header class="library-view-head">
+          <div>
+            <h1>Saved generations</h1>
+            <p>Everything you generate in the desktop app, browser extension, or website lives here.</p>
+          </div>
+          <div class="library-view-actions">
+            <button class="library-tab active" id="library-all-tab" type="button">All</button>
+            <button class="library-tab" id="library-boards-tab" type="button">Boards</button>
+            <span class="library-action-spacer"></span>
+            <button id="library-create-board-btn" type="button">Create board</button>
+            <button id="library-select-btn" type="button">Select</button>
+            <button class="hidden" id="library-save-board-btn" type="button">Save to board</button>
+            <button class="danger hidden" id="library-delete-btn" type="button">Delete</button>
+            <button class="hidden" id="library-cancel-select-btn" type="button">Cancel</button>
+          </div>
+        </header>
+        <section class="library-board-context hidden" id="library-board-context">
+          <button id="library-board-back-btn" type="button">All boards</button>
+          <button id="library-board-rename-btn" type="button">Rename</button>
+          <div>
+            <h2 id="library-board-title"></h2>
+            <p id="library-board-subtitle"></p>
+          </div>
+        </section>
+        <div id="library-list" class="library-list">
+          <p class="library-empty">Sign in to see generations synced from Tack.</p>
+        </div>
+      </section>
+
+      <section class="account-view app-view hidden" id="account-view" aria-label="Tack account">
+        <header class="account-view-head">
+          <div>
+            <p class="eyebrow">Account</p>
+            <h1 id="account-view-title">Workspace</h1>
+            <p id="account-view-copy">Plan, sync, and account settings for this device.</p>
+          </div>
+        </header>
+
+        <section class="account-signed-out hidden" id="account-signed-out">
+          <strong>Sign in to sync your Tack workspace.</strong>
+          <span>Your saved generations, boards, and monthly usage stay connected across the website, browser extension, and desktop app.</span>
+          <div>
+            <button id="account-signedout-signin" type="button">Sign in</button>
+            <button id="account-signedout-signup" type="button">Create account</button>
+          </div>
+        </section>
+
+        <section class="account-card">
+          <div class="account-card-main">
+            <span class="account-avatar-large" id="account-avatar">T</span>
+            <div>
+              <strong id="account-email">Not signed in</strong>
+              <span id="account-plan">Guest</span>
+            </div>
+          </div>
+          <div class="account-card-actions">
+            <button id="account-signin-btn" type="button">Sign in</button>
+            <button id="account-signup-btn" type="button">Create account</button>
+            <button id="account-manage-btn" type="button">Manage plan</button>
+            <button class="danger" id="account-signout-btn" type="button">Sign out</button>
+          </div>
+        </section>
+
+        <section class="account-stats" aria-label="Account status">
+          <article>
+            <span>Plan</span>
+            <strong id="account-plan-stat">Guest</strong>
+          </article>
+          <article>
+            <span>Monthly usage</span>
+            <strong id="account-usage-stat">Sign in</strong>
+          </article>
+          <article>
+            <span>Sync</span>
+            <strong id="account-sync-stat">Local only</strong>
+          </article>
+        </section>
+
+        <section class="account-sync-grid">
+          <button id="account-browse-shortcut" type="button">
+            <strong>Browse</strong>
+            <span>Select references directly from visual sites.</span>
+          </button>
+          <button id="account-library-shortcut" type="button">
+            <strong>Library</strong>
+            <span>Review generations and organize boards.</span>
+          </button>
+          <button id="account-website-shortcut" type="button">
+            <strong>Website</strong>
+            <span>Open the synced Tack workspace.</span>
+          </button>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal-backdrop hidden" id="auth-backdrop"></div>
+  <section class="auth-modal hidden" id="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+    <button class="modal-close" id="auth-close" type="button" aria-label="Close">×</button>
+    <img src="assets/tack_logo.svg" alt="Tack" class="auth-logo">
+    <h2 id="auth-title">Welcome <em>back</em></h2>
+    <p id="auth-subtitle">Sign in to sync generations, keep usage accurate, and use Tack across the browser app, extension, and website.</p>
+
+    <div class="auth-tabs" role="tablist">
+      <button class="auth-tab active" type="button" data-auth-mode="login">Sign in</button>
+      <button class="auth-tab" type="button" data-auth-mode="signup">Create account</button>
+    </div>
+
+    <button class="google-btn" id="google-auth-btn" type="button">
+      <span>G</span>
+      <strong id="google-auth-copy">Continue with Google</strong>
+    </button>
+
+    <div class="auth-divider"><span>or</span></div>
+
+    <label class="auth-field">
+      <span>Email</span>
+      <input id="auth-email-input" type="email" autocomplete="email" placeholder="you@example.com">
+    </label>
+    <label class="auth-field">
+      <span>Password</span>
+      <input id="auth-password-input" type="password" autocomplete="current-password" placeholder="••••••••">
+    </label>
+
+    <button class="auth-submit" id="auth-submit" type="button">Sign in</button>
+    <button class="auth-link" id="forgot-password-btn" type="button">Forgot password?</button>
+    <p class="auth-message" id="auth-message"></p>
+  </section>
+
+  <section class="lightbox hidden" id="library-lightbox" aria-label="Image preview">
+    <button id="lightbox-close" type="button" aria-label="Close">×</button>
+    <button id="lightbox-prev" type="button" aria-label="Previous">‹</button>
+    <img id="lightbox-img" src="" alt="">
+    <button id="lightbox-next" type="button" aria-label="Next">›</button>
+    <div class="lightbox-footer">
+      <a id="lightbox-download" href="" download="tack-generation.png">Download</a>
+      <span id="lightbox-meta"></span>
+    </div>
+  </section>
+
+  <section class="board-modal hidden" id="board-modal" aria-label="Board dialog">
+    <div class="board-modal-panel">
+      <h2 id="board-modal-title">Create <em>board</em></h2>
+      <p id="board-modal-sub"></p>
+      <div class="board-modal-list hidden" id="board-modal-list"></div>
+      <div class="board-modal-divider hidden" id="board-modal-divider"></div>
+      <input id="board-name-input" class="board-input" type="text" placeholder="Board name">
+      <p class="board-modal-error" id="board-modal-error"></p>
+      <div class="board-modal-actions">
+        <button id="board-modal-cancel" type="button">Cancel</button>
+        <button id="board-modal-confirm" type="button">Continue</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="confirm-modal hidden" id="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
+    <div class="confirm-modal-panel">
+      <p class="eyebrow" id="confirm-modal-eyebrow">Confirm</p>
+      <h2 id="confirm-modal-title">Are you sure?</h2>
+      <p id="confirm-modal-copy"></p>
+      <div class="confirm-modal-actions">
+        <button id="confirm-modal-cancel" type="button">Cancel</button>
+        <button id="confirm-modal-confirm" type="button">Confirm</button>
+      </div>
+    </div>
+  </section>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
