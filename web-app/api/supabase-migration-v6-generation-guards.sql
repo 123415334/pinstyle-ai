@@ -103,11 +103,11 @@ BEGIN
     limit_row.reset_at := NOW() + INTERVAL '30 days';
   END IF;
 
-  IF limit_row.used >= 1 THEN
+  IF limit_row.used >= 3 THEN
     UPDATE public.anonymous_generation_limits
     SET used = limit_row.used, reset_at = limit_row.reset_at, updated_at = NOW()
     WHERE key_hash = p_key_hash;
-    RETURN QUERY SELECT FALSE, limit_row.used, 1, limit_row.reset_at;
+    RETURN QUERY SELECT FALSE, limit_row.used, 3, limit_row.reset_at;
     RETURN;
   END IF;
 
@@ -118,7 +118,7 @@ BEGIN
   SET used = limit_row.used + 1, reset_at = limit_row.reset_at, updated_at = NOW()
   WHERE key_hash = p_key_hash;
 
-  RETURN QUERY SELECT TRUE, limit_row.used + 1, 1, limit_row.reset_at;
+  RETURN QUERY SELECT TRUE, limit_row.used + 1, 3, limit_row.reset_at;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 

@@ -1,6 +1,7 @@
 const crypto = require('node:crypto');
 const { applyCors, fetchPublicUrl, hashRateLimitKey, readResponseBuffer } = require('./_security');
 
+const ANONYMOUS_MONTHLY_LIMIT = 3;
 const FREE_MONTHLY_LIMIT = 3;
 const PRO_MONTHLY_LIMIT = 120;
 const STUDIO_MONTHLY_LIMIT = 600;
@@ -994,13 +995,13 @@ module.exports = async function handler(req, res) {
   const plan = isAnon ? 'anon' : normalizePlan(reservation?.current_plan || 'free');
   const generationsUsed = Number(reservation?.lifetime_used || 0);
   const monthlyUsed = Number(reservation?.monthly_used ?? reservation?.used ?? 0);
-  const limit = Number(reservation?.monthly_limit || (isAnon ? 1 : getPlanLimit(plan)));
+  const limit = Number(reservation?.monthly_limit || (isAnon ? ANONYMOUS_MONTHLY_LIMIT : getPlanLimit(plan)));
   const monthlyResetAt = reservation?.resets_at || null;
   if (!reservation?.allowed) {
     return res.status(402).json({
       error: isAnon ? 'anon_limit_reached' : (plan === 'free' ? 'free_limit_reached' : `${plan}_limit_reached`),
       message: isAnon
-        ? 'Your free trial generation has been used. Sign in to keep creating.'
+        ? `You've used all ${ANONYMOUS_MONTHLY_LIMIT} signed-out generations for this month. Create a free account for ${FREE_MONTHLY_LIMIT} more.`
         : (plan === 'free'
           ? `You've used all ${FREE_MONTHLY_LIMIT} free generations for this month. Upgrade to Pro to keep creating.`
           : `You've reached your ${limit} generation monthly limit. Upgrade for more monthly generations.`),

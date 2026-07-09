@@ -6,7 +6,7 @@ const MIN_SIZE = 200;
 
 const SUPABASE_URL      = 'https://sbdowcielgtcfholfyry.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiZG93Y2llbGd0Y2Zob2xmeXJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2NjkwNzMsImV4cCI6MjA5MDI0NTA3M30.3dUuwXB8kcAbKvEWWMpvyrXhcdLx1x8x4wKxp3UY4Kk';
-const ANON_TRIAL_LIMIT  = 1;
+const ANON_TRIAL_LIMIT  = 3;
 const FREE_MONTHLY_LIMIT = 3;
 const PRO_MONTHLY_LIMIT = 120;
 const STUDIO_MONTHLY_LIMIT = 600;
@@ -469,7 +469,7 @@ function injectAnonCTA() {
   cta.className = 'anon-cta';
   const text = createEl('p', {
     className: 'anon-cta-text',
-    textContent: 'Create a free account for 3 generations every month. Results save automatically to your tack account.',
+    textContent: 'Create a free account for 3 more generations every month. Results save automatically to your tack account.',
   });
   const signupBtn = createEl('button', {
     className: 'anon-cta-btn',
@@ -488,7 +488,7 @@ function injectAnonCTA() {
     switchAuthTab('signup');
     setAuthModalCopy(
       'Keep <em>creating</em>',
-      'Create a free account for 3 generations every month. Results save automatically to your tack account.',
+      'Create a free account for 3 more generations every month. Results save automatically to your tack account.',
     );
     showAuthModal();
   });
@@ -2017,13 +2017,13 @@ async function generate() {
     dimension: getAspectRatioLabel(),
   });
 
-  // Guest → allow 1 anonymous generation, then gate
+  // Guest → allow anonymous generations, then gate
   if (!_authToken) {
     if (_anonCount >= ANON_TRIAL_LIMIT) {
       switchAuthTab('signup');
       setAuthModalCopy(
         'Keep <em>creating</em>',
-        'You\'ve used your anonymous generation. Create a free account for 3 generations every month, or upgrade for more.',
+        'You\'ve used your 3 signed-out generations. Create a free account for 3 more generations every month, or upgrade for more.',
       );
       trackEvent('anon_limit_reached', { count: selectedUrls.size });
       showAuthModal();
@@ -2102,7 +2102,17 @@ async function generate() {
 
     if (resp.status === 402) {
       const errData = data || {};
-      if (errData.error === 'pro_limit_reached') {
+      if (errData.error === 'anon_limit_reached') {
+        _anonCount = ANON_TRIAL_LIMIT;
+        await chrome.storage.local.set({ ps_anon_count: _anonCount });
+        switchAuthTab('signup');
+        setAuthModalCopy(
+          'Keep <em>creating</em>',
+          errData.message || 'You\'ve used your 3 signed-out generations. Create a free account for 3 more generations every month, or upgrade for more.',
+        );
+        trackEvent('anon_limit_reached', { count: selectedUrls.size, source: 'server' });
+        showAuthModal();
+      } else if (errData.error === 'pro_limit_reached') {
         _monthlyUsed = PRO_MONTHLY_LIMIT;
         await persistUsageState({ monthly: PRO_MONTHLY_LIMIT });
         updateTrialBadge();

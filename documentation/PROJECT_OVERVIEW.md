@@ -65,6 +65,8 @@ Never deploy matching `web-app/api/analyze.js` changes before migration v6 has s
 
 Migration v9 adds the private Chrome Web Store metric-import table used by `/digital-home`. The page itself is protected by Supabase authentication plus the server-side `ADMIN_EMAILS` allowlist; its privileged data never comes directly from the browser.
 
+Migration v10 updates the anonymous generation guard from 1 signed-out generation per month to 3. Apply it before or alongside the matching client/API deployment so the server-side quota matches the extension copy.
+
 ---
 
 ## Stripe webhook
