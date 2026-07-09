@@ -19,5 +19,6 @@ test('anonymous and signed-in free generation limits stay at three', () => {
   assert.match(analyze, /const FREE_MONTHLY_LIMIT = 3;/);
   assert.match(extension, /const ANON_TRIAL_LIMIT\s+= 3;/);
   assert.match(migration, /anonymous_limit CONSTANT INTEGER := 3;/);
-  assert.match(upgradePage, /per month · 3 generations/);
+  assert.match(upgradePage, /3 generations<\/strong> before sign-in/);
+  assert.match(upgradePage, /3 more<\/strong> with a free account/);
 });
