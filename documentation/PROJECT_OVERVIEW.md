@@ -30,7 +30,34 @@ npm test
 
 ## How to deploy
 
-### Step 1 — Push to GitHub
+### Standard commands
+
+Run these from `web-app/`:
+
+```sh
+npm run env:pull:prod
+npm run db:migrate:v10
+npm run deploy:prod
+```
+
+The Vercel project is `tack`. The local `web-app/.vercel/` directory is created by `npm run env:pull:prod` or `vercel link --yes --project tack` and is intentionally gitignored.
+
+For Supabase migrations, `npm run db:query -- path/to/file.sql` uses `SUPABASE_DB_URL` when present. Otherwise it uses the Supabase CLI against the linked project derived from `SUPABASE_URL`. One-time setup is either:
+
+```sh
+npx --yes supabase@2.109.1 login
+```
+
+or putting `SUPABASE_ACCESS_TOKEN` in `web-app/.env.local`. Local env files are gitignored.
+
+If this Mac's certificate chain prevents Vercel CLI access, prefer setting `NODE_EXTRA_CA_CERTS`. As a temporary local workaround only:
+
+```sh
+ALLOW_INSECURE_VERCEL_TLS=1 npm run env:pull:prod
+ALLOW_INSECURE_VERCEL_TLS=1 npm run deploy:prod
+```
+
+### GitHub auto-deploy
 The project is connected to GitHub. Push changes and Vercel auto-deploys.
 
 ### Step 2 — Environment Variables

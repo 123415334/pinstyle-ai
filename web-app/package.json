@@ -2,7 +2,11 @@
   "name": "tack",
   "private": true,
   "scripts": {
-    "test": "node --test test/*.test.js && node --check api/*.js"
+    "test": "node --test test/*.test.js && node --check api/*.js",
+    "env:pull:prod": "bash scripts/pull-production-env.sh",
+    "db:query": "bash scripts/apply-supabase-sql.sh",
+    "db:migrate:v10": "bash scripts/apply-supabase-sql.sh api/supabase-migration-v10-anonymous-free-generations.sql",
+    "deploy:prod": "bash scripts/deploy-production.sh"
   },
   "dependencies": {
     "sharp": "^0.33.0",
