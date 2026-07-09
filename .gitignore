@@ -17,3 +17,4 @@ dist/
 # Local handoff holding area. Preserve its inventory, ignore held payloads.
 _hold/*
 !_hold/README.md
+.vercel

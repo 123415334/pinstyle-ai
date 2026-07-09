@@ -1,0 +1,9 @@
+*
+!web-app
+!web-app/**
+
+web-app/.env
+web-app/.env.*
+web-app/.vercel
+web-app/node_modules
+web-app/.npm-cache
