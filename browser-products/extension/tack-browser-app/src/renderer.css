@@ -883,6 +883,11 @@ webview {
   line-height: 1.35;
 }
 
+.scan-status span span {
+  display: block;
+  margin-top: 2px;
+}
+
 .reference-grid {
   min-height: 112px;
   max-height: none;
@@ -894,10 +899,10 @@ webview {
 
 .empty-state {
   display: grid;
-  place-items: center;
-  gap: 7px;
+  align-items: start;
+  justify-items: start;
   min-height: 132px;
-  padding: 20px;
+  padding: 12px 14px;
   column-span: all;
   border: 1px dashed var(--tack-border);
   border-radius: 16px;
@@ -906,8 +911,47 @@ webview {
   text-align: center;
 }
 
-.empty-state strong {
-  color: var(--tack-ink);
+.reference-placeholder {
+  position: relative;
+  align-self: start;
+  justify-self: start;
+  width: 70px;
+  aspect-ratio: 1.34;
+  margin: 0;
+  border: 1px dashed rgba(240, 235, 227, 0.16);
+  border-radius: 5px;
+  background:
+    linear-gradient(135deg, rgba(143, 190, 247, 0.055), transparent 48%),
+    rgba(240, 235, 227, 0.02);
+  opacity: 0.82;
+}
+
+.reference-placeholder-icon {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.reference-placeholder-icon::before {
+  content: "";
+  position: absolute;
+  top: 9px;
+  left: 10px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgba(143, 190, 247, 0.45);
+}
+
+.reference-placeholder-icon::after {
+  content: "";
+  position: absolute;
+  left: 11px;
+  right: 10px;
+  bottom: 10px;
+  height: 25px;
+  background: rgba(240, 235, 227, 0.18);
+  clip-path: polygon(0 100%, 35% 36%, 52% 62%, 68% 28%, 100% 100%);
 }
 
 .reference-item {
@@ -1489,6 +1533,8 @@ webview {
   border-radius: 16px;
   background: var(--tack-bg);
   color: var(--tack-ink);
+  font-family: "DM Sans", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-weight: 300;
   box-shadow: 0 20px 60px rgba(23, 26, 23, 0.12);
 }
 
@@ -1793,11 +1839,11 @@ webview {
 .library-view-head {
   -webkit-app-region: drag;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  padding: 24px;
-  border-bottom: 1px solid var(--tack-border);
+  gap: 28px;
+  padding: 42px 36px 38px;
+  border-bottom: 0;
 }
 
 .library-view-head .eyebrow {
@@ -1805,24 +1851,34 @@ webview {
 }
 
 .library-view-head h1 {
-  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
-  font-size: 38px;
-  font-weight: 400;
+  font-family: "Cormorant Garamond", "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  font-size: clamp(40px, 5vw, 64px);
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  font-weight: 300;
+}
+
+.library-view-head h1 em {
+  color: var(--accent-light);
+  font-style: italic;
+  font-weight: 300;
 }
 
 .library-view-head p:not(.eyebrow) {
-  margin: 7px 0 0;
+  margin: 10px 0 0;
   color: var(--tack-muted);
   font-size: 13px;
+  line-height: 1.4;
 }
 
 .library-view-actions {
   -webkit-app-region: no-drag;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 14px;
   flex-wrap: wrap;
   justify-content: flex-end;
+  margin-top: 10px;
 }
 
 .library-view-actions button {
@@ -1830,24 +1886,31 @@ webview {
   flex: 0 0 auto;
   min-width: max-content;
   min-height: 38px;
-  border: 1px solid var(--tack-border);
+  border: 1px solid rgba(240, 235, 227, 0.14);
   border-radius: 999px;
   background: rgba(240, 235, 227, 0.04);
-  color: var(--tack-ink);
+  color: var(--tack-muted);
   font-size: 12px;
-  font-weight: 800;
-  padding: 0 14px;
+  font-weight: 400;
+  padding: 0 18px;
 }
 
 .library-view-actions button.active,
 .library-view-actions button:hover {
-  border-color: rgba(143, 190, 247, 0.34);
-  background: rgba(143, 190, 247, 0.1);
-  color: var(--accent-light);
+  border-color: rgba(240, 235, 227, 0.24);
+  background: rgba(240, 235, 227, 0.07);
+  color: var(--tack-ink);
 }
 
 .library-view-actions .library-tab {
-  min-width: 58px;
+  min-width: 52px;
+}
+
+.library-view-actions .library-tab.active {
+  border-color: transparent;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 6px 24px rgba(1, 63, 244, 0.28);
 }
 
 .library-view-actions button.danger {
@@ -1862,9 +1925,7 @@ webview {
 }
 
 .library-action-spacer {
-  width: 1px;
-  height: 28px;
-  background: var(--tack-border);
+  display: none;
 }
 
 .library-board-context {
@@ -1872,28 +1933,40 @@ webview {
   grid-template-columns: auto auto minmax(0, 1fr);
   align-items: center;
   gap: 10px;
-  padding: 14px 24px;
+  padding: 16px 36px 20px;
+  border-top: 1px solid rgba(240, 235, 227, 0.08);
   border-bottom: 1px solid var(--tack-border);
-  background: rgba(240, 235, 227, 0.025);
+  background: transparent;
 }
 
 .library-board-context button {
-  min-height: 34px;
-  border: 1px solid var(--tack-border);
+  min-height: 38px;
+  border: 1px solid rgba(240, 235, 227, 0.14);
   border-radius: 999px;
   background: rgba(240, 235, 227, 0.04);
+  color: var(--tack-muted);
+  font-size: 12px;
+  font-weight: 400;
+  padding: 0 18px;
+}
+
+.library-board-context button:hover {
+  border-color: rgba(240, 235, 227, 0.24);
+  background: rgba(240, 235, 227, 0.07);
   color: var(--tack-ink);
-  font-weight: 800;
-  padding: 0 12px;
 }
 
 .library-board-context h2 {
   color: var(--tack-ink);
-  font-size: 18px;
+  font-family: "Cormorant Garamond", "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  font-size: clamp(24px, 2.4vw, 34px);
+  font-weight: 300;
+  line-height: 0.98;
+  letter-spacing: -0.03em;
 }
 
 .library-board-context p {
-  margin: 2px 0 0;
+  margin: 4px 0 0;
   color: var(--tack-muted);
   font-size: 12px;
 }
@@ -1902,7 +1975,7 @@ webview {
   min-height: 0;
   flex: 1;
   overflow-y: auto;
-  padding: 18px 24px 24px;
+  padding: 20px 36px 36px;
   scrollbar-gutter: stable;
   scrollbar-width: auto;
   scrollbar-color: rgba(240, 235, 227, 0.52) transparent;

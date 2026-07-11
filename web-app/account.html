@@ -322,8 +322,9 @@
     .history-header {
       display: flex;
       justify-content: space-between;
-      align-items: flex-end;
-      margin-bottom: 48px;
+      align-items: flex-start;
+      gap: 28px;
+      margin-bottom: 38px;
     }
     .history-heading {
       font-family: 'Cormorant Garamond', serif;
@@ -339,33 +340,17 @@
       margin-top: 10px;
     }
     .library-toolbar {
-      position: sticky;
-      top: var(--nav-height);
-      z-index: 160;
-      isolation: isolate;
+      flex: 0 0 auto;
       display: flex;
-      justify-content: space-between;
+      justify-content: flex-end;
       align-items: center;
-      gap: 16px;
-      margin: -12px -8px 18px;
-      padding: 12px 8px;
+      gap: 10px;
+      margin-top: 10px;
+      padding: 0;
       flex-wrap: wrap;
     }
     .library-toolbar::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      left: 50%;
-      width: 100vw;
-      transform: translateX(-50%);
-      background: linear-gradient(180deg, rgba(13,11,9,0.96) 0%, rgba(13,11,9,0.86) 72%, rgba(13,11,9,0) 100%);
-      backdrop-filter: blur(18px);
-      -webkit-backdrop-filter: blur(18px);
-      border-bottom: 1px solid rgba(240,235,227,0.06);
-      box-shadow: 0 18px 40px rgba(0,0,0,0.22);
-      pointer-events: none;
-      z-index: -1;
+      display: none;
     }
     .library-tabs,
     .library-actions,
@@ -414,23 +399,25 @@
       color: var(--ink-muted);
     }
     .board-context {
-      display: flex;
-      justify-content: space-between;
+      display: grid;
+      grid-template-columns: auto auto minmax(0, 1fr);
       align-items: center;
-      gap: 16px;
-      margin-bottom: 24px;
-      flex-wrap: wrap;
+      gap: 10px;
+      padding: 16px 0 20px;
+      margin: 0 0 20px;
+      border-top: 1px solid rgba(240,235,227,0.07);
+      border-bottom: 1px solid rgba(240,235,227,0.07);
     }
     .board-title {
       font-family: 'Cormorant Garamond', serif;
-      font-size: clamp(34px, 5vw, 52px);
+      font-size: clamp(24px, 2.4vw, 34px);
       line-height: 0.98;
       letter-spacing: -0.03em;
       font-weight: 300;
     }
     .board-subtitle {
-      margin-top: 8px;
-      font-size: 13px;
+      margin-top: 4px;
+      font-size: 12px;
       color: var(--ink-muted);
     }
     /* ══ GENERATION GRID ══ */
@@ -1021,6 +1008,17 @@
       .board-context {
         align-items: flex-start;
       }
+      .library-toolbar {
+        justify-content: flex-start;
+        width: 100%;
+        margin-top: 0;
+      }
+      .board-context {
+        grid-template-columns: auto auto;
+      }
+      .board-context > div {
+        grid-column: 1 / -1;
+      }
       .nav-account-menu { right: -4px; }
       .legal-footer {
         flex-direction: column;
@@ -1111,27 +1109,25 @@
           <h1 class="history-heading">Your <em>generations</em></h1>
           <p class="history-meta" id="history-meta"></p>
         </div>
-      </div>
-      <div class="library-toolbar">
-        <div class="library-tabs">
-          <button class="library-tab active" id="tab-all" type="button">All</button>
-          <button class="library-tab" id="tab-boards" type="button">Boards</button>
-        </div>
-        <div class="library-actions">
-          <span class="selection-status" id="selection-status"></span>
-          <button class="library-action" id="create-board-btn" type="button">Create board</button>
-          <button class="library-action" id="select-mode-btn" type="button">Select</button>
-          <button class="library-action hidden" id="save-to-board-btn" type="button">Save to board</button>
-          <button class="library-action danger hidden" id="delete-selected-btn" type="button">Delete</button>
-          <button class="library-action hidden" id="cancel-select-btn" type="button">Cancel</button>
+        <div class="library-toolbar">
+          <div class="library-tabs">
+            <button class="library-tab active" id="tab-all" type="button">All</button>
+            <button class="library-tab" id="tab-boards" type="button">Boards</button>
+          </div>
+          <div class="library-actions">
+            <span class="selection-status" id="selection-status"></span>
+            <button class="library-action" id="create-board-btn" type="button">Create board</button>
+            <button class="library-action" id="select-mode-btn" type="button">Select</button>
+            <button class="library-action hidden" id="save-to-board-btn" type="button">Save to board</button>
+            <button class="library-action danger hidden" id="delete-selected-btn" type="button">Delete</button>
+            <button class="library-action hidden" id="cancel-select-btn" type="button">Cancel</button>
+          </div>
         </div>
       </div>
       <div class="board-context hidden" id="board-context">
+        <button class="board-back" id="board-back-btn" type="button">← All boards</button>
+        <button class="board-back" id="board-rename-btn" type="button">Rename</button>
         <div>
-          <div class="board-breadcrumb">
-            <button class="board-back" id="board-back-btn" type="button">← All boards</button>
-            <button class="board-back" id="board-rename-btn" type="button">Rename</button>
-          </div>
           <h2 class="board-title" id="board-title"></h2>
           <p class="board-subtitle" id="board-subtitle"></p>
         </div>
@@ -1324,7 +1320,9 @@
     }
 
     async function signInWithGoogle() {
-      const redirectTo = `https://tack.design${window.location.pathname}${window.location.search}`;
+      const isLocalPreview = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+      const redirectOrigin = isLocalPreview ? window.location.origin : 'https://tack.design';
+      const redirectTo = `${redirectOrigin}${window.location.pathname}${window.location.search}`;
       const authUrl = new URL(`${SUPABASE_URL}/auth/v1/authorize`);
       authUrl.searchParams.set('provider', 'google');
       authUrl.searchParams.set('redirect_to', redirectTo);
@@ -2530,8 +2528,53 @@
       }
     });
 
+    function maybeUseLocalPreview() {
+      const params = new URLSearchParams(window.location.search);
+      const isLocalPreview = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+      if (!isLocalPreview || params.get('preview') !== 'board') return false;
+
+      _generations = [
+        {
+          id: 'preview-generation-1',
+          created_at: new Date().toISOString(),
+          prompt: 'Preview board references',
+          image_urls: [
+            '/images/generation_keys_smiley.jpg',
+            '/images/generation_bird_coffee.jpg',
+            '/images/generation_bird_cactus.jpg',
+            '/images/generation_pencils_painting.jpg',
+            '/images/generation_citrus_drink.jpg',
+          ],
+        },
+      ];
+      _boards = [
+        { id: 'preview-paintings', name: 'Paintings', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 'preview-objects', name: 'Objects', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 'preview-birds', name: 'Birds', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+      ];
+      _boardItems = _generations[0].image_urls.map((url, index) => ({
+        id: `preview-board-item-${index}`,
+        board_id: 'preview-paintings',
+        image_url: url,
+        prompt: 'Preview board references',
+        source_created_at: new Date().toISOString(),
+        position: index,
+        created_at: new Date().toISOString(),
+      }));
+      _view = 'boards';
+      _activeBoardId = 'preview-paintings';
+      showHistory();
+      document.getElementById('nav-account-email').textContent = 'Local preview';
+      document.getElementById('nav-account-avatar').textContent = 'P';
+      document.getElementById('nav-account-plan').textContent = 'Preview';
+      renderCurrentView();
+      return true;
+    }
+
     // ── Boot ──────────────────────────────────────────────────────────────────
     (async function init() {
+      if (maybeUseLocalPreview()) return;
+
       if (window.location.hash.includes('access_token=')) {
         const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
         const session = {

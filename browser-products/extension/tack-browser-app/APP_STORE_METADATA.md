@@ -232,5 +232,5 @@ Recommended captions, if using captioned screenshots outside App Store Connect:
 - Decide copyright owner text.
 - Decide launch territories and pricing.
 - Confirm whether Stripe/subscription behavior is acceptable for this Mac App Store submission.
-- Upload `dist-mas/Tack-Browser-0.1.1-mas.pkg` with Transporter.
+- Resolve the current Mac App Store signing/keychain access issue, then upload `dist-mas/Tack-Browser-0.1.1-mas.pkg` with Transporter.
 - Run one final production account QA pass before clicking Submit for Review.

@@ -14,9 +14,10 @@
 - The Apple Developer Bundle ID exists.
 - The project has a separate Mac App Store packaging script: `npm run dist:mas`.
 - The existing public-download DMG/ZIP path remains separate: `npm run dist:mac`.
-- The Mac App Distribution and Mac Installer Distribution certificates exist.
-- A dedicated signing keychain exists at `~/Library/Keychains/tack-appstore.keychain-db`.
-- A signed Mac App Store package has been built and verified at `dist-mas/Tack-Browser-0.1.1-mas.pkg`.
+- The Mac App Distribution and Mac Installer Distribution certificates exist in Keychain Access.
+- A dedicated signing keychain exists at `~/Library/Keychains/tack-appstore.keychain-db`, but it is currently locked and needs its keychain password before the final signed package can be produced.
+- The unsigned Mac App Store app bundle has been prepared at `out-mas/Tack Browser-mas-arm64/Tack Browser.app`.
+- The signed Mac App Store package is not currently available; the latest `npm run dist:mas` attempt is blocked by keychain/private-key access during `codesign`.
 - The app bundle metadata has been cleaned for review:
   - App icon points at `tack.icns`.
   - Category is `Graphics & Design`.
@@ -29,7 +30,7 @@
 
 ## Build the App Store package
 
-Use the dedicated Tack signing keychain:
+After the signing keychain or certificate private-key access is fixed, build the signed package:
 
 ```sh
 cd browser-products/extension/tack-browser-app
@@ -37,6 +38,8 @@ SIGNING_KEYCHAIN="$HOME/Library/Keychains/tack-appstore.keychain-db" \
 SIGNING_KEYCHAIN_PASSWORD_FILE="/tmp/tack-signing/keychain-password.txt" \
 npm run dist:mas
 ```
+
+If the dedicated `tack-appstore` keychain password is unknown, install or recreate the Mac App Distribution and Mac Installer Distribution certificates in the `login` keychain, grant `codesign` and `productbuild` access to the private keys, then run `npm run dist:mas`.
 
 The App Store package will be created at:
 

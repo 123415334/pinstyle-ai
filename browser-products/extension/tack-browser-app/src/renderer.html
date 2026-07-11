@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Tack Browser</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="renderer.css">
 </head>
 <body>
@@ -96,8 +99,9 @@
 
           <section class="reference-grid" id="reference-list">
             <div class="empty-state">
-              <strong>No references yet</strong>
-              <span>Click images in the browser to add them here.</span>
+              <div class="reference-placeholder" aria-hidden="true">
+                <span class="reference-placeholder-icon"></span>
+              </div>
             </div>
           </section>
 
@@ -125,8 +129,8 @@
       <section class="library-view app-view hidden" id="library-view" aria-label="Tack library">
         <header class="library-view-head">
           <div>
-            <h1>Saved generations</h1>
-            <p>Everything you generate in the desktop app, browser extension, or website lives here.</p>
+            <h1>Your <em>generations</em></h1>
+            <p id="library-view-meta">Everything you generate in the desktop app, browser extension, or website lives here.</p>
           </div>
           <div class="library-view-actions">
             <button class="library-tab active" id="library-all-tab" type="button">All</button>
@@ -140,7 +144,7 @@
           </div>
         </header>
         <section class="library-board-context hidden" id="library-board-context">
-          <button id="library-board-back-btn" type="button">All boards</button>
+          <button id="library-board-back-btn" type="button">← All boards</button>
           <button id="library-board-rename-btn" type="button">Rename</button>
           <div>
             <h2 id="library-board-title"></h2>

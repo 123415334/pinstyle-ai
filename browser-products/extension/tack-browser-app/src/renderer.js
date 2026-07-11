@@ -78,6 +78,7 @@ const accountCard = document.querySelector('.account-card');
 const accountStats = document.querySelector('.account-stats');
 const accountSyncGrid = document.querySelector('.account-sync-grid');
 const libraryList = document.querySelector('#library-list');
+const libraryViewMeta = document.querySelector('#library-view-meta');
 const libraryRefreshBtn = document.querySelector('#library-refresh-btn');
 const libraryOpenWebBtn = document.querySelector('#library-open-web-btn');
 const libraryAllTab = document.querySelector('#library-all-tab');
@@ -431,6 +432,10 @@ function setCaptureMode(enabled) {
   syncPageSelectionMode(!enabled && selectionMode);
 }
 
+function setSelectionScanNote() {
+  scanNote.innerHTML = '<span>Click any image to add it.</span><span>Turn Select off to browse normally.</span>';
+}
+
 async function scanPage({ manual = false } = {}) {
   if (!webview.executeJavaScript) return;
   const priorScanCopy = scanBtn?.textContent || '';
@@ -450,11 +455,12 @@ async function scanPage({ manual = false } = {}) {
       ? (manual
           ? `Refreshed ${lastDetected.length} selectable image${lastDetected.length === 1 ? '' : 's'}.`
           : selectionMode
-            ? 'Click any image to add it. Turn Select off to browse normally.'
+            ? ''
             : 'Turn Select on to add images as references.')
       : selectionMode
         ? 'Click any image to add it. Use Capture if a site blocks image URLs.'
         : 'Turn Select on to add images as references.';
+    if (lastDetected.length && !manual && selectionMode) setSelectionScanNote();
   } catch (error) {
     lastDetected = [];
     scanCount.textContent = 'Page blocked scanning';
@@ -465,7 +471,7 @@ async function scanPage({ manual = false } = {}) {
       scanBtn.disabled = false;
       if (lastDetected.length && selectionMode && !captureMode) {
         setTimeout(() => {
-          scanNote.textContent = 'Click any image to add it. Turn Select off to browse normally.';
+          setSelectionScanNote();
         }, 1500);
       }
     }
@@ -1003,8 +1009,9 @@ function renderReferences() {
   if (!values.length) {
     referenceList.innerHTML = `
       <div class="empty-state">
-        <strong>No references yet</strong>
-        <span>Click images in the browser to add them here.</span>
+        <div class="reference-placeholder" aria-hidden="true">
+          <span class="reference-placeholder-icon"></span>
+        </div>
       </div>
     `;
   } else {
@@ -2069,12 +2076,23 @@ function updateLibraryActions() {
   const inBoard = libraryMode === 'boards' && Boolean(activeBoardId);
   const showGallery = libraryMode === 'all' || inBoard;
   const selectedCount = selectedLibraryKeys.size;
+  const boardTotal = libraryBoards.length;
   libraryBoardContext.classList.toggle('hidden', !inBoard);
   if (inBoard) {
     const board = libraryBoards.find(entry => entry.id === activeBoardId);
     const count = getBoardItems(activeBoardId).length;
     libraryBoardTitle.textContent = board?.name || 'Board';
-    libraryBoardSubtitle.textContent = `${count} image${count === 1 ? '' : 's'} in this board`;
+    libraryBoardSubtitle.textContent = `${count} image${count === 1 ? '' : 's'} ready to scan and reuse`;
+    if (libraryViewMeta) {
+      libraryViewMeta.textContent = `${boardTotal} board${boardTotal === 1 ? '' : 's'} total · ${count} image${count === 1 ? '' : 's'} in this board`;
+    }
+  } else if (libraryViewMeta) {
+    if (libraryMode === 'boards') {
+      libraryViewMeta.textContent = `${boardTotal} board${boardTotal === 1 ? '' : 's'}`;
+    } else {
+      const imageTotal = libraryImages.length;
+      libraryViewMeta.textContent = `${imageTotal} image${imageTotal === 1 ? '' : 's'} across ${libraryGenerations.length} generation${libraryGenerations.length === 1 ? '' : 's'}`;
+    }
   }
   libraryCreateBoardBtn.classList.toggle('hidden', librarySelecting);
   librarySelectBtn.classList.toggle('hidden', librarySelecting || !showGallery);
